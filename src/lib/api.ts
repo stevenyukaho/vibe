@@ -6,6 +6,12 @@ export const api = {
     // Agents
     async getAgents(): Promise<Agent[]> {
         const response = await fetch(`${API_URL}/api/agents`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch agents');
+        }
+        
         return response.json();
     },
 
@@ -15,12 +21,62 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(agent),
         });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create agent');
+        }
+        
         return response.json();
+    },
+
+    async updateAgent(id: number, agent: Partial<Agent>): Promise<Agent> {
+        const response = await fetch(`${API_URL}/api/agents/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(agent),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update agent');
+        }
+        
+        return response.json();
+    },
+
+    async deleteAgent(id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/agents/${id}`, {
+            method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+            let errorMessage = `Failed to delete agent (Status: ${response.status})`;
+            
+            // Try to parse response as JSON, but don't fail if it's not JSON
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch {
+                    // Ignore JSON parsing errors
+                }
+            }
+            
+            throw new Error(errorMessage);
+        }
     },
 
     // Tests
     async getTests(): Promise<Test[]> {
         const response = await fetch(`${API_URL}/api/tests`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch tests');
+        }
+        
         return response.json();
     },
 
@@ -30,6 +86,12 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(test),
         });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create test');
+        }
+        
         return response.json();
     },
 
@@ -39,7 +101,36 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(test),
         });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update test');
+        }
+        
         return response.json();
+    },
+
+    async deleteTest(id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/tests/${id}`, {
+            method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+            let errorMessage = `Failed to delete test (Status: ${response.status})`;
+            
+            // Try to parse response as JSON, but don't fail if it's not JSON
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch {
+                    // Ignore JSON parsing errors
+                }
+            }
+            
+            throw new Error(errorMessage);
+        }
     },
 
     // Results
@@ -49,6 +140,12 @@ export const api = {
         if (filters?.test_id) params.append('test_id', filters.test_id.toString());
         
         const response = await fetch(`${API_URL}/api/results?${params}`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch results');
+        }
+        
         return response.json();
     },
 
@@ -58,6 +155,28 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(result),
         });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create result');
+        }
+        
+        return response.json();
+    },
+
+    // Execute a test with a specific agent
+    async executeTest(agent_id: number, test_id: number): Promise<TestResult> {
+        const response = await fetch(`${API_URL}/api/execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_id, test_id }),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to execute test');
+        }
+        
         return response.json();
     },
 };
