@@ -33,12 +33,21 @@ export interface TestResult {
 
 // Agent queries
 export const createAgent = (agent: Agent) => {
+    // Ensure all required fields have default values
+    const agentWithDefaults = {
+        ...agent,
+        name: agent.name || '',
+        version: agent.version || '',
+        prompt: agent.prompt || '',
+        settings: agent.settings || '{}'
+    };
+    
     const stmt = db.prepare(`
     INSERT INTO agents (name, version, prompt, settings)
     VALUES (@name, @version, @prompt, @settings)
     RETURNING *
   `);
-    return stmt.get(agent) as Agent;
+    return stmt.get(agentWithDefaults) as Agent;
 };
 
 export const getAgents = () => {
@@ -49,20 +58,68 @@ export const getAgentById = (id: number) => {
     return db.prepare('SELECT * FROM agents WHERE id = ?').get(id) as Agent;
 };
 
+export const updateAgent = (id: number, agent: Partial<Agent>) => {
+    // Filter out undefined values to avoid SQL errors
+    const filteredAgent = Object.fromEntries(
+        Object.entries(agent).filter(([_, value]) => value !== undefined)
+    );
+    
+    // If there are no fields to update, return the existing agent
+    if (Object.keys(filteredAgent).length === 0) {
+        return getAgentById(id);
+    }
+    
+    const updates = Object.keys(filteredAgent)
+        .filter(key => key !== 'id' && key !== 'created_at')
+        .map(key => `${key} = @${key}`)
+        .join(', ');
+
+    const stmt = db.prepare(`
+    UPDATE agents 
+    SET ${updates}
+    WHERE id = @id
+    RETURNING *
+  `);
+    
+    return stmt.get({ ...filteredAgent, id }) as Agent;
+};
+
+export const deleteAgent = (id: number) => {
+    const stmt = db.prepare('DELETE FROM agents WHERE id = ?');
+    return stmt.run(id);
+};
+
 // Test queries
 export const createTest = (test: Test) => {
+    // Ensure description has a default value if not provided
+    const testWithDefaults = {
+        ...test,
+        description: test.description || '',  // Default to empty string if not provided
+        expected_output: test.expected_output || ''  // Default to empty string if not provided
+    };
+    
     const stmt = db.prepare(`
     INSERT INTO tests (name, description, input, expected_output)
     VALUES (@name, @description, @input, @expected_output)
     RETURNING *
   `);
-    return stmt.get(test) as Test;
+    return stmt.get(testWithDefaults) as Test;
 };
 
 export const updateTest = (id: number, test: Partial<Test>) => {
-    const updates = Object.entries(test)
-        .filter(([key]) => key !== 'id')
-        .map(([key]) => `${key} = @${key}`)
+    // Filter out undefined values to avoid SQL errors
+    const filteredTest = Object.fromEntries(
+        Object.entries(test).filter(([_, value]) => value !== undefined)
+    );
+    
+    // If there are no fields to update, return the existing test
+    if (Object.keys(filteredTest).length === 0) {
+        return getTestById(id);
+    }
+    
+    const updates = Object.keys(filteredTest)
+        .filter(key => key !== 'id')
+        .map(key => `${key} = @${key}`)
         .join(', ');
 
     const stmt = db.prepare(`
@@ -72,7 +129,12 @@ export const updateTest = (id: number, test: Partial<Test>) => {
     RETURNING *
   `);
 
-    return stmt.get({ ...test, id }) as Test;
+    return stmt.get({ ...filteredTest, id }) as Test;
+};
+
+export const deleteTest = (id: number) => {
+    const stmt = db.prepare('DELETE FROM tests WHERE id = ?');
+    return stmt.run(id);
 };
 
 export const getTests = () => {
@@ -85,6 +147,17 @@ export const getTestById = (id: number) => {
 
 // Result queries
 export const createResult = (result: TestResult) => {
+    // Ensure all required fields have default values
+    const resultWithDefaults = {
+        ...result,
+        agent_id: result.agent_id,
+        test_id: result.test_id,
+        output: result.output || '',
+        intermediate_steps: result.intermediate_steps || '',
+        success: typeof result.success === 'boolean' ? result.success : false,
+        execution_time: result.execution_time || 0
+    };
+    
     const stmt = db.prepare(`
     INSERT INTO results (
       agent_id, test_id, output, intermediate_steps,
@@ -96,7 +169,7 @@ export const createResult = (result: TestResult) => {
     )
     RETURNING *
   `);
-    return stmt.get(result) as TestResult;
+    return stmt.get(resultWithDefaults) as TestResult;
 };
 
 export const getResults = (filters?: { agent_id?: number; test_id?: number }) => {
