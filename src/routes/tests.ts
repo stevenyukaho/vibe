@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createTest, getTests, getTestById, updateTest } from '../db/queries';
+import { createTest, getTests, getTestById, updateTest, deleteTest } from '../db/queries';
 import type { Test } from '../db/queries';
 
 const router = Router();
@@ -65,6 +65,28 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res:
     } catch (error) {
         console.error('Error updating test:', error);
         res.status(500).json({ error: 'Failed to update test' });
+    }
+}) as any);
+
+// Delete test
+router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        
+        // Check if test exists
+        const existingTest = await getTestById(id);
+        if (!existingTest) {
+            return res.status(404).json({ error: 'Test not found' });
+        }
+        
+        await deleteTest(id);
+        res.status(204).send();
+    } catch (error) {
+        console.error('Error deleting test:', error);
+        res.status(500).json({ 
+            error: 'Failed to delete test',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 }) as any);
 
