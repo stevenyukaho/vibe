@@ -33,11 +33,24 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 // Create new test
 router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | 'updated_at'>>, res: Response) => {
     try {
+        const { name, input } = req.body;
+        
+        // Validate required fields
+        if (!name || !input) {
+            return res.status(400).json({ 
+                error: 'Failed to create test', 
+                details: 'Name and input are required fields' 
+            });
+        }
+        
         const test = await createTest(req.body);
         res.status(201).json(test);
     } catch (error) {
         console.error('Error creating test:', error);
-        res.status(500).json({ error: 'Failed to create test' });
+        res.status(500).json({ 
+            error: 'Failed to create test',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 }) as any);
 
