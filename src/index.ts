@@ -3,9 +3,11 @@ import cors from 'cors';
 import agentRoutes from './routes/agents';
 import testRoutes from './routes/tests';
 import resultRoutes from './routes/results';
+import executeRoutes from './routes/execute';
+import { serverConfig } from './config';
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = serverConfig.port;
 
 // Middleware
 app.use(cors());
@@ -15,6 +17,7 @@ app.use(express.json());
 app.use('/api/agents', agentRoutes);
 app.use('/api/tests', testRoutes);
 app.use('/api/results', resultRoutes);
+app.use('/api/execute', executeRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
