@@ -24,22 +24,32 @@ import {
 	Tag,
 	Tile,
 } from '@carbon/react';
-import { Add, DataTable as DataTableIcon, TestTool, Report } from '@carbon/icons-react';
+import { Add, DataTable as DataTableIcon, TestTool, Report, Edit, TrashCan } from '@carbon/icons-react';
 import { api } from '@/lib/api';
 import styles from './page.module.scss';
 import { Agent, Test, TestResult } from '../../../backend/src/db/queries';
+import TestExecutor from './components/TestExecutor';
 
 export default function Home() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [modalType, setModalType] = useState<'agent' | 'test' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [editingId, setEditingId] = useState<number | null>(null);
 
 	// Data states
 	const [agents, setAgents] = useState<Agent[]>([]);
 	const [tests, setTests] = useState<Test[]>([]);
 	const [results, setResults] = useState<TestResult[]>([]);
 	const [formData, setFormData] = useState<Record<string, string>>({});
+
+	// Delete states
+	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+	const [deleteType, setDeleteType] = useState<'agent' | 'test' | null>(null);
+	const [deleteId, setDeleteId] = useState<number | null>(null);
+	const [deleteName, setDeleteName] = useState('');
+	const [isDeleting, setIsDeleting] = useState(false);
 
 	// Fetch data
 	const fetchData = async () => {
@@ -73,29 +83,117 @@ export default function Home() {
 
 	const handleSubmit = async () => {
 		setIsSaving(true);
+		setError(null);
 		try {
 			if (modalType === 'agent') {
-				await api.createAgent({
+				// Parse existing settings or create new empty object
+				let settings = {};
+				try {
+					if (formData['agent-settings']) {
+						settings = JSON.parse(formData['agent-settings']);
+					}
+				} catch (error) {
+					// JSON parsing error
+					setError('Invalid JSON in settings field');
+					setIsSaving(false);
+					return;
+				}
+				
+				// Add the Ollama base URL to settings
+				if (formData['agent-ollama-url']) {
+					settings = {
+						...settings,
+						base_url: formData['agent-ollama-url']
+					};
+				}
+				
+				// Add the model name to settings
+				if (formData['agent-model']) {
+					settings = {
+						...settings,
+						model: formData['agent-model']
+					};
+				}
+				
+				// Add role, goal, and backstory if provided
+				if (formData['agent-role']) {
+					settings = {
+						...settings,
+						role: formData['agent-role']
+					};
+				}
+				
+				if (formData['agent-goal']) {
+					settings = {
+						...settings,
+						goal: formData['agent-goal']
+					};
+				}
+				
+				if (formData['agent-backstory']) {
+					settings = {
+						...settings,
+						backstory: formData['agent-backstory']
+					};
+				}
+				
+				// Add temperature if provided
+				if (formData['agent-temperature']) {
+					settings = {
+						...settings,
+						temperature: parseFloat(formData['agent-temperature'])
+					};
+				}
+				
+				// Add max_tokens if provided
+				if (formData['agent-max-tokens']) {
+					settings = {
+						...settings,
+						max_tokens: parseInt(formData['agent-max-tokens'], 10)
+					};
+				}
+				
+				const agentData = {
 					name: formData['agent-name'],
 					version: formData['agent-version'],
 					prompt: formData['agent-prompt'],
-					settings: formData['agent-settings'],
-				});
+					settings: JSON.stringify(settings),
+				};
+
+				if (editingId) {
+					// Update existing agent
+					await api.updateAgent(editingId, agentData);
+				} else {
+					// Create new agent
+					await api.createAgent(agentData);
+				}
 			} else if (modalType === 'test') {
-				await api.createTest({
+				const testData = {
 					name: formData['test-name'],
 					description: formData['test-description'],
 					input: formData['test-input'],
 					expected_output: formData['test-expected-output'],
-				});
+				};
+
+				if (editingId) {
+					// Update existing test
+					await api.updateTest(editingId, testData);
+				} else {
+					// Create new test
+					await api.createTest(testData);
+				}
 			}
 			await fetchData();
 			setIsModalOpen(false);
 			setFormData({});
+			setEditingId(null);
 		} catch (error) {
 			console.error('Error saving:', error);
+			setError(error instanceof Error ? error.message : 'An unknown error occurred');
+			// Keep the modal open so the user can see the error and try again
+		} finally {
+			setIsSaving(false);
 		}
-		setIsSaving(false);
 	};
 
 	// Table configurations
@@ -126,12 +224,14 @@ export default function Home() {
 		{ key: 'name', header: 'Name' },
 		{ key: 'version', header: 'Version' },
 		{ key: 'created_at', header: 'Created At' },
+		{ key: 'actions', header: 'Actions' },
 	];
 
 	const testHeaders = [
 		{ key: 'name', header: 'Name' },
 		{ key: 'description', header: 'Description' },
 		{ key: 'created_at', header: 'Created At' },
+		{ key: 'actions', header: 'Actions' },
 	];
 
 	const resultHeaders = [
@@ -140,12 +240,118 @@ export default function Home() {
 		{ key: 'success', header: 'Success' },
 		{ key: 'execution_time', header: 'Time (ms)' },
 		{ key: 'created_at', header: 'Created At' },
+		{ key: 'actions', header: 'Actions' },
 	];
 
 	const handleAddClick = (type: 'agent' | 'test') => {
 		setModalType(type);
 		setFormData({});
+		setEditingId(null);
 		setIsModalOpen(true);
+	};
+
+	const handleEditAgent = (agentId: number) => {
+		const agent = agents.find(a => a.id === agentId);
+		if (!agent) return;
+
+		setModalType('agent');
+		setEditingId(agentId);
+
+		// Parse settings to extract individual fields
+		let settings = {};
+		try {
+			settings = JSON.parse(agent.settings);
+		} catch (e) {
+			console.error('Error parsing agent settings:', e);
+		}
+
+		setFormData({
+			'agent-name': agent.name || '',
+			'agent-version': agent.version || '',
+			'agent-prompt': agent.prompt || '',
+			'agent-settings': agent.settings || '',
+			'agent-role': settings.role || '',
+			'agent-goal': settings.goal || '',
+			'agent-backstory': settings.backstory || '',
+			'agent-model': settings.model || '',
+			'agent-temperature': settings.temperature?.toString() || '',
+			'agent-max-tokens': settings.max_tokens?.toString() || '',
+			'agent-ollama-url': settings.base_url || '',
+		});
+
+		setIsModalOpen(true);
+	};
+
+	const handleEditTest = (testId: number) => {
+		const test = tests.find(t => t.id === testId);
+		if (!test) return;
+
+		setModalType('test');
+		setEditingId(testId);
+
+		setFormData({
+			'test-name': test.name || '',
+			'test-description': test.description || '',
+			'test-input': test.input || '',
+			'test-expected-output': test.expected_output || '',
+		});
+
+		setIsModalOpen(true);
+	};
+
+	const handleViewResult = (resultId: number) => {
+		// For now, we'll just log the result ID
+		// In a future implementation, show a modal with detailed result information
+		const result = results.find(r => r.id === resultId);
+		if (!result) return;
+		
+		console.log('View result details:', result);
+		// Open a modal to show the full result details
+		// including the agent's response, execution time, etc.
+	};
+
+	const handleDeleteAgent = async (agentId: number) => {
+		const agent = agents.find(a => a.id === agentId);
+		if (!agent) return;
+		
+		setDeleteType('agent');
+		setDeleteId(agentId);
+		setDeleteName(agent.name);
+		setIsDeleteModalOpen(true);
+	};
+
+	const handleDeleteTest = async (testId: number) => {
+		const test = tests.find(t => t.id === testId);
+		if (!test) return;
+		
+		setDeleteType('test');
+		setDeleteId(testId);
+		setDeleteName(test.name);
+		setIsDeleteModalOpen(true);
+	};
+
+	const handleConfirmDelete = async () => {
+		if (!deleteId || !deleteType) return;
+		
+		setIsDeleting(true);
+		try {
+			if (deleteType === 'agent') {
+				await api.deleteAgent(deleteId);
+			} else if (deleteType === 'test') {
+				await api.deleteTest(deleteId);
+			}
+			
+			await fetchData();
+			setIsDeleteModalOpen(false);
+			setDeleteType(null);
+			setDeleteId(null);
+			setDeleteName('');
+		} catch (error) {
+			console.error(`Error deleting ${deleteType}:`, error);
+			setError(error instanceof Error ? error.message : `Failed to delete ${deleteType}`);
+		} finally {
+			setIsDeleting(false);
+		}
 	};
 
 	interface TableCell {
@@ -158,7 +364,8 @@ export default function Home() {
 
 	const renderTable = (
 		headers: Array<{ key: string; header: string }>,
-		rows: Array<{ id: string;[key: string]: string | number | boolean }>
+		rows: Array<{ id: string;[key: string]: string | number | boolean }>,
+		type: 'agent' | 'test' | 'result'
 	) => (
 		<DataTable rows={rows} headers={headers}>
 			{({ rows, headers, getHeaderProps, getTableProps, getRowProps }) => (
@@ -182,6 +389,101 @@ export default function Home() {
 												<Tag type={cell.value ? 'green' : 'red'}>
 													{cell.value ? 'Success' : 'Failed'}
 												</Tag>
+											</TableCell>
+										);
+									}
+									if (cell.info.header === 'actions' && type === 'agent') {
+										return (
+											<TableCell key={`${cell.id}-${cellIndex}`}>
+												<div style={{ display: 'flex', gap: '0.5rem' }}>
+													<Button
+														kind="ghost"
+														size="sm"
+														renderIcon={Edit}
+														iconDescription="Edit agent"
+														hasIconOnly
+														onClick={() => {
+															const rowId = row.id;
+															const numericId = parseInt(rowId);
+															if (!isNaN(numericId)) {
+																handleEditAgent(numericId);
+															}
+														}}
+													/>
+													<Button
+														kind="danger--ghost"
+														size="sm"
+														renderIcon={TrashCan}
+														iconDescription="Delete agent"
+														hasIconOnly
+														onClick={() => {
+															const rowId = row.id;
+															const numericId = parseInt(rowId);
+															if (!isNaN(numericId)) {
+																handleDeleteAgent(numericId);
+															}
+														}}
+													/>
+												</div>
+											</TableCell>
+										);
+									}
+									if (cell.info.header === 'actions' && type === 'test') {
+										return (
+											<TableCell key={`${cell.id}-${cellIndex}`}>
+												<div style={{ display: 'flex', gap: '0.5rem' }}>
+													<Button
+														kind="ghost"
+														size="sm"
+														renderIcon={Edit}
+														iconDescription="Edit test"
+														hasIconOnly
+														onClick={() => {
+															// Extract the numeric ID from the row ID
+															const rowId = row.id;
+															const numericId = parseInt(rowId);
+															if (!isNaN(numericId)) {
+																handleEditTest(numericId);
+															}
+														}}
+													/>
+													<Button
+														kind="danger--ghost"
+														size="sm"
+														renderIcon={TrashCan}
+														iconDescription="Delete test"
+														hasIconOnly
+														onClick={() => {
+															// Extract the numeric ID from the row ID
+															const rowId = row.id;
+															const numericId = parseInt(rowId);
+															if (!isNaN(numericId)) {
+																handleDeleteTest(numericId);
+															}
+														}}
+													/>
+												</div>
+											</TableCell>
+										);
+									}
+									if (cell.info.header === 'actions' && type === 'result') {
+										return (
+											<TableCell key={`${cell.id}-${cellIndex}`}>
+												<Button
+													kind="ghost"
+													size="sm"
+													renderIcon={DataTableIcon}
+													iconDescription="View details"
+													hasIconOnly
+													onClick={() => {
+														// Extract the numeric ID from the row ID
+														const rowId = row.id;
+														const numericId = parseInt(rowId);
+														if (!isNaN(numericId)) {
+															handleViewResult(numericId);
+														}
+													}}
+												/>
 											</TableCell>
 										);
 									}
@@ -228,6 +530,7 @@ export default function Home() {
 				<TabList aria-label="Database Testing Tabs">
 					<Tab>Agents</Tab>
 					<Tab>Tests</Tab>
+					<Tab>Execute</Tab>
 					<Tab>Results</Tab>
 				</TabList>
 
@@ -247,7 +550,7 @@ export default function Home() {
 						{isLoading ? (
 							<InlineLoading description="Loading data..." />
 						) : agentRows.length > 0 ? (
-							renderTable(agentHeaders, agentRows)
+							renderTable(agentHeaders, agentRows, 'agent')
 						) : (
 							<EmptyState
 								title="Agent Configurations"
@@ -273,7 +576,7 @@ export default function Home() {
 						{isLoading ? (
 							<InlineLoading description="Loading data..." />
 						) : testRows.length > 0 ? (
-							renderTable(testHeaders, testRows)
+							renderTable(testHeaders, testRows, 'test')
 						) : (
 							<EmptyState
 								title="Test Cases"
@@ -286,12 +589,29 @@ export default function Home() {
 
 					<TabPanel>
 						<div className={styles.panelHeader}>
+							<h2>Execute Tests</h2>
+						</div>
+						{isLoading ? (
+							<InlineLoading description="Loading data..." />
+						) : (
+							<TestExecutor 
+								agents={agents} 
+								tests={tests} 
+								onResultCreated={(result) => {
+									setResults(prevResults => [result, ...prevResults]);
+								}} 
+							/>
+						)}
+					</TabPanel>
+
+					<TabPanel>
+						<div className={styles.panelHeader}>
 							<h2>Results</h2>
 						</div>
 						{isLoading ? (
 							<InlineLoading description="Loading data..." />
 						) : resultRows.length > 0 ? (
-							renderTable(resultHeaders, resultRows)
+							renderTable(resultHeaders, resultRows, 'result')
 						) : (
 							<EmptyState
 								title="Test Results"
@@ -307,13 +627,28 @@ export default function Home() {
 			{/* Add/Edit Modal */}
 			<Modal
 				open={isModalOpen}
-				modalHeading={`Add New ${modalType === 'agent' ? 'Agent' : 'Test'}`}
+				modalHeading={`${editingId ? 'Edit' : 'Add New'} ${modalType === 'agent' ? 'Agent' : 'Test'}`}
 				primaryButtonText={isSaving ? 'Saving...' : 'Save'}
 				secondaryButtonText="Cancel"
-				onRequestClose={() => setIsModalOpen(false)}
+				onRequestClose={() => {
+					setIsModalOpen(false);
+					setError(null);
+					setEditingId(null);
+				}}
 				onRequestSubmit={handleSubmit}
 				primaryButtonDisabled={isSaving}
 			>
+				{error && (
+					<div style={{ 
+						marginBottom: '1rem', 
+						padding: '0.5rem', 
+						backgroundColor: '#fff1f1', 
+						color: '#da1e28',
+						borderLeft: '3px solid #da1e28'
+					}}>
+						{error}
+					</div>
+				)}
 				<Form>
 					<Stack gap={7}>
 						{modalType === 'agent' ? (
@@ -439,6 +774,36 @@ export default function Home() {
 						)}
 					</Stack>
 				</Form>
+			</Modal>
+
+			{/* Delete Modal */}
+			<Modal
+				open={isDeleteModalOpen}
+				modalHeading={`Delete ${deleteType === 'agent' ? 'Agent' : 'Test'}`}
+				primaryButtonText={isDeleting ? 'Deleting...' : 'Delete'}
+				secondaryButtonText="Cancel"
+				onRequestClose={() => {
+					setIsDeleteModalOpen(false);
+					setDeleteType(null);
+					setDeleteId(null);
+					setDeleteName('');
+					setError(null);
+				}}
+				onRequestSubmit={handleConfirmDelete}
+				primaryButtonDisabled={isDeleting}
+			>
+				{error && (
+					<div style={{ 
+						marginBottom: '1rem', 
+						padding: '0.5rem', 
+						backgroundColor: '#fff1f1', 
+						color: '#da1e28',
+						borderLeft: '3px solid #da1e28'
+					}}>
+						{error}
+					</div>
+				)}
+				<p>Are you sure you want to delete the {deleteType === 'agent' ? 'agent' : 'test'} &quot;{deleteName}&quot;?</p>
 			</Modal>
 		</>
 	);
