@@ -2,6 +2,21 @@ import { Agent, Test, TestResult } from '../../../backend/src/db/queries';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+// Job status type
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+// Job interface
+export interface Job {
+    id: number;
+    agent_id: number;
+    test_id: number;
+    status: JobStatus;
+    result_id: number | null;
+    created_at: string;
+    updated_at: string;
+    error?: string;
+}
+
 export const api = {
     // Agents
     async getAgents(): Promise<Agent[]> {
@@ -175,6 +190,44 @@ export const api = {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to execute test');
+        }
+        
+        return response.json();
+    },
+
+    // Jobs
+    async getJobs(): Promise<Job[]> {
+        const response = await fetch(`${API_URL}/api/jobs`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch jobs');
+        }
+        
+        return response.json();
+    },
+
+    async createJob(agent_id: number, test_id: number): Promise<Job> {
+        const response = await fetch(`${API_URL}/api/jobs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_id, test_id }),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create job');
+        }
+        
+        return response.json();
+    },
+
+    async getJobStatus(id: number): Promise<Job> {
+        const response = await fetch(`${API_URL}/api/jobs/${id}`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch job status');
         }
         
         return response.json();
