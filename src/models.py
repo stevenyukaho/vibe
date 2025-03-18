@@ -1,12 +1,13 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Literal
+import os
 
 class ModelConfig(BaseModel):
     provider: Literal["ollama"] = "ollama"  # For now we only support ollama
     model: str  # e.g., "llama2", "mistral", "codellama"
     temperature: float = 0.7
     max_tokens: int = 1000
-    base_url: str = "http://localhost:11434"  # Default Ollama URL
+    base_url: str = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")  # Default to original IP, configurable via env
 
 class AgentConfig(BaseModel):
     role: str
