@@ -1,10 +1,15 @@
 from crewai import Agent, Task, Crew
 from datetime import datetime
 import time
-from typing import List, Dict, Any
+import logging
+import traceback
+from typing import List
 from langchain_community.llms import Ollama
 
 from .models import AgentConfig, CrewConfig, TestExecutionResponse, IntermediateStep, Metrics
+
+# Get logger
+logger = logging.getLogger(__name__)
 
 class AgentExecutor:
     def __init__(self):
@@ -17,35 +22,54 @@ class AgentExecutor:
     
     def _create_agent(self, config: AgentConfig) -> Agent:
         """Create a CrewAI agent from configuration."""
-        # Create Ollama LLM instance
-        llm = Ollama(
-            model=config.llm_config.model,
-            temperature=config.llm_config.temperature,
-            base_url=config.llm_config.base_url
-        )
+        try:
+            # Create Ollama LLM instance
+            llm = Ollama(
+                model=config.llm_config.model,
+                temperature=config.llm_config.temperature,
+                base_url=config.llm_config.base_url
+            )
 
-        return Agent(
-            role=config.role,
-            goal=config.goal,
-            backstory=config.backstory,
-            allow_delegation=config.allow_delegation,
-            allow_code_execution=config.allow_code_execution,
-            memory=config.memory,
-            verbose=config.verbose,
-            llm=llm  # Use the Ollama LLM instance
-        )
+            agent = Agent(
+                role=config.role,
+                goal=config.goal,
+                backstory=config.backstory,
+                allow_delegation=config.allow_delegation,
+                allow_code_execution=config.allow_code_execution,
+                memory=config.memory,
+                verbose=config.verbose,
+                llm=llm  # Use the Ollama LLM instance
+            )
+
+            return agent
+        except Exception as e:
+            error_traceback = traceback.format_exc()
+            logger.error(f"Error creating agent: {str(e)}")
+            logger.error(f"Traceback: {error_traceback}")
+            raise
 
     def _log_step(self, agent_id: int, action: str, output: str):
         """Log an intermediate step."""
-        step = IntermediateStep(
-            timestamp=datetime.utcnow().isoformat(),
-            agent_id=agent_id,
-            action=action,
-            output=output
-        )
-        self.intermediate_steps.append(step)
+        try:
+            step = IntermediateStep(
+                timestamp=datetime.utcnow().isoformat(),
+                agent_id=agent_id,
+                action=action,
+                output=output
+            )
+            self.intermediate_steps.append(step)
+        except Exception as e:
+            logger.error(f"Error logging step: {str(e)}")
+            # Create a simplified step if there's an error
+            step = IntermediateStep(
+                timestamp=datetime.utcnow().isoformat(),
+                agent_id=agent_id,
+                action="error",
+                output=f"Error logging step: {str(e)}"
+            )
+            self.intermediate_steps.append(step)
 
-    async def execute_test(
+    def execute_test(
         self,
         agent_configs: List[AgentConfig],
         crew_config: CrewConfig,
@@ -94,5 +118,8 @@ class AgentExecutor:
             return response
             
         except Exception as e:
-            self._log_step(0, "error", str(e))
+            error_traceback = traceback.format_exc()
+            logger.error(f"Error in execute_test: {str(e)}")
+            logger.error(f"Traceback: {error_traceback}")
+            self._log_step(0, "error", f"{str(e)}\n{error_traceback}")
             raise
