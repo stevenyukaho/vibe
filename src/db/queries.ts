@@ -1,37 +1,10 @@
 import db from './database';
+import { Agent, Test, TestResult, Job, JobFilters, JobStatus } from '../types';
 
-// Types
-export interface Agent {
-    id?: number;
-    name: string;
-    version: string;
-    prompt: string;
-    settings: string;
-    created_at?: string;
-}
 
-export interface Test {
-    id?: number;
-    name: string;
-    description?: string;
-    input: string;
-    expected_output?: string;
-    created_at?: string;
-    updated_at?: string;
-}
-
-export interface TestResult {
-    id?: number;
-    agent_id: number;
-    test_id: number;
-    output: string;
-    intermediate_steps?: string;
-    success: boolean;
-    execution_time?: number;
-    created_at?: string;
-}
-
-// Agent queries
+/**
+ * Create a new agent
+ */
 export const createAgent = (agent: Agent) => {
     // Ensure all required fields have default values
     const agentWithDefaults = {
@@ -42,12 +15,12 @@ export const createAgent = (agent: Agent) => {
         settings: agent.settings || '{}'
     };
     
-    const stmt = db.prepare(`
+    const statement = db.prepare(`
     INSERT INTO agents (name, version, prompt, settings)
     VALUES (@name, @version, @prompt, @settings)
     RETURNING *
   `);
-    return stmt.get(agentWithDefaults) as Agent;
+    return statement.get(agentWithDefaults) as Agent;
 };
 
 export const getAgents = () => {
@@ -74,19 +47,19 @@ export const updateAgent = (id: number, agent: Partial<Agent>) => {
         .map(key => `${key} = @${key}`)
         .join(', ');
 
-    const stmt = db.prepare(`
+    const statement = db.prepare(`
     UPDATE agents 
     SET ${updates}
     WHERE id = @id
     RETURNING *
   `);
     
-    return stmt.get({ ...filteredAgent, id }) as Agent;
+    return statement.get({ ...filteredAgent, id }) as Agent;
 };
 
 export const deleteAgent = (id: number) => {
-    const stmt = db.prepare('DELETE FROM agents WHERE id = ?');
-    return stmt.run(id);
+    const statement = db.prepare('DELETE FROM agents WHERE id = ?');
+    return statement.run(id);
 };
 
 // Test queries
@@ -98,12 +71,12 @@ export const createTest = (test: Test) => {
         expected_output: test.expected_output || ''  // Default to empty string if not provided
     };
     
-    const stmt = db.prepare(`
+    const statement = db.prepare(`
     INSERT INTO tests (name, description, input, expected_output)
     VALUES (@name, @description, @input, @expected_output)
     RETURNING *
   `);
-    return stmt.get(testWithDefaults) as Test;
+    return statement.get(testWithDefaults) as Test;
 };
 
 export const updateTest = (id: number, test: Partial<Test>) => {
@@ -122,19 +95,33 @@ export const updateTest = (id: number, test: Partial<Test>) => {
         .map(key => `${key} = @${key}`)
         .join(', ');
 
-    const stmt = db.prepare(`
+    const statement = db.prepare(`
     UPDATE tests 
     SET ${updates}, updated_at = CURRENT_TIMESTAMP
     WHERE id = @id
     RETURNING *
   `);
 
-    return stmt.get({ ...filteredTest, id }) as Test;
+    return statement.get({ ...filteredTest, id }) as Test;
 };
 
 export const deleteTest = (id: number) => {
-    const stmt = db.prepare('DELETE FROM tests WHERE id = ?');
-    return stmt.run(id);
+    // Start a transaction to ensure all operations succeed or fail together
+    const transaction = db.transaction(() => {
+        // Delete associated jobs first (due to foreign key to results)
+        const deleteJobsStmt = db.prepare('DELETE FROM jobs WHERE test_id = ?');
+        deleteJobsStmt.run(id);
+
+        // Delete associated results
+        const deleteResultsStmt = db.prepare('DELETE FROM results WHERE test_id = ?');
+        deleteResultsStmt.run(id);
+
+        // Finally delete the test
+        const deleteTestStmt = db.prepare('DELETE FROM tests WHERE id = ?');
+        return deleteTestStmt.run(id);
+    });
+
+    return transaction();
 };
 
 export const getTests = () => {
@@ -147,29 +134,97 @@ export const getTestById = (id: number) => {
 
 // Result queries
 export const createResult = (result: TestResult) => {
-    // Ensure all required fields have default values
-    const resultWithDefaults = {
-        ...result,
+    // Validate required fields
+    if (typeof result.agent_id !== 'number' || result.agent_id <= 0) {
+        throw new Error('Invalid agent_id: must be a positive number');
+    }
+    if (typeof result.test_id !== 'number' || result.test_id <= 0) {
+        throw new Error('Invalid test_id: must be a positive number');
+    }
+    if (typeof result.output !== 'string') {
+        // Try to serialize output if it's not a string
+        try {
+            result.output = JSON.stringify(result.output);
+        } catch (e) {
+            throw new Error('Invalid output: must be a string or JSON-serializable');
+        }
+    }
+    if (typeof result.success !== 'boolean') {
+        throw new Error('Invalid success: must be a boolean');
+    }
+
+    // Validate and ensure proper types for optional fields
+    let serializedIntermediateSteps = '';
+    if (result.intermediate_steps !== undefined) {
+        if (typeof result.intermediate_steps === 'string') {
+            serializedIntermediateSteps = result.intermediate_steps;
+        } else {
+            // If it's an array or object, try to serialize it
+            try {
+                serializedIntermediateSteps = JSON.stringify(result.intermediate_steps);
+            } catch (e) {
+                throw new Error('Invalid intermediate_steps: must be a string or JSON-serializable');
+            }
+        }
+    }
+    
+    let executionTime = 0;
+    if (result.execution_time !== undefined) {
+        if (typeof result.execution_time !== 'number' || result.execution_time < 0) {
+            throw new Error('Invalid execution_time: must be a non-negative number');
+        }
+        executionTime = result.execution_time;
+    }
+
+    // Create a clean object with only the fields we want to insert
+    const cleanResult = {
         agent_id: result.agent_id,
         test_id: result.test_id,
-        output: result.output || '',
-        intermediate_steps: result.intermediate_steps || '',
-        success: typeof result.success === 'boolean' ? result.success : false,
-        execution_time: result.execution_time || 0
+        output: result.output,
+        intermediate_steps: serializedIntermediateSteps,
+        success: result.success ? 1 : 0, // SQLite expects 1/0 for booleans
+        execution_time: executionTime
     };
     
-    const stmt = db.prepare(`
-    INSERT INTO results (
-      agent_id, test_id, output, intermediate_steps,
-      success, execution_time
-    )
-    VALUES (
-      @agent_id, @test_id, @output, @intermediate_steps,
-      @success, @execution_time
-    )
-    RETURNING *
-  `);
-    return stmt.get(resultWithDefaults) as TestResult;
+    const statement = db.prepare(`
+        INSERT INTO results (
+            agent_id, test_id, output, intermediate_steps,
+            success, execution_time
+        )
+        VALUES (
+            @agent_id, @test_id, @output, @intermediate_steps,
+            @success, @execution_time
+        )
+        RETURNING *
+    `);
+    
+    try {
+        const dbResult = statement.get(cleanResult) as {
+            id: number;
+            agent_id: number;
+            test_id: number;
+            output: string;
+            intermediate_steps: string;
+            success: number;
+            execution_time: number;
+            created_at: string;
+        };
+        // Convert the boolean back from SQLite's number representation
+        return {
+            id: dbResult.id,
+            agent_id: dbResult.agent_id,
+            test_id: dbResult.test_id,
+            output: dbResult.output,
+            intermediate_steps: dbResult.intermediate_steps,
+            success: Boolean(dbResult.success),
+            execution_time: dbResult.execution_time,
+            created_at: dbResult.created_at
+        };
+    } catch (error) {
+        console.error('Failed to insert result:', error);
+        console.error('Attempted to insert:', cleanResult);
+        throw new Error(`Failed to insert result: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 };
 
 export const getResults = (filters?: { agent_id?: number; test_id?: number }) => {
@@ -198,3 +253,130 @@ export const getResults = (filters?: { agent_id?: number; test_id?: number }) =>
 export const getResultById = (id: number) => {
     return db.prepare('SELECT * FROM results WHERE id = ?').get(id) as TestResult;
 };
+
+// Job Queries
+
+/**
+ * Create a new job
+ */
+export async function createJob(job: Job): Promise<Job> {
+  const statement = db.prepare(`
+    INSERT INTO jobs (
+      id, agent_id, test_id, status, progress, partial_result, result_id, error
+    ) VALUES (
+      @id, @agent_id, @test_id, @status, @progress, @partial_result, @result_id, @error
+    )
+  `);
+
+  statement.run({
+    id: job.id,
+    agent_id: job.agent_id,
+    test_id: job.test_id,
+    status: job.status,
+    progress: job.progress || 0,
+    partial_result: job.partial_result || null,
+    result_id: job.result_id || null,
+    error: job.error || null
+  });
+
+  const result = await getJobById(job.id);
+  if (!result) {
+    throw new Error(`Failed to create job ${job.id}`);
+  }
+  return result;
+}
+
+/**
+ * Get a job by ID
+ */
+export async function getJobById(id: string): Promise<Job | undefined> {
+  const statement = db.prepare('SELECT * FROM jobs WHERE id = ?');
+  const row = statement.get(id);
+  return row as Job | undefined;
+}
+
+/**
+ * Update a job
+ */
+export async function updateJob(id: string, updates: Partial<Job>): Promise<void> {
+  // Create SET clause
+  const fields = Object.keys(updates)
+    .filter(key => key !== 'id' && key !== 'created_at')
+    .map(key => `${key} = @${key}`);
+  
+  if (fields.length === 0) {
+    return;
+  }
+  
+  // Add updated_at
+  fields.push('updated_at = CURRENT_TIMESTAMP');
+  
+  const statement = db.prepare(`
+    UPDATE jobs
+    SET ${fields.join(', ')}
+    WHERE id = @id
+  `);
+  
+  statement.run({
+    id,
+    ...updates
+  });
+}
+
+/**
+ * List jobs with optional filtering
+ */
+export async function listJobs(filters: JobFilters = {}): Promise<Job[]> {
+  let sql = 'SELECT * FROM jobs';
+  const params: any = {};
+  const conditions: string[] = [];
+  
+  if (filters.status) {
+    conditions.push('status = @status');
+    params.status = filters.status;
+  }
+  
+  if (filters.agent_id) {
+    conditions.push('agent_id = @agent_id');
+    params.agent_id = filters.agent_id;
+  }
+  
+  if (filters.test_id) {
+    conditions.push('test_id = @test_id');
+    params.test_id = filters.test_id;
+  }
+  
+  if (filters.after) {
+    conditions.push('created_at >= @after');
+    params.after = filters.after.toISOString();
+  }
+  
+  if (filters.before) {
+    conditions.push('created_at <= @before');
+    params.before = filters.before.toISOString();
+  }
+  
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  sql += ' ORDER BY created_at DESC';
+  
+  const statement = db.prepare(sql);
+  const rows = statement.all(params);
+  return rows as Job[];
+}
+
+/**
+ * Delete old jobs
+ */
+export async function deleteOldJobs(olderThan: Date): Promise<number> {
+  const statement = db.prepare(`
+    DELETE FROM jobs
+    WHERE created_at < ?
+    AND (status = 'completed' OR status = 'failed')
+  `);
+  
+  const result = statement.run(olderThan.toISOString());
+  return result.changes;
+}
