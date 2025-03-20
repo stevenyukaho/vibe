@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { getAgentById, getTestById, createResult } from '../db/queries';
+import { getAgentById, getTestById } from '../db/queries';
 import { agentService } from '../services/agent-service';
+import { jobQueue } from '../services/job-queue';
 
 const router = Router();
 
@@ -38,14 +39,14 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
       return res.status(503).json({ error: 'Agent service is not available' });
     }
 
-    // Execute the test
-    const result = await agentService.executeTest(agent, test);
+    // Create a job to execute the test instead of executing directly
+    const jobId = await jobQueue.createJob(agent_id, test_id);
 
-    // Save the result to the database
-    const savedResult = await createResult(result);
-
-    // Return the result
-    res.status(201).json(savedResult);
+    // Return the job ID with 202 Accepted status
+    res.status(202).json({ 
+      job_id: jobId,
+      message: 'Test execution job created and queued for execution'
+    });
   } catch (error) {
     console.error('Error executing test:', error);
     res.status(500).json({ error: 'Failed to execute test', details: error instanceof Error ? error.message : 'Unknown error' });
