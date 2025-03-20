@@ -1,0 +1,308 @@
+import { v4 as uuidv4 } from 'uuid';
+import { 
+  createJob as dbCreateJob, 
+  getJobById, 
+  updateJob as dbUpdateJob,
+  listJobs as dbListJobs, 
+  deleteOldJobs,
+  getAgentById,
+  getTestById,
+  createResult
+} from '../db/queries';
+import { agentService } from './agent-service';
+
+// Job status enum
+export enum JobStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  TIMEOUT = 'timeout'
+}
+
+// Job data structure
+export interface Job {
+  id: string;
+  agent_id: number;
+  test_id: number;
+  status: JobStatus;
+  progress?: number;
+  partial_result?: string;
+  result_id?: number;
+  error?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Job filters for listing jobs
+export interface JobFilters {
+  status?: JobStatus;
+  agent_id?: number;
+  test_id?: number;
+  before?: Date;
+  after?: Date;
+}
+
+/**
+ * Job Queue Service for managing asynchronous test execution
+ */
+export class JobQueueService {
+  private jobs: Map<string, Job>;
+  private runningJobs: Set<string>;
+  private maxConcurrentJobs: number;
+  private isProcessing: boolean;
+  
+  /**
+   * Create a new JobQueueService
+   * @param maxConcurrentJobs Maximum number of jobs to run concurrently
+   */
+  constructor(maxConcurrentJobs = 3) {
+    this.jobs = new Map();
+    this.runningJobs = new Set();
+    this.maxConcurrentJobs = maxConcurrentJobs;
+    this.isProcessing = false;
+    
+    // Initialize jobs from database
+    this.loadJobsFromDatabase();
+    
+    // Start processing queue
+    setInterval(() => this.processQueue(), 1000);
+  }
+  
+  /**
+   * Load jobs from database into memory
+   */
+  private async loadJobsFromDatabase() {
+    try {
+      const jobs = await dbListJobs({});
+      for (const job of jobs) {
+        if (job.status === JobStatus.RUNNING) {
+          // Reset running jobs to pending on restart
+          job.status = JobStatus.PENDING;
+          await dbUpdateJob(job.id, { status: JobStatus.PENDING });
+        }
+        this.jobs.set(job.id, job);
+      }
+      console.log(`Loaded ${jobs.length} jobs from database`);
+    } catch (error) {
+      console.error('Error loading jobs from database:', error);
+    }
+  }
+  
+  /**
+   * Create a new job and add it to the queue
+   * @param agent_id Agent ID to use for the test
+   * @param test_id Test ID to run
+   * @returns The job ID
+   */
+  async createJob(agent_id: number, test_id: number): Promise<string> {
+    const id = uuidv4();
+    const job: Job = {
+      id,
+      agent_id,
+      test_id,
+      status: JobStatus.PENDING,
+      progress: 0
+    };
+    
+    // Save to database
+    await dbCreateJob(job);
+    
+    // Add to in-memory queue
+    this.jobs.set(id, job);
+    
+    // Start processing queue
+    this.processQueue();
+    
+    return id;
+  }
+  
+  /**
+   * Get a job by ID
+   * @param id Job ID
+   * @returns The job or undefined if not found
+   */
+  async getJob(id: string): Promise<Job | undefined> {
+    // Try memory first
+    if (this.jobs.has(id)) {
+      return this.jobs.get(id);
+    }
+    
+    // Then try database
+    try {
+      const job = await getJobById(id);
+      if (job) {
+        this.jobs.set(id, job);
+      }
+      return job;
+    } catch (error) {
+      console.error(`Error getting job ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  /**
+   * Update a job's status and metadata
+   * @param id Job ID
+   * @param updates Fields to update
+   */
+  async updateJob(id: string, updates: Partial<Job>): Promise<void> {
+    const job = await this.getJob(id);
+    if (!job) {
+      throw new Error(`Job ${id} not found`);
+    }
+    
+    // Update in-memory job
+    Object.assign(job, updates);
+    this.jobs.set(id, job);
+    
+    // Update in database
+    await dbUpdateJob(id, updates);
+    
+    // If job completed or failed, remove from running jobs
+    if (updates.status === JobStatus.COMPLETED || 
+        updates.status === JobStatus.FAILED ||
+        updates.status === JobStatus.TIMEOUT) {
+      this.runningJobs.delete(id);
+    }
+  }
+  
+  /**
+   * Process the job queue
+   */
+  async processQueue(): Promise<void> {
+    // Prevent concurrent processing
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+    
+    try {
+      // Get pending jobs
+      const pendingJobs = Array.from(this.jobs.values())
+        .filter(job => job.status === JobStatus.PENDING)
+        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+      
+      // Start jobs if we have capacity
+      for (const job of pendingJobs) {
+        if (this.runningJobs.size >= this.maxConcurrentJobs) {
+          break;
+        }
+        
+        // Mark job as running
+        this.runningJobs.add(job.id);
+        await this.updateJob(job.id, { status: JobStatus.RUNNING });
+        
+        // Execute job
+        this.executeJob(job).catch(error => {
+          console.error(`Error executing job ${job.id}:`, error);
+        });
+      }
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+  
+  /**
+   * Execute a single job
+   * @param job The job to execute
+   */
+  private async executeJob(job: Job): Promise<void> {
+    try {
+      // Get agent and test
+      const agent = await getAgentById(job.agent_id);
+      const test = await getTestById(job.test_id);
+      
+      if (!agent || !test) {
+        await this.updateJob(job.id, {
+          status: JobStatus.FAILED,
+          error: !agent ? 'Agent not found' : 'Test not found'
+        });
+        return;
+      }
+      
+      // Update progress
+      await this.updateJob(job.id, { progress: 10 });
+      
+      // Check if agent service is available
+      const isHealthy = await agentService.healthCheck();
+      if (!isHealthy) {
+        await this.updateJob(job.id, {
+          status: JobStatus.FAILED,
+          error: 'Agent service is not available'
+        });
+        return;
+      }
+      
+      // Update progress
+      await this.updateJob(job.id, { progress: 20 });
+      
+      // Execute test
+      const result = await agentService.executeTest(agent, test);
+      
+      // Update progress
+      await this.updateJob(job.id, { progress: 90 });
+      
+      // Save result
+      const savedResult = await createResult(result);
+      
+      // Mark job as completed
+      await this.updateJob(job.id, {
+        status: JobStatus.COMPLETED,
+        result_id: savedResult.id,
+        progress: 100
+      });
+    } catch (error) {
+      // Mark job as failed
+      await this.updateJob(job.id, {
+        status: JobStatus.FAILED,
+        error: error instanceof Error ? error.message : String(error),
+        progress: 0
+      });
+    }
+  }
+  
+  /**
+   * List all jobs with optional filtering
+   * @param filters Filters to apply
+   * @returns List of jobs
+   */
+  async listJobs(filters: JobFilters = {}): Promise<Job[]> {
+    try {
+      const jobs = await dbListJobs(filters);
+      // Update in-memory queue
+      for (const job of jobs) {
+        this.jobs.set(job.id, job);
+      }
+      return jobs;
+    } catch (error) {
+      console.error('Error listing jobs:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Clean up old completed jobs
+   * @param olderThan Delete jobs older than this date
+   */
+  async cleanupOldJobs(olderThan: Date): Promise<void> {
+    try {
+      const deletedCount = await deleteOldJobs(olderThan);
+      
+      // Remove from in-memory queue
+      for (const [id, job] of this.jobs.entries()) {
+        if (job.status === JobStatus.COMPLETED || job.status === JobStatus.FAILED) {
+          const createdAt = job.created_at ? new Date(job.created_at) : new Date();
+          if (createdAt < olderThan) {
+            this.jobs.delete(id);
+          }
+        }
+      }
+      
+      console.log(`Deleted ${deletedCount} old jobs`);
+    } catch (error) {
+      console.error('Error cleaning up old jobs:', error);
+    }
+  }
+}
+
+// Export a singleton instance
+export const jobQueue = new JobQueueService();
