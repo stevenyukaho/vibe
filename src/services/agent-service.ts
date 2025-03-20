@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { Agent, Test, TestResult } from '../db/queries';
+import { Agent, Test, TestResult } from '../types';
 import { agentServiceConfig } from '../config';
 
 // Types that match the agent-service API
@@ -56,6 +56,22 @@ interface TestExecutionResponse {
   execution_time: number;
   intermediate_steps: IntermediateStep[];
   metrics: Metrics;
+}
+
+// Helper function to safely serialize intermediate steps
+function serializeIntermediateSteps(steps: IntermediateStep[]): string {
+  try {
+    return JSON.stringify(steps, (key, value) => {
+      if (key === 'timestamp' && typeof value === 'string') {
+        // Ensure timestamp is a valid ISO string
+        return new Date(value).toISOString();
+      }
+      return value;
+    });
+  } catch (error) {
+    console.error('Error serializing intermediate steps:', error);
+    return JSON.stringify([]);
+  }
 }
 
 export class AgentService {
@@ -115,35 +131,34 @@ export class AgentService {
    */
   async executeTest(agent: Agent, test: Test): Promise<TestResult> {
     try {
-      // Convert agent to agent service config
-      const agentConfig = this.convertAgentToConfig(agent);
-      
-      // Create the request payload
-      const payload: TestExecutionRequest = {
-        agent_configs: [agentConfig],
+      const config = this.convertAgentToConfig(agent);
+      const response = await this.client.post<TestExecutionResponse>('/execute-test', {
+        agent_configs: [config],
         crew_config: {
           process: 'sequential',
           async_execution: true,
-          max_retries: 3,
+          max_retries: 3
         },
         test_input: test.input,
-      };
-      
-      // Call the agent service
-      const response = await this.client.post<TestExecutionResponse>('/execute-test', payload);
-      
-      // Convert the response to a TestResult
+        test_id: test.id
+      });
+
+      if (!agent.id || !test.id) {
+        throw new Error('Agent ID or Test ID is undefined');
+      }
+
       return {
-        agent_id: agent.id!,
-        test_id: test.id!,
+        agent_id: agent.id,
+        test_id: test.id,
         output: response.data.output,
-        intermediate_steps: JSON.stringify(response.data.intermediate_steps),
+        intermediate_steps: serializeIntermediateSteps(response.data.intermediate_steps),
         success: response.data.success,
         execution_time: response.data.execution_time,
+        created_at: new Date().toISOString()
       };
     } catch (error) {
       console.error('Error executing test:', error);
-      throw new Error(`Failed to execute test: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   }
 }
