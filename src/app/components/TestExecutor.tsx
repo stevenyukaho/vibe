@@ -8,68 +8,58 @@ import {
   Button,
   InlineLoading,
   Tile,
-  Tag,
-  CodeSnippet,
-  Modal,
-  ModalBody,
-  ModalFooter,
 } from '@carbon/react';
-import { PlayFilled, Information } from '@carbon/icons-react';
+import { PlayFilled } from '@carbon/icons-react';
 import { api } from '@/lib/api';
-import { Agent, Test, TestResult } from '../../../../backend/src/db/queries';
-
-interface IntermediateStepData {
-  timestamp: string;
-  agent_id: number;
-  action: string;
-  output: string;
-}
+import { Agent, Test } from '../../../../backend/src/db/queries';
 
 interface TestExecutorProps {
   agents: Agent[];
   tests: Test[];
-  onResultCreated: (result: TestResult) => void;
+  onJobCreated: () => void;
 }
 
-export default function TestExecutor({ agents, tests, onResultCreated }: TestExecutorProps) {
+export default function TestExecutor({ agents, tests, onJobCreated }: TestExecutorProps) {
   const [selectedAgentId, setSelectedAgentId] = useState<number | undefined>();
   const [selectedTestId, setSelectedTestId] = useState<number | undefined>();
-  const [isExecuting, setIsExecuting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<TestResult | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleAgentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedAgentId(Number(event.target.value));
+    // Clear previous messages when selection changes
+    setError(null);
+    setSuccessMessage(null);
   };
 
   const handleTestChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedTestId(Number(event.target.value));
+    // Clear previous messages when selection changes
+    setError(null);
+    setSuccessMessage(null);
   };
 
-  const executeTest = async () => {
+  const createTestJob = async () => {
     if (!selectedAgentId || !selectedTestId) {
       setError('Please select both an agent and a test');
       return;
     }
 
-    setIsExecuting(true);
+    setIsSubmitting(true);
     setError(null);
-    setResult(null);
+    setSuccessMessage(null);
 
     try {
-      const result = await api.executeTest(selectedAgentId, selectedTestId);
-      setResult(result);
-      onResultCreated(result);
+      const job = await api.createJob(selectedAgentId, selectedTestId);
+      setSuccessMessage(`Job #${job.id} created successfully and is now queued for execution`);
+      onJobCreated(); // Notify parent component about the job creation
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to execute test');
+      setError(error instanceof Error ? error.message : 'Failed to create job');
     } finally {
-      setIsExecuting(false);
+      setIsSubmitting(false);
     }
   };
-
-  const selectedAgent = agents.find(agent => agent.id === selectedAgentId);
-  const selectedTest = tests.find(test => test.id === selectedTestId);
 
   return (
     <div>
@@ -114,11 +104,11 @@ export default function TestExecutor({ agents, tests, onResultCreated }: TestExe
 
         <Button
           kind="primary"
-          onClick={executeTest}
-          disabled={isExecuting || !selectedAgentId || !selectedTestId}
+          onClick={createTestJob}
+          disabled={isSubmitting || !selectedAgentId || !selectedTestId}
           renderIcon={PlayFilled}
         >
-          {isExecuting ? <InlineLoading description="Executing..." /> : 'Execute Test'}
+          {isSubmitting ? <InlineLoading description="Creating job..." /> : 'Run Test'}
         </Button>
       </Form>
 
@@ -128,112 +118,10 @@ export default function TestExecutor({ agents, tests, onResultCreated }: TestExe
         </Tile>
       )}
 
-      {result && (
-        <div style={{ marginTop: '1rem' }}>
-          <Tile>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h4>Test Result</h4>
-              <div>
-                <Tag type={result.success ? 'green' : 'red'}>
-                  {result.success ? 'Success' : 'Failed'}
-                </Tag>
-                {result.execution_time !== undefined && (
-                  <Tag type="blue">
-                    {result.execution_time.toFixed(2)}s
-                  </Tag>
-                )}
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  renderIcon={Information}
-                  onClick={() => setShowDetails(true)}
-                >
-                  Details
-                </Button>
-              </div>
-            </div>
-            
-            <h5>Output:</h5>
-            <CodeSnippet type="multi">
-              {result.output}
-            </CodeSnippet>
-          </Tile>
-        </div>
-      )}
-
-      {/* Details Modal */}
-      {result && (
-        <Modal
-          open={showDetails}
-          onRequestClose={() => setShowDetails(false)}
-          modalHeading="Test Execution Details"
-          size="lg"
-        >
-          <ModalBody>
-            <h5>Test Information</h5>
-            <table className="details-table">
-              <tbody>
-                <tr>
-                  <td>Agent</td>
-                  <td>{selectedAgent?.name} (v{selectedAgent?.version})</td>
-                </tr>
-                <tr>
-                  <td>Test</td>
-                  <td>{selectedTest?.name}</td>
-                </tr>
-                <tr>
-                  <td>Success</td>
-                  <td>
-                    <Tag type={result.success ? 'green' : 'red'}>
-                      {result.success ? 'Success' : 'Failed'}
-                    </Tag>
-                  </td>
-                </tr>
-                {result.execution_time !== undefined && (
-                  <tr>
-                    <td>Execution Time</td>
-                    <td>{result.execution_time.toFixed(2)}s</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-
-            {result.intermediate_steps && (
-              <>
-                <h5 style={{ marginTop: '1rem' }}>Intermediate Steps</h5>
-                <table className="steps-table">
-                  <thead>
-                    <tr>
-                      <th>Timestamp</th>
-                      <th>Agent</th>
-                      <th>Action</th>
-                      <th>Output</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {JSON.parse(result.intermediate_steps).map((step: IntermediateStepData, index: number) => (
-                      <tr key={index}>
-                        <td>{new Date(step.timestamp).toLocaleTimeString()}</td>
-                        <td>Agent {step.agent_id}</td>
-                        <td>{step.action}</td>
-                        <td>
-                          <CodeSnippet type="single">
-                            {step.output.length > 50 ? `${step.output.substring(0, 50)}...` : step.output}
-                          </CodeSnippet>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <Button kind="secondary" onClick={() => setShowDetails(false)}>
-              Close
-            </Button>
-          </ModalFooter>
-        </Modal>
+      {successMessage && (
+        <Tile className="success-tile" style={{ marginTop: '1rem', backgroundColor: '#defbe6', color: '#0e6027' }}>
+          {successMessage}
+        </Tile>
       )}
     </div>
   );

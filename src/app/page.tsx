@@ -23,16 +23,28 @@ import {
 	InlineLoading,
 	Tag,
 	Tile,
+	CodeSnippet,
 } from '@carbon/react';
 import { Add, DataTable as DataTableIcon, TestTool, Report, Edit, TrashCan } from '@carbon/icons-react';
 import { api } from '@/lib/api';
 import styles from './page.module.scss';
 import { Agent, Test, TestResult } from '../../../backend/src/db/queries';
 import TestExecutor from './components/TestExecutor';
+import JobsManager from './components/JobsManager';
+
+interface AgentSettings {
+	base_url?: string;
+	model?: string;
+	role?: string;
+	goal?: string;
+	backstory?: string;
+	temperature?: number;
+	max_tokens?: number;
+}
 
 export default function Home() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
-	const [modalType, setModalType] = useState<'agent' | 'test' | null>(null);
+	const [modalType, setModalType] = useState<'agent' | 'test' | 'result' | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -87,13 +99,14 @@ export default function Home() {
 		try {
 			if (modalType === 'agent') {
 				// Parse existing settings or create new empty object
-				let settings = {};
+				let settings: AgentSettings = {};
 				try {
 					if (formData['agent-settings']) {
 						settings = JSON.parse(formData['agent-settings']);
 					}
 				} catch (error) {
 					// JSON parsing error
+					console.error('Error parsing agent settings:', error);
 					setError('Invalid JSON in settings field');
 					setIsSaving(false);
 					return;
@@ -216,7 +229,7 @@ export default function Home() {
 		agent_name: agents.find(a => a.id === result.agent_id)?.name || 'Unknown',
 		test_name: tests.find(t => t.id === result.test_id)?.name || 'Unknown',
 		success: result.success,
-		execution_time: result.execution_time || 0,
+		execution_time: result.execution_time ? result.execution_time.toFixed(3) : '0.000',
 		created_at: new Date(result.created_at!).toLocaleString(),
 	}));
 
@@ -238,7 +251,7 @@ export default function Home() {
 		{ key: 'agent_name', header: 'Agent' },
 		{ key: 'test_name', header: 'Test' },
 		{ key: 'success', header: 'Success' },
-		{ key: 'execution_time', header: 'Time (ms)' },
+		{ key: 'execution_time', header: 'Time (s)' },
 		{ key: 'created_at', header: 'Created At' },
 		{ key: 'actions', header: 'Actions' },
 	];
@@ -258,7 +271,7 @@ export default function Home() {
 		setEditingId(agentId);
 
 		// Parse settings to extract individual fields
-		let settings = {};
+		let settings: AgentSettings = {};
 		try {
 			settings = JSON.parse(agent.settings);
 		} catch (e) {
@@ -300,14 +313,12 @@ export default function Home() {
 	};
 
 	const handleViewResult = (resultId: number) => {
-		// For now, we'll just log the result ID
-		// In a future implementation, show a modal with detailed result information
 		const result = results.find(r => r.id === resultId);
-		if (!result) return;
-		
-		console.log('View result details:', result);
-		// Open a modal to show the full result details
-		// including the agent's response, execution time, etc.
+		if (result && result.id !== undefined) {
+			setEditingId(result.id);
+			setModalType('result');
+			setIsModalOpen(true);
+		}
 	};
 
 	const handleDeleteAgent = async (agentId: number) => {
@@ -525,42 +536,21 @@ export default function Home() {
 	);
 
 	return (
-		<>
+		<main className={styles.main}>
+			<div className={styles.description}>
+				<h1>AI Agent Testing Suite</h1>
+			</div>
+
 			<Tabs>
-				<TabList aria-label="Database Testing Tabs">
-					<Tab>Agents</Tab>
+				<TabList aria-label="AI Agent Testing Suite Tabs">
 					<Tab>Tests</Tab>
-					<Tab>Execute</Tab>
+					<Tab>Agents</Tab>
 					<Tab>Results</Tab>
+					<Tab>Jobs</Tab>
+					<Tab>Run Test</Tab>
 				</TabList>
 
 				<TabPanels>
-					<TabPanel>
-						<div className={styles.panelHeader}>
-							<h2>Agents</h2>
-							{agentRows.length > 0 && (
-								<Button
-									renderIcon={Add}
-									onClick={() => handleAddClick('agent')}
-								>
-									Add Agent
-								</Button>
-							)}
-						</div>
-						{isLoading ? (
-							<InlineLoading description="Loading data..." />
-						) : agentRows.length > 0 ? (
-							renderTable(agentHeaders, agentRows, 'agent')
-						) : (
-							<EmptyState
-								title="Agent Configurations"
-								description="Create your first AI agent configuration with custom prompts and settings."
-								icon={DataTableIcon as React.ComponentType<{ size: number; className?: string }>}
-								onAddClick={() => handleAddClick('agent')}
-							/>
-						)}
-					</TabPanel>
-
 					<TabPanel>
 						<div className={styles.panelHeader}>
 							<h2>Tests</h2>
@@ -589,17 +579,26 @@ export default function Home() {
 
 					<TabPanel>
 						<div className={styles.panelHeader}>
-							<h2>Execute Tests</h2>
+							<h2>Agents</h2>
+							{agentRows.length > 0 && (
+								<Button
+									renderIcon={Add}
+									onClick={() => handleAddClick('agent')}
+								>
+									Add Agent
+								</Button>
+							)}
 						</div>
 						{isLoading ? (
 							<InlineLoading description="Loading data..." />
+						) : agentRows.length > 0 ? (
+							renderTable(agentHeaders, agentRows, 'agent')
 						) : (
-							<TestExecutor 
-								agents={agents} 
-								tests={tests} 
-								onResultCreated={(result) => {
-									setResults(prevResults => [result, ...prevResults]);
-								}} 
+							<EmptyState
+								title="Agent Configurations"
+								description="Create your first AI agent configuration with custom prompts and settings."
+								icon={DataTableIcon as React.ComponentType<{ size: number; className?: string }>}
+								onAddClick={() => handleAddClick('agent')}
 							/>
 						)}
 					</TabPanel>
@@ -620,6 +619,25 @@ export default function Home() {
 								onAddClick={() => handleAddClick('test')}
 							/>
 						)}
+					</TabPanel>
+
+					{/* Jobs Tab */}
+					<TabPanel>
+						<JobsManager 
+							agents={agents} 
+							tests={tests} 
+							onRefresh={fetchData} 
+							onResultView={handleViewResult} 
+						/>
+					</TabPanel>
+
+					{/* Run Test Tab */}
+					<TabPanel>
+						<TestExecutor 
+							agents={agents} 
+							tests={tests} 
+							onJobCreated={fetchData} 
+						/>
 					</TabPanel>
 				</TabPanels>
 			</Tabs>
@@ -776,6 +794,90 @@ export default function Home() {
 				</Form>
 			</Modal>
 
+			{/* Result Modal */}
+			<Modal
+				open={isModalOpen && modalType === 'result'}
+				modalHeading="Test Result Details"
+				primaryButtonText="Close"
+				onRequestClose={() => {
+					setIsModalOpen(false);
+					setModalType(null);
+					setEditingId(null);
+					setError(null);
+				}}
+				onRequestSubmit={() => {
+					setIsModalOpen(false);
+					setModalType(null);
+					setEditingId(null);
+					setError(null);
+				}}
+			>
+				{editingId && (
+					<Stack gap={5}>
+						{error && (
+							<div style={{ 
+								marginBottom: '1rem', 
+								padding: '0.5rem', 
+								backgroundColor: '#fff1f1', 
+								color: '#da1e28',
+								borderLeft: '3px solid #da1e28'
+							}}>
+								{error}
+							</div>
+						)}
+						{(() => {
+							const result = results.find(r => r.id === editingId);
+							if (!result) return <p>Result not found</p>;
+							
+							return (
+								<>
+									<div>
+										<h4 style={{ color: '#f4f4f4', marginBottom: '0.5rem' }}>Output</h4>
+										<CodeSnippet type="multi" feedback="Copied to clipboard" wrapText>
+											{result.output}
+										</CodeSnippet>
+									</div>
+									{result.intermediate_steps && (
+										<div>
+											<h4 style={{ color: '#f4f4f4', marginBottom: '0.5rem', marginTop: '1rem' }}>
+												Intermediate Steps
+											</h4>
+											<CodeSnippet type="multi" feedback="Copied to clipboard" wrapText maxCollapsedNumberOfRows={20}>
+												{result.intermediate_steps}
+											</CodeSnippet>
+										</div>
+									)}
+									<div style={{ 
+										display: 'flex', 
+										gap: '1rem', 
+										alignItems: 'center',
+										marginTop: '1rem',
+										padding: '1rem',
+										backgroundColor: '#161616',
+										borderRadius: '4px'
+									}}>
+										<div>
+											<strong style={{ color: '#f4f4f4' }}>Success:</strong>{' '}
+											<Tag type={result.success ? 'green' : 'red'}>
+												{result.success ? 'Success' : 'Failed'}
+											</Tag>
+										</div>
+										{result.execution_time && (
+											<div>
+												<strong style={{ color: '#f4f4f4' }}>Execution Time:</strong>{' '}
+												<span style={{ color: '#f4f4f4' }}>
+													{result.execution_time.toFixed(3)}s
+												</span>
+											</div>
+										)}
+									</div>
+								</>
+							);
+						})()}
+					</Stack>
+				)}
+			</Modal>
+
 			{/* Delete Modal */}
 			<Modal
 				open={isDeleteModalOpen}
@@ -805,6 +907,6 @@ export default function Home() {
 				)}
 				<p>Are you sure you want to delete the {deleteType === 'agent' ? 'agent' : 'test'} &quot;{deleteName}&quot;?</p>
 			</Modal>
-		</>
+		</main>
 	);
 }
