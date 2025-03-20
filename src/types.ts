@@ -1,0 +1,62 @@
+// Common types used across the application
+
+// Job status enum
+export enum JobStatus {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  TIMEOUT = 'timeout'
+}
+
+// Basic interfaces
+export interface Agent {
+  id?: number;
+  name: string;
+  version: string;
+  prompt: string;
+  settings: string;
+  created_at?: string;
+}
+
+export interface Test {
+  id?: number;
+  name: string;
+  description?: string;
+  input: string;
+  expected_output?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TestResult {
+  id?: number;
+  agent_id: number;
+  test_id: number;
+  output: string;
+  intermediate_steps?: string;
+  success: boolean;
+  execution_time?: number;
+  created_at?: string;
+}
+
+export interface Job {
+  id: string;
+  agent_id: number;
+  test_id: number;
+  status: JobStatus;
+  progress?: number;
+  partial_result?: string;
+  result_id?: number;
+  error?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface JobFilters {
+  status?: JobStatus;
+  agent_id?: number;
+  test_id?: number;
+  before?: Date;
+  after?: Date;
+}
