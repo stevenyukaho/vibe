@@ -3,7 +3,7 @@
 // Agent service configuration
 export const agentServiceConfig = {
   url: process.env.AGENT_SERVICE_URL || 'http://localhost:5002',
-  timeout: parseInt(process.env.AGENT_SERVICE_TIMEOUT || '60000', 10), // 60 seconds
+  timeout: 0, // No timeout
 };
 
 // Server configuration
