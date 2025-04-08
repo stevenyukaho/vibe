@@ -17,9 +17,9 @@ import {
   CodeSnippet,
   InlineNotification,
 } from '@carbon/react';
-import { ViewFilled, Renew } from '@carbon/icons-react';
+import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
 import { api, Job, JobStatus } from '@/lib/api';
-import { Agent, Test } from '../../../../backend/src/db/queries';
+import { Agent, Test } from '../../../../backend/src/types';
 import styles from './JobsManager.module.scss';
 
 interface JobsManagerProps {
@@ -36,6 +36,10 @@ export default function JobsManager({ agents, tests, onRefresh, onResultView }: 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [jobModalOpen, setJobModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rerunningJob, setRerunningJob] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [deletingJob, setDeletingJob] = useState(false);
+  const [cancelingJob, setCancelingJob] = useState(false);
 
   // Fetch jobs
   const fetchJobs = async () => {
@@ -106,6 +110,68 @@ export default function JobsManager({ agents, tests, onRefresh, onResultView }: 
     onRefresh();
   };
 
+  // Re-run a job with the same agent and test
+  const handleRerunJob = async () => {
+    if (!selectedJob) return;
+    
+    setRerunningJob(true);
+    setError(null);
+    setSuccessMessage(null);
+    
+    try {
+      const newJob = await api.createJob(selectedJob.agent_id, selectedJob.test_id);
+      setSuccessMessage(`New job #${newJob.id} created successfully and is now queued for execution`);
+      fetchJobs();
+      onRefresh();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to re-run job');
+    } finally {
+      setRerunningJob(false);
+    }
+  };
+
+  // Delete a job
+  const handleDeleteJob = async (jobId: number) => {
+    if (window.confirm('Are you sure you want to delete this job? This will permanently remove it from the system.')) {
+      setDeletingJob(true);
+      setError(null);
+      setSuccessMessage(null);
+      
+      try {
+        await api.deleteJob(jobId);
+        fetchJobs();
+        onRefresh();
+        setSuccessMessage('Job deleted successfully');
+      } catch (error) {
+        console.error('Error deleting job:', error);
+        setError(error instanceof Error ? error.message : 'Failed to delete job');
+      } finally {
+        setDeletingJob(false);
+      }
+    }
+  };
+
+  // Cancel a job
+  const handleCancelJob = async (jobId: number) => {
+    if (window.confirm('Are you sure you want to cancel this job? This will stop the job execution.')) {
+      setCancelingJob(true);
+      setError(null);
+      setSuccessMessage(null);
+      
+      try {
+        await api.cancelJob(jobId);
+        fetchJobs();
+        onRefresh();
+        setSuccessMessage('Job canceled successfully');
+      } catch (error) {
+        console.error('Error canceling job:', error);
+        setError(error instanceof Error ? error.message : 'Failed to cancel job');
+      } finally {
+        setCancelingJob(false);
+      }
+    }
+  };
+
   // Define table headers
   const headers = [
     { key: 'id', header: 'ID' },
@@ -121,6 +187,8 @@ export default function JobsManager({ agents, tests, onRefresh, onResultView }: 
     const agent = agents.find(a => a.id === job.agent_id);
     const test = tests.find(t => t.id === job.test_id);
     
+    const isPendingOrRunning = job.status === 'pending' || job.status === 'running';
+    
     return {
       id: job.id.toString(),
       agent: agent ? `${agent.name} (v${agent.version})` : `Agent ${job.agent_id}`,
@@ -132,15 +200,63 @@ export default function JobsManager({ agents, tests, onRefresh, onResultView }: 
       ),
       created_at: new Date(job.created_at).toLocaleString(),
       actions: (
-        <Button 
-          kind="ghost" 
-          size="sm" 
-          renderIcon={ViewFilled} 
-          onClick={() => handleViewJob(job.id)}
-          iconDescription="View job details"
-        >
-          View
-        </Button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <Button 
+            kind="ghost" 
+            size="sm" 
+            renderIcon={ViewFilled} 
+            onClick={() => handleViewJob(job.id)}
+            iconDescription="View job details"
+          >
+            View
+          </Button>
+          <Button 
+            kind="ghost" 
+            size="sm" 
+            renderIcon={PlayFilled} 
+            onClick={() => {
+              setRerunningJob(true);
+              api.createJob(job.agent_id, job.test_id)
+                .then(() => {
+                  fetchJobs();
+                  onRefresh();
+                })
+                .catch(err => {
+                  console.error('Error re-running job:', err);
+                  setError(err instanceof Error ? err.message : 'Failed to re-run job');
+                })
+                .finally(() => {
+                  setRerunningJob(false);
+                });
+            }}
+            iconDescription="Re-run this job"
+            disabled={rerunningJob}
+          >
+            Re-run
+          </Button>
+          {isPendingOrRunning && (
+            <Button 
+              kind="danger" 
+              size="sm" 
+              renderIcon={StopFilled} 
+              onClick={() => handleCancelJob(job.id)}
+              iconDescription="Cancel this job"
+              disabled={cancelingJob}
+            >
+              Cancel
+            </Button>
+          )}
+          <Button 
+            kind="ghost" 
+            size="sm" 
+            renderIcon={TrashCan} 
+            onClick={() => handleDeleteJob(job.id)}
+            iconDescription="Delete this job"
+            disabled={deletingJob}
+          >
+            Delete
+          </Button>
+        </div>
       ),
     };
   });
@@ -264,6 +380,72 @@ export default function JobsManager({ agents, tests, onRefresh, onResultView }: 
                 </TableBody>
               </Table>
 
+              {/* Re-run button */}
+              <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-start', gap: '1rem' }}>
+                <Button 
+                  kind="primary" 
+                  size="sm" 
+                  renderIcon={PlayFilled}
+                  onClick={handleRerunJob}
+                  disabled={rerunningJob}
+                >
+                  {rerunningJob ? <InlineLoading description="Creating job..." /> : 'Re-run Job'}
+                </Button>
+                
+                {(selectedJob.status === 'pending' || selectedJob.status === 'running') && (
+                  <Button 
+                    kind="danger" 
+                    size="sm" 
+                    renderIcon={StopFilled}
+                    onClick={() => {
+                      if (selectedJob) {
+                        handleCancelJob(selectedJob.id);
+                        setJobModalOpen(false);
+                      }
+                    }}
+                    disabled={cancelingJob}
+                  >
+                    {cancelingJob ? <InlineLoading description="Canceling..." /> : 'Cancel Job'}
+                  </Button>
+                )}
+                
+                <Button 
+                  kind="danger" 
+                  size="sm" 
+                  renderIcon={TrashCan}
+                  onClick={() => {
+                    if (selectedJob) {
+                      handleDeleteJob(selectedJob.id);
+                      setJobModalOpen(false);
+                    }
+                  }}
+                  disabled={deletingJob}
+                >
+                  {deletingJob ? <InlineLoading description="Deleting..." /> : 'Delete Job'}
+                </Button>
+              </div>
+              
+              {/* Success or error message */}
+              {successMessage && (
+                <InlineNotification
+                  kind="success"
+                  title="Success"
+                  subtitle={successMessage}
+                  hideCloseButton={true}
+                  style={{ marginTop: '1rem' }}
+                />
+              )}
+              
+              {error && (
+                <InlineNotification
+                  kind="error"
+                  title="Error"
+                  subtitle={error}
+                  hideCloseButton={true}
+                  style={{ marginTop: '1rem' }}
+                />
+              )}
+              
               {selectedJob.error && (
                 <div className={styles.errorSection}>
                   <h5>Error</h5>

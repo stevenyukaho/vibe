@@ -1,8 +1,11 @@
-import { Agent, Test, TestResult } from '../../../backend/src/db/queries';
+import { Agent, Test, TestResult } from '../../../backend/src/exports';
+
+// Re-export types for use in components
+export type { Agent, Test, TestResult };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-// Job status type
+// Job status type (frontend-specific version)
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 // Job interface
@@ -232,4 +235,38 @@ export const api = {
         
         return response.json();
     },
+    
+    async cancelJob(id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/jobs/${id}/cancel`, {
+            method: 'POST',
+        });
+        
+        if (!response.ok) {
+            let errorMessage = 'Failed to cancel job';
+            try {
+                const error = await response.json();
+                errorMessage = error.error || errorMessage;
+            } catch {
+                // Ignore JSON parsing errors
+            }
+            throw new Error(errorMessage);
+        }
+    },
+    
+    async deleteJob(id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/jobs/${id}`, {
+            method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+            let errorMessage = 'Failed to delete job';
+            try {
+                const error = await response.json();
+                errorMessage = error.error || errorMessage;
+            } catch {
+                // Ignore JSON parsing errors
+            }
+            throw new Error(errorMessage);
+        }
+    }
 };
