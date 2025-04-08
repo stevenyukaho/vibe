@@ -5,11 +5,13 @@ import {
   updateJob as dbUpdateJob,
   listJobs as dbListJobs, 
   deleteOldJobs,
+  deleteJob as dbDeleteJob,
   getAgentById,
   getTestById,
   createResult
 } from '../db/queries';
 import { agentService } from './agent-service';
+import { executeTest } from './agent-service-factory';
 
 // Job status enum
 export enum JobStatus {
@@ -222,12 +224,25 @@ export class JobQueueService {
       // Update progress
       await this.updateJob(job.id, { progress: 10 });
       
-      // Check if agent service is available
-      const isHealthy = await agentService.healthCheck();
-      if (!isHealthy) {
+      // Check if agent service is available for CrewAI agents
+      try {
+        const settings = JSON.parse(agent.settings);
+        
+        // Only check health for CrewAI agents
+        if (!settings.type || settings.type === 'crewai') {
+          const isHealthy = await agentService.healthCheck();
+          if (!isHealthy) {
+            await this.updateJob(job.id, {
+              status: JobStatus.FAILED,
+              error: 'Agent service is not available'
+            });
+            return;
+          }
+        }
+      } catch (error: any) {
         await this.updateJob(job.id, {
           status: JobStatus.FAILED,
-          error: 'Agent service is not available'
+          error: `Invalid agent settings: ${error.message}`
         });
         return;
       }
@@ -235,8 +250,8 @@ export class JobQueueService {
       // Update progress
       await this.updateJob(job.id, { progress: 20 });
       
-      // Execute test
-      const result = await agentService.executeTest(agent, test);
+      // Execute test using the factory
+      const result = await executeTest(agent, test);
       
       // Update progress
       await this.updateJob(job.id, { progress: 90 });
@@ -301,6 +316,31 @@ export class JobQueueService {
     } catch (error) {
       console.error('Error cleaning up old jobs:', error);
     }
+  }
+
+  /**
+   * Delete a job completely
+   * @param id Job ID
+   * @returns True if job was deleted, false if not found
+   */
+  async deleteJob(id: string): Promise<boolean> {
+    // Remove from in-memory queue
+    const job = await this.getJob(id);
+    if (!job) {
+      return false;
+    }
+    
+    // Delete from database
+    const deleted = await dbDeleteJob(id);
+    
+    if (deleted) {
+      // Remove from in-memory maps
+      this.jobs.delete(id);
+      this.runningJobs.delete(id);
+      return true;
+    }
+    
+    return false;
   }
 }
 
