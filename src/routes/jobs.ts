@@ -110,7 +110,7 @@ router.post('/', (async (req: Request, res: Response) => {
 }) as any);
 
 // Cancel a job
-router.delete('/:id', (async (req: Request, res: Response) => {
+router.post('/:id/cancel', (async (req: Request, res: Response) => {
   try {
     const job = await jobQueue.getJob(req.params.id);
     
@@ -137,6 +137,25 @@ router.delete('/:id', (async (req: Request, res: Response) => {
     console.error(`Error canceling job ${req.params.id}:`, error);
     res.status(500).json({ 
       error: 'Failed to cancel job', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+}) as any);
+
+// Delete a job completely
+router.delete('/:id', (async (req: Request, res: Response) => {
+  try {
+    const deleted = await jobQueue.deleteJob(req.params.id);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    res.status(200).json({ message: 'Job deleted successfully' });
+  } catch (error) {
+    console.error(`Error deleting job ${req.params.id}:`, error);
+    res.status(500).json({ 
+      error: 'Failed to delete job', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
   }
