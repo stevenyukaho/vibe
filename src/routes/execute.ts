@@ -33,10 +33,21 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
       return res.status(404).json({ error: 'Test not found' });
     }
 
-    // Check if agent service is available
-    const isHealthy = await agentService.healthCheck();
-    if (!isHealthy) {
-      return res.status(503).json({ error: 'Agent service is not available' });
+    // Check if CrewAI agent service is available if using CrewAI
+    try {
+      // Parse settings to determine agent type
+      const settings = JSON.parse(agent.settings);
+      
+      // Only check health for CrewAI agents
+      if (!settings.type || settings.type === 'crewai') {
+        const isHealthy = await agentService.healthCheck();
+        if (!isHealthy) {
+          return res.status(503).json({ error: 'Agent service is not available' });
+        }
+      }
+    } catch (error: any) {
+      console.error('Error parsing agent settings:', error);
+      return res.status(400).json({ error: 'Invalid agent settings' });
     }
 
     // Create a job to execute the test instead of executing directly
@@ -47,7 +58,7 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
       job_id: jobId,
       message: 'Test execution job created and queued for execution'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error executing test:', error);
     res.status(500).json({ error: 'Failed to execute test', details: error instanceof Error ? error.message : 'Unknown error' });
   }
