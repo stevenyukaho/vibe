@@ -380,3 +380,16 @@ export async function deleteOldJobs(olderThan: Date): Promise<number> {
   const result = statement.run(olderThan.toISOString());
   return result.changes;
 }
+
+/**
+ * Delete a job by ID
+ */
+export async function deleteJob(id: string): Promise<boolean> {
+  const statement = db.prepare(`
+    DELETE FROM jobs
+    WHERE id = ?
+  `);
+  
+  const result = statement.run(id);
+  return result.changes > 0;
+}
