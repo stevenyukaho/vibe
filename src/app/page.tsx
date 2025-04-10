@@ -17,7 +17,6 @@ import {
 	Stack,
 	InlineLoading,
 	Tag,
-	Tile,
 	CodeSnippet,
 	RadioButtonGroup,
 	RadioButton,
@@ -30,6 +29,7 @@ import { Agent, Test, TestResult } from '@/lib/api';
 import TestExecutor from './components/TestExecutor';
 import JobsManager from './components/JobsManager';
 import AppSideNav from './components/SideNav';
+import EmptyState from './components/EmptyState';
 
 interface AgentSettings {
 	type?: 'crew_ai' | 'external_api';
@@ -759,31 +759,6 @@ export default function Home() {
 				</Table>
 			)}
 		</DataTable>
-	);
-
-	const EmptyState = ({
-		title,
-		description,
-		icon: Icon,
-		onAddClick
-	}: {
-		title: string;
-		description: string;
-		icon: React.ComponentType<{ size: number; className?: string }>;
-		onAddClick: () => void;
-	}) => (
-		<Tile className={styles.emptyState}>
-			<Icon size={32} className={styles.emptyStateIcon} />
-			<h3>{title}</h3>
-			<p>{description}</p>
-			<Button
-				renderIcon={Add}
-				size="lg"
-				onClick={onAddClick}
-			>
-				Add {title.split(' ')[0]}
-			</Button>
-		</Tile>
 	);
 
 	// Handle navigation change
