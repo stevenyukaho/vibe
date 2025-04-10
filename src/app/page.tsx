@@ -1238,7 +1238,7 @@ export default function Home() {
 				)}
 			</Modal>
 
-			{/* Delete Modal */}
+			{/* Delete confirmation modal */}
 			<Modal
 				open={isDeleteModalOpen}
 				modalHeading={`Delete ${deleteType === 'agent' ? 'Agent' : 'Test'}`}
@@ -1253,6 +1253,7 @@ export default function Home() {
 				}}
 				onRequestSubmit={handleConfirmDelete}
 				primaryButtonDisabled={isDeleting}
+				danger
 			>
 				{error && (
 					<div style={{ 
