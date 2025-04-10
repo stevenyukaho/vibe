@@ -2,34 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import {
-	DataTable,
-	Table,
-	TableHead,
-	TableRow,
-	TableHeader,
-	TableBody,
-	TableCell,
 	Button,
 	Modal,
 	TextInput,
 	TextArea,
 	Form,
 	Stack,
-	InlineLoading,
-	Tag,
 	CodeSnippet,
+	Tag,
 	RadioButtonGroup,
 	RadioButton,
 	InlineNotification,
 } from '@carbon/react';
-import { Add, DataTable as DataTableIcon, TestTool, Report, Edit, TrashCan, Launch } from '@carbon/icons-react';
+import { Launch } from '@carbon/icons-react';
 import { api } from '@/lib/api';
 import styles from './page.module.scss';
 import { Agent, Test, TestResult } from '@/lib/api';
 import TestExecutor from './components/TestExecutor';
 import JobsManager from './components/JobsManager';
 import AppSideNav from './components/SideNav';
-import EmptyState from './components/EmptyState';
+import Tests from './components/Tests';
+import Agents from './components/Agents';
+import Results from './components/Results';
 
 interface AgentSettings {
 	type?: 'crew_ai' | 'external_api';
@@ -447,53 +441,6 @@ export default function Home() {
 		}
 	};
 
-	// Table configurations
-	const agentRows = agents.map((agent) => ({
-		id: agent.id?.toString() || `agent-${Date.now()}`,
-		name: agent.name,
-		version: agent.version,
-		created_at: new Date(agent.created_at!).toLocaleString(),
-	}));
-
-	const testRows = tests.map((test) => ({
-		id: test.id?.toString() || `test-${Date.now()}`,
-		name: test.name,
-		description: test.description || '',
-		created_at: new Date(test.created_at!).toLocaleString(),
-	}));
-
-	const resultRows = results.map((result) => ({
-		id: result.id?.toString() || `result-${Date.now()}`,
-		agent_name: agents.find(a => a.id === result.agent_id)?.name || 'Unknown',
-		test_name: tests.find(t => t.id === result.test_id)?.name || 'Unknown',
-		success: result.success,
-		execution_time: result.execution_time ? result.execution_time.toFixed(3) : '0.000',
-		created_at: new Date(result.created_at!).toLocaleString(),
-	}));
-
-	const agentHeaders = [
-		{ key: 'name', header: 'Name' },
-		{ key: 'version', header: 'Version' },
-		{ key: 'created_at', header: 'Created At' },
-		{ key: 'actions', header: 'Actions' },
-	];
-
-	const testHeaders = [
-		{ key: 'name', header: 'Name' },
-		{ key: 'description', header: 'Description' },
-		{ key: 'created_at', header: 'Created At' },
-		{ key: 'actions', header: 'Actions' },
-	];
-
-	const resultHeaders = [
-		{ key: 'agent_name', header: 'Agent' },
-		{ key: 'test_name', header: 'Test' },
-		{ key: 'success', header: 'Success' },
-		{ key: 'execution_time', header: 'Time (s)' },
-		{ key: 'created_at', header: 'Created At' },
-		{ key: 'actions', header: 'Actions' },
-	];
-
 	const handleAddClick = (type: 'agent' | 'test') => {
 		setModalType(type);
 		setFormData({});
@@ -616,236 +563,41 @@ export default function Home() {
 		}
 	};
 
-	interface TableCell {
-		id: string;
-		info: {
-			header: string;
-		};
-		value: string | number | boolean;
-	}
-
-	const renderTable = (
-		headers: Array<{ key: string; header: string }>,
-		rows: Array<{ id: string;[key: string]: string | number | boolean }>,
-		type: 'agent' | 'test' | 'result'
-	) => (
-		<DataTable rows={rows} headers={headers}>
-			{({ rows, headers, getHeaderProps, getTableProps, getRowProps }) => (
-				<Table {...getTableProps()}>
-					<TableHead>
-						<TableRow>
-							{headers.map((header, index) => (
-								<TableHeader {...getHeaderProps({ header })} key={`${header.key}-${index}`}>
-									{header.header}
-								</TableHeader>
-							))}
-						</TableRow>
-					</TableHead>
-					<TableBody>
-						{rows.map((row, rowIndex) => (
-							<TableRow {...getRowProps({ row })} key={`${row.id}-${rowIndex}`}>
-								{row.cells.map((cell: TableCell, cellIndex) => {
-									if (cell.info.header === 'success') {
-										return (
-											<TableCell key={`${cell.id}-${cellIndex}`}>
-												<Tag type={cell.value ? 'green' : 'red'}>
-													{cell.value ? 'Success' : 'Failed'}
-												</Tag>
-											</TableCell>
-										);
-									}
-									if (cell.info.header === 'actions' && type === 'agent') {
-										return (
-											<TableCell key={`${cell.id}-${cellIndex}`}>
-												<div style={{ display: 'flex', gap: '0.5rem' }}>
-													<Button
-														kind="ghost"
-														size="sm"
-														renderIcon={Edit}
-														iconDescription="Edit agent"
-														hasIconOnly
-														onClick={() => {
-															const rowId = row.id;
-															const numericId = parseInt(rowId);
-															if (!isNaN(numericId)) {
-																handleEditAgent(numericId);
-															}
-														}}
-													/>
-													<Button
-														kind="danger--ghost"
-														size="sm"
-														renderIcon={TrashCan}
-														iconDescription="Delete agent"
-														hasIconOnly
-														onClick={() => {
-															const rowId = row.id;
-															const numericId = parseInt(rowId);
-															if (!isNaN(numericId)) {
-																handleDeleteAgent(numericId);
-															}
-														}}
-													/>
-												</div>
-											</TableCell>
-										);
-									}
-									if (cell.info.header === 'actions' && type === 'test') {
-										return (
-											<TableCell key={`${cell.id}-${cellIndex}`}>
-												<div style={{ display: 'flex', gap: '0.5rem' }}>
-													<Button
-														kind="ghost"
-														size="sm"
-														renderIcon={Edit}
-														iconDescription="Edit test"
-														hasIconOnly
-														onClick={() => {
-															// Extract the numeric ID from the row ID
-															const rowId = row.id;
-															const numericId = parseInt(rowId);
-															if (!isNaN(numericId)) {
-																handleEditTest(numericId);
-															}
-														}}
-													/>
-													<Button
-														kind="danger--ghost"
-														size="sm"
-														renderIcon={TrashCan}
-														iconDescription="Delete test"
-														hasIconOnly
-														onClick={() => {
-															// Extract the numeric ID from the row ID
-															const rowId = row.id;
-															const numericId = parseInt(rowId);
-															if (!isNaN(numericId)) {
-																handleDeleteTest(numericId);
-															}
-														}}
-													/>
-												</div>
-											</TableCell>
-										);
-									}
-									if (cell.info.header === 'actions' && type === 'result') {
-										return (
-											<TableCell key={`${cell.id}-${cellIndex}`}>
-												<Button
-													kind="ghost"
-													size="sm"
-													renderIcon={DataTableIcon}
-													iconDescription="View details"
-													hasIconOnly
-													onClick={() => {
-														// Extract the numeric ID from the row ID
-														const rowId = row.id;
-														const numericId = parseInt(rowId);
-														if (!isNaN(numericId)) {
-															handleViewResult(numericId);
-														}
-													}}
-												/>
-											</TableCell>
-										);
-									}
-									return (
-										<TableCell key={`${cell.id}-${cellIndex}`}>{cell.value}</TableCell>
-									);
-								})}
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			)}
-		</DataTable>
-	);
-
-	// Handle navigation change
-	const handleNavChange = (navItem: string) => {
-		setActiveNav(navItem);
-	};
-
 	return (
 		<main className={styles.main}>
-			<AppSideNav activeItem={activeNav} onNavChange={handleNavChange} />
+			<AppSideNav activeItem={activeNav} onNavChange={setActiveNav} />
 			
 			<div className={styles.contentContainer}>
 				<div className={styles.content}>
 					{activeNav === 'tests' && (
-						<>
-							<div className={styles.panelHeader}>
-								<h2>Tests</h2>
-								{testRows.length > 0 && (
-									<Button
-										renderIcon={Add}
-										onClick={() => handleAddClick('test')}
-									>
-										Add Test
-									</Button>
-								)}
-							</div>
-							{isLoading ? (
-								<InlineLoading description="Loading data..." />
-							) : testRows.length > 0 ? (
-								renderTable(testHeaders, testRows, 'test')
-							) : (
-								<EmptyState
-									title="Test Cases"
-									description="Add your first test case with input data and expected outputs."
-									icon={TestTool as React.ComponentType<{ size: number; className?: string }>}
-									onAddClick={() => handleAddClick('test')}
-								/>
-							)}
-						</>
+						<Tests
+							isLoading={isLoading}
+							tests={tests}
+							onAddClick={() => handleAddClick('test')}
+							onEditTest={handleEditTest}
+							onDeleteTest={handleDeleteTest}
+						/>
 					)}
 
 					{activeNav === 'agents' && (
-						<>
-							<div className={styles.panelHeader}>
-								<h2>Agents</h2>
-								{agentRows.length > 0 && (
-									<Button
-										renderIcon={Add}
-										onClick={() => handleAddClick('agent')}
-									>
-										Add Agent
-									</Button>
-								)}
-							</div>
-							{isLoading ? (
-								<InlineLoading description="Loading data..." />
-							) : agentRows.length > 0 ? (
-								renderTable(agentHeaders, agentRows, 'agent')
-							) : (
-								<EmptyState
-									title="Agent Configurations"
-									description="Create your first AI agent configuration with custom prompts and settings."
-									icon={DataTableIcon as React.ComponentType<{ size: number; className?: string }>}
-									onAddClick={() => handleAddClick('agent')}
-								/>
-							)}
-						</>
+						<Agents
+							isLoading={isLoading}
+							agents={agents}
+							onAddClick={() => handleAddClick('agent')}
+							onEditAgent={handleEditAgent}
+							onDeleteAgent={handleDeleteAgent}
+						/>
 					)}
 
 					{activeNav === 'results' && (
-						<>
-							<div className={styles.panelHeader}>
-								<h2>Results</h2>
-							</div>
-							{isLoading ? (
-								<InlineLoading description="Loading data..." />
-							) : resultRows.length > 0 ? (
-								renderTable(resultHeaders, resultRows, 'result')
-							) : (
-								<EmptyState
-									title="Test Results"
-									description="Run tests against your agents to see results here."
-									icon={Report as React.ComponentType<{ size: number; className?: string }>}
-									onAddClick={() => handleAddClick('test')}
-								/>
-							)}
-						</>
+						<Results
+							isLoading={isLoading}
+							results={results}
+							agents={agents}
+							tests={tests}
+							onViewResult={handleViewResult}
+							onAddTestClick={() => handleAddClick('test')}
+						/>
 					)}
 
 					{activeNav === 'jobs' && (
