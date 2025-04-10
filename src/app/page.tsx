@@ -2,11 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-	Tabs,
-	TabList,
-	Tab,
-	TabPanels,
-	TabPanel,
 	DataTable,
 	Table,
 	TableHead,
@@ -34,6 +29,7 @@ import styles from './page.module.scss';
 import { Agent, Test, TestResult } from '@/lib/api';
 import TestExecutor from './components/TestExecutor';
 import JobsManager from './components/JobsManager';
+import AppSideNav from './components/SideNav';
 
 interface AgentSettings {
 	type?: 'crew_ai' | 'external_api';
@@ -59,6 +55,7 @@ export default function Home() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [editingId, setEditingId] = useState<number | null>(null);
+	const [activeNav, setActiveNav] = useState<string>('tests');
 
 	// Data states
 	const [agents, setAgents] = useState<Agent[]>([]);
@@ -789,112 +786,111 @@ export default function Home() {
 		</Tile>
 	);
 
+	// Handle navigation change
+	const handleNavChange = (navItem: string) => {
+		setActiveNav(navItem);
+	};
+
 	return (
 		<main className={styles.main}>
-			<div className={styles.description}>
-				<h1>AI Agent Testing Suite</h1>
-			</div>
-
-			<Tabs>
-				<TabList aria-label="AI Agent Testing Suite Tabs">
-					<Tab>Tests</Tab>
-					<Tab>Agents</Tab>
-					<Tab>Results</Tab>
-					<Tab>Jobs</Tab>
-					<Tab>Run Test</Tab>
-				</TabList>
-
-				<TabPanels>
-					<TabPanel>
-						<div className={styles.panelHeader}>
-							<h2>Tests</h2>
-							{testRows.length > 0 && (
-								<Button
-									renderIcon={Add}
-									onClick={() => handleAddClick('test')}
-								>
-									Add Test
-								</Button>
+			<AppSideNav activeItem={activeNav} onNavChange={handleNavChange} />
+			
+			<div className={styles.contentContainer}>
+				<div className={styles.content}>
+					{activeNav === 'tests' && (
+						<>
+							<div className={styles.panelHeader}>
+								<h2>Tests</h2>
+								{testRows.length > 0 && (
+									<Button
+										renderIcon={Add}
+										onClick={() => handleAddClick('test')}
+									>
+										Add Test
+									</Button>
+								)}
+							</div>
+							{isLoading ? (
+								<InlineLoading description="Loading data..." />
+							) : testRows.length > 0 ? (
+								renderTable(testHeaders, testRows, 'test')
+							) : (
+								<EmptyState
+									title="Test Cases"
+									description="Add your first test case with input data and expected outputs."
+									icon={TestTool as React.ComponentType<{ size: number; className?: string }>}
+									onAddClick={() => handleAddClick('test')}
+								/>
 							)}
-						</div>
-						{isLoading ? (
-							<InlineLoading description="Loading data..." />
-						) : testRows.length > 0 ? (
-							renderTable(testHeaders, testRows, 'test')
-						) : (
-							<EmptyState
-								title="Test Cases"
-								description="Add your first test case with input data and expected outputs."
-								icon={TestTool as React.ComponentType<{ size: number; className?: string }>}
-								onAddClick={() => handleAddClick('test')}
-							/>
-						)}
-					</TabPanel>
+						</>
+					)}
 
-					<TabPanel>
-						<div className={styles.panelHeader}>
-							<h2>Agents</h2>
-							{agentRows.length > 0 && (
-								<Button
-									renderIcon={Add}
-									onClick={() => handleAddClick('agent')}
-								>
-									Add Agent
-								</Button>
+					{activeNav === 'agents' && (
+						<>
+							<div className={styles.panelHeader}>
+								<h2>Agents</h2>
+								{agentRows.length > 0 && (
+									<Button
+										renderIcon={Add}
+										onClick={() => handleAddClick('agent')}
+									>
+										Add Agent
+									</Button>
+								)}
+							</div>
+							{isLoading ? (
+								<InlineLoading description="Loading data..." />
+							) : agentRows.length > 0 ? (
+								renderTable(agentHeaders, agentRows, 'agent')
+							) : (
+								<EmptyState
+									title="Agent Configurations"
+									description="Create your first AI agent configuration with custom prompts and settings."
+									icon={DataTableIcon as React.ComponentType<{ size: number; className?: string }>}
+									onAddClick={() => handleAddClick('agent')}
+								/>
 							)}
-						</div>
-						{isLoading ? (
-							<InlineLoading description="Loading data..." />
-						) : agentRows.length > 0 ? (
-							renderTable(agentHeaders, agentRows, 'agent')
-						) : (
-							<EmptyState
-								title="Agent Configurations"
-								description="Create your first AI agent configuration with custom prompts and settings."
-								icon={DataTableIcon as React.ComponentType<{ size: number; className?: string }>}
-								onAddClick={() => handleAddClick('agent')}
-							/>
-						)}
-					</TabPanel>
+						</>
+					)}
 
-					<TabPanel>
-						<div className={styles.panelHeader}>
-							<h2>Results</h2>
-						</div>
-						{isLoading ? (
-							<InlineLoading description="Loading data..." />
-						) : resultRows.length > 0 ? (
-							renderTable(resultHeaders, resultRows, 'result')
-						) : (
-							<EmptyState
-								title="Test Results"
-								description="Run tests against your agents to see results here."
-								icon={Report as React.ComponentType<{ size: number; className?: string }>}
-								onAddClick={() => handleAddClick('test')}
-							/>
-						)}
-					</TabPanel>
+					{activeNav === 'results' && (
+						<>
+							<div className={styles.panelHeader}>
+								<h2>Results</h2>
+							</div>
+							{isLoading ? (
+								<InlineLoading description="Loading data..." />
+							) : resultRows.length > 0 ? (
+								renderTable(resultHeaders, resultRows, 'result')
+							) : (
+								<EmptyState
+									title="Test Results"
+									description="Run tests against your agents to see results here."
+									icon={Report as React.ComponentType<{ size: number; className?: string }>}
+									onAddClick={() => handleAddClick('test')}
+								/>
+							)}
+						</>
+					)}
 
-					{/* Jobs Tab */}
-					<TabPanel>
+					{activeNav === 'jobs' && (
 						<JobsManager 
 							agents={agents} 
 							tests={tests} 
 							onRefresh={fetchData} 
 							onResultView={handleViewResult} 
 						/>
-					</TabPanel>
+					)}
 
-					{/* Run Test Tab */}
-					<TabPanel>
+					{activeNav === 'run' && (
 						<TestExecutor 
 							agents={agents} 
 							tests={tests} 
 							onJobCreated={fetchData} 
 						/>
-					</TabPanel>
-				</TabPanels>
-			</Tabs>
+					)}
+				</div>
+			</div>
 
 			{/* Add/Edit Modal */}
 			<Modal

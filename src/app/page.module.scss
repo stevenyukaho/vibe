@@ -1,7 +1,17 @@
 .main {
+    max-width: 100%;
+    margin: 0;
+    display: flex;
+}
+
+.contentContainer {
+    flex: 1;
     padding: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
+    margin-left: 16rem; // Match sidenav width
+}
+
+.content {
+    width: 100%;
 }
 
 .panelHeader {
