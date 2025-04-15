@@ -42,7 +42,7 @@ interface AgentSettings {
 }
 
 export default function Home() {
-	const { agents, tests, results, fetchAllData } = useAppData();
+	const { fetchAllData, getAgentById, getTestById, getResultById } = useAppData();
 	const { createAgent, updateAgent, deleteAgent } = useAgents();
 	const { createTest, updateTest, deleteTest } = useTests();
 	
@@ -86,7 +86,7 @@ export default function Home() {
 	};
 
 	const handleEditAgent = (agentId: number) => {
-		const agent = agents.find(a => a.id === agentId);
+		const agent = getAgentById(agentId);
 		if (!agent) return;
 
 		setModalType('agent');
@@ -131,7 +131,7 @@ export default function Home() {
 	};
 
 	const handleEditTest = (testId: number) => {
-		const test = tests.find(t => t.id === testId);
+		const test = getTestById(testId);
 		if (!test) return;
 
 		setModalType('test');
@@ -148,7 +148,7 @@ export default function Home() {
 	};
 
 	const handleViewResult = (resultId: number) => {
-		const result = results.find(r => r.id === resultId);
+		const result = getResultById(resultId);
 		if (result && result.id !== undefined) {
 			setEditingId(result.id);
 			setModalType('result');
@@ -157,7 +157,7 @@ export default function Home() {
 	};
 
 	const handleDeleteAgent = async (agentId: number) => {
-		const agent = agents.find(a => a.id === agentId);
+		const agent = getAgentById(agentId);
 		if (!agent) return;
 		
 		setDeleteType('agent');
@@ -167,7 +167,7 @@ export default function Home() {
 	};
 
 	const handleDeleteTest = async (testId: number) => {
-		const test = tests.find(t => t.id === testId);
+		const test = getTestById(testId);
 		if (!test) return;
 		
 		setDeleteType('test');
@@ -872,7 +872,7 @@ export default function Home() {
 							</div>
 						)}
 						{(() => {
-							const result = results.find(r => r.id === editingId);
+							const result = getResultById(editingId);
 							if (!result) return <p>Result not found</p>;
 							
 							return (

@@ -36,6 +36,11 @@ interface AppDataContextState {
     createTest: (test: Omit<Test, 'id' | 'created_at' | 'updated_at'>) => Promise<Test>;
     updateTest: (id: number, test: Partial<Test>) => Promise<Test>;
     deleteTest: (id: number) => Promise<void>;
+
+    // Utility methods
+    getAgentById: (id: number) => Agent | undefined;
+    getTestById: (id: number) => Test | undefined;
+    getResultById: (id: number) => TestResult | undefined;
 }
 
 // Create the context with initial undefined value
@@ -254,6 +259,11 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         fetchAllData();
     }, [fetchAllData]);
 
+    // Utility methods
+    const getAgentById = (id: number) => agents.find(agent => agent.id === id);
+    const getTestById = (id: number) => tests.find(test => test.id === id);
+    const getResultById = (id: number) => results.find(result => result.id === id);
+
     const contextValue: AppDataContextState = {
         // Data
         agents,
@@ -277,7 +287,12 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         // Test actions
         createTest,
         updateTest,
-        deleteTest
+        deleteTest,
+
+        // Utility methods
+        getAgentById,
+        getTestById,
+        getResultById
     };
 
     return (
