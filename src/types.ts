@@ -61,3 +61,43 @@ export interface JobFilters {
   before?: Date;
   after?: Date;
 }
+
+// Test Suite interfaces
+export interface TestSuite {
+  id?: number;
+  name: string;
+  description?: string;
+  tags?: string; // Comma-separated tags for categorization
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TestSuiteTest {
+  id?: number;
+  suite_id: number;
+  test_id: number;
+  sequence?: number; // Ordering within suite
+}
+
+export interface SuiteRun {
+  id?: number;
+  suite_id: number;
+  agent_id: number;
+  status: JobStatus;
+  progress?: number;  // 0-100 percentage
+  total_tests: number;
+  completed_tests: number;
+  successful_tests: number;
+  failed_tests: number;
+  average_execution_time?: number;  // Time in milliseconds
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface SuiteRunFilters {
+  status?: JobStatus;
+  suite_id?: number;
+  agent_id?: number;
+  before?: Date;
+  after?: Date;
+}
