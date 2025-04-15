@@ -9,7 +9,7 @@ import {
 	Tag,
 	Button,
 } from '@carbon/react';
-import { Edit, TrashCan, DataTable as DataTableIcon } from '@carbon/icons-react';
+import { Edit, TrashCan, ViewFilled } from '@carbon/icons-react';
 
 interface TableCell {
 	id: string;
@@ -140,7 +140,7 @@ export default function TableRenderer({
 												<Button
 													kind="ghost"
 													size="sm"
-													renderIcon={DataTableIcon}
+													renderIcon={ViewFilled}
 													iconDescription="View details"
 													hasIconOnly
 													onClick={() => {
