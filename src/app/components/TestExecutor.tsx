@@ -11,15 +11,19 @@ import {
 } from '@carbon/react';
 import { PlayFilled } from '@carbon/icons-react';
 import { api } from '@/lib/api';
-import { Agent, Test } from '../../../../backend/src/db/queries';
+import { useAgents, useTests } from '@/lib/AppDataContext';
 
 interface TestExecutorProps {
-  agents: Agent[];
-  tests: Test[];
   onJobCreated: () => void;
 }
 
-export default function TestExecutor({ agents, tests, onJobCreated }: TestExecutorProps) {
+export default function TestExecutor({ 
+  onJobCreated 
+}: TestExecutorProps) {
+  // Get data from context
+  const { agents } = useAgents();
+  const { tests } = useTests();
+
   const [selectedAgentId, setSelectedAgentId] = useState<number | undefined>();
   const [selectedTestId, setSelectedTestId] = useState<number | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);

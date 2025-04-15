@@ -1,27 +1,24 @@
 import { InlineLoading } from '@carbon/react';
 import { Report } from '@carbon/icons-react';
-import { Agent, Test, TestResult } from '@/lib/api';
 import styles from '../page.module.scss';
 import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
+import { useResults, useAgents, useTests } from '@/lib/AppDataContext';
 
 interface ResultsProps {
-  isLoading: boolean;
-  results: TestResult[];
-  agents: Agent[];
-  tests: Test[];
   onViewResult: (id: number) => void;
   onAddTestClick: () => void;
 }
 
 export default function Results({
-  isLoading,
-  results,
-  agents,
-  tests,
   onViewResult,
   onAddTestClick
 }: ResultsProps) {
+  // Get data from context
+  const { results, isLoading } = useResults();
+  const { agents } = useAgents();
+  const { tests } = useTests();
+
   const resultRows = results.map((result) => ({
     id: result.id?.toString() || `result-${Date.now()}`,
     agent_name: agents.find(a => a.id === result.agent_id)?.name || 'Unknown',

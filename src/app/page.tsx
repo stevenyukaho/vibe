@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
 	Button,
 	Modal,
@@ -15,9 +15,8 @@ import {
 	InlineNotification,
 } from '@carbon/react';
 import { Launch } from '@carbon/icons-react';
-import { api } from '@/lib/api';
 import styles from './page.module.scss';
-import { Agent, Test, TestResult } from '@/lib/api';
+import { useAppData, useAgents, useTests } from '@/lib/AppDataContext';
 import TestExecutor from './components/TestExecutor';
 import JobsManager from './components/JobsManager';
 import AppSideNav from './components/SideNav';
@@ -43,18 +42,18 @@ interface AgentSettings {
 }
 
 export default function Home() {
+	const { agents, tests, results, fetchAllData } = useAppData();
+	const { createAgent, updateAgent, deleteAgent } = useAgents();
+	const { createTest, updateTest, deleteTest } = useTests();
+	
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [modalType, setModalType] = useState<'agent' | 'test' | 'result' | null>(null);
-	const [isLoading, setIsLoading] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [activeNav, setActiveNav] = useState<string>('tests');
 
-	// Data states
-	const [agents, setAgents] = useState<Agent[]>([]);
-	const [tests, setTests] = useState<Test[]>([]);
-	const [results, setResults] = useState<TestResult[]>([]);
+	// Form state
 	const [formData, setFormData] = useState<Record<string, string>>({});
 
 	// Delete states
@@ -71,34 +70,133 @@ export default function Home() {
 		message?: string;
 	} | null>(null);
 
-	// Fetch data
-	const fetchData = async () => {
-		setIsLoading(true);
-		try {
-			const [agentsData, testsData, resultsData] = await Promise.all([
-				api.getAgents(),
-				api.getTests(),
-				api.getResults(),
-			]);
-			setAgents(agentsData);
-			setTests(testsData);
-			setResults(resultsData);
-		} catch (error) {
-			console.error('Error fetching data:', error);
-		}
-		setIsLoading(false);
-	};
-
-	useEffect(() => {
-		fetchData();
-	}, []);
-
 	// Form handling
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 		setFormData({
 			...formData,
 			[e.target.id]: e.target.value,
 		});
+	};
+
+	const handleAddClick = (type: 'agent' | 'test') => {
+		setModalType(type);
+		setFormData({});
+		setEditingId(null);
+		setIsModalOpen(true);
+	};
+
+	const handleEditAgent = (agentId: number) => {
+		const agent = agents.find(a => a.id === agentId);
+		if (!agent) return;
+
+		setModalType('agent');
+		setEditingId(agentId);
+
+		// Parse settings to extract individual fields
+		let settings: AgentSettings = {};
+		try {
+			settings = JSON.parse(agent.settings);
+		} catch (e) {
+			console.error('Error parsing agent settings:', e);
+		}
+
+		const formEntries: Record<string, string> = {
+			'agent-name': agent.name || '',
+			'agent-version': agent.version || '',
+			'agent-prompt': agent.prompt || '',
+			'agent-settings': agent.settings || '',
+			'agent-type': settings.type || 'crew_ai',
+		};
+
+		// Add CrewAI specific settings
+		if (settings.type !== 'external_api') {
+			formEntries['agent-role'] = settings.role || '';
+			formEntries['agent-goal'] = settings.goal || '';
+			formEntries['agent-backstory'] = settings.backstory || '';
+			formEntries['agent-model'] = settings.model || '';
+			formEntries['agent-temperature'] = settings.temperature?.toString() || '';
+			formEntries['agent-max-tokens'] = settings.max_tokens?.toString() || '';
+			formEntries['agent-ollama-url'] = settings.base_url || '';
+		} else {
+			// External API settings
+			formEntries['agent-api-endpoint'] = settings.api_endpoint || '';
+			formEntries['agent-api-key'] = settings.api_key || '';
+			formEntries['agent-request-template'] = settings.request_template || '';
+			formEntries['agent-response-mapping'] = settings.response_mapping || '';
+			formEntries['agent-headers'] = settings.headers ? JSON.stringify(settings.headers, null, 2) : '';
+		}
+
+		setFormData(formEntries);
+		setIsModalOpen(true);
+	};
+
+	const handleEditTest = (testId: number) => {
+		const test = tests.find(t => t.id === testId);
+		if (!test) return;
+
+		setModalType('test');
+		setEditingId(testId);
+
+		setFormData({
+			'test-name': test.name || '',
+			'test-description': test.description || '',
+			'test-input': test.input || '',
+			'test-expected-output': test.expected_output || '',
+		});
+
+		setIsModalOpen(true);
+	};
+
+	const handleViewResult = (resultId: number) => {
+		const result = results.find(r => r.id === resultId);
+		if (result && result.id !== undefined) {
+			setEditingId(result.id);
+			setModalType('result');
+			setIsModalOpen(true);
+		}
+	};
+
+	const handleDeleteAgent = async (agentId: number) => {
+		const agent = agents.find(a => a.id === agentId);
+		if (!agent) return;
+		
+		setDeleteType('agent');
+		setDeleteId(agentId);
+		setDeleteName(agent.name);
+		setIsDeleteModalOpen(true);
+	};
+
+	const handleDeleteTest = async (testId: number) => {
+		const test = tests.find(t => t.id === testId);
+		if (!test) return;
+		
+		setDeleteType('test');
+		setDeleteId(testId);
+		setDeleteName(test.name);
+		setIsDeleteModalOpen(true);
+	};
+
+	const handleConfirmDelete = async () => {
+		if (!deleteId || !deleteType) return;
+		
+		setIsDeleting(true);
+		try {
+			if (deleteType === 'agent') {
+				await deleteAgent(deleteId);
+			} else if (deleteType === 'test') {
+				await deleteTest(deleteId);
+			}
+			
+			setIsDeleteModalOpen(false);
+			setDeleteType(null);
+			setDeleteId(null);
+			setDeleteName('');
+		} catch (error) {
+			console.error(`Error deleting ${deleteType}:`, error);
+			setError(error instanceof Error ? error.message : `Failed to delete ${deleteType}`);
+		} finally {
+			setIsDeleting(false);
+		}
 	};
 
 	const handleSubmit = async () => {
@@ -313,10 +411,10 @@ export default function Home() {
 
 				if (editingId) {
 					// Update existing agent
-					await api.updateAgent(editingId, agentData);
+					await updateAgent(editingId, agentData);
 				} else {
 					// Create new agent
-					await api.createAgent(agentData);
+					await createAgent(agentData);
 				}
 			} else if (modalType === 'test') {
 				const testData = {
@@ -328,13 +426,12 @@ export default function Home() {
 
 				if (editingId) {
 					// Update existing test
-					await api.updateTest(editingId, testData);
+					await updateTest(editingId, testData);
 				} else {
 					// Create new test
-					await api.createTest(testData);
+					await createTest(testData);
 				}
 			}
-			await fetchData();
 			setIsModalOpen(false);
 			setFormData({});
 			setEditingId(null);
@@ -441,128 +538,6 @@ export default function Home() {
 		}
 	};
 
-	const handleAddClick = (type: 'agent' | 'test') => {
-		setModalType(type);
-		setFormData({});
-		setEditingId(null);
-		setIsModalOpen(true);
-	};
-
-	const handleEditAgent = (agentId: number) => {
-		const agent = agents.find(a => a.id === agentId);
-		if (!agent) return;
-
-		setModalType('agent');
-		setEditingId(agentId);
-
-		// Parse settings to extract individual fields
-		let settings: AgentSettings = {};
-		try {
-			settings = JSON.parse(agent.settings);
-		} catch (e) {
-			console.error('Error parsing agent settings:', e);
-		}
-
-		const formEntries: Record<string, string> = {
-			'agent-name': agent.name || '',
-			'agent-version': agent.version || '',
-			'agent-prompt': agent.prompt || '',
-			'agent-settings': agent.settings || '',
-			'agent-type': settings.type || 'crew_ai',
-		};
-
-		// Add CrewAI specific settings
-		if (settings.type !== 'external_api') {
-			formEntries['agent-role'] = settings.role || '';
-			formEntries['agent-goal'] = settings.goal || '';
-			formEntries['agent-backstory'] = settings.backstory || '';
-			formEntries['agent-model'] = settings.model || '';
-			formEntries['agent-temperature'] = settings.temperature?.toString() || '';
-			formEntries['agent-max-tokens'] = settings.max_tokens?.toString() || '';
-			formEntries['agent-ollama-url'] = settings.base_url || '';
-		} else {
-			// External API settings
-			formEntries['agent-api-endpoint'] = settings.api_endpoint || '';
-			formEntries['agent-api-key'] = settings.api_key || '';
-			formEntries['agent-request-template'] = settings.request_template || '';
-			formEntries['agent-response-mapping'] = settings.response_mapping || '';
-			formEntries['agent-headers'] = settings.headers ? JSON.stringify(settings.headers, null, 2) : '';
-		}
-
-		setFormData(formEntries);
-		setIsModalOpen(true);
-	};
-
-	const handleEditTest = (testId: number) => {
-		const test = tests.find(t => t.id === testId);
-		if (!test) return;
-
-		setModalType('test');
-		setEditingId(testId);
-
-		setFormData({
-			'test-name': test.name || '',
-			'test-description': test.description || '',
-			'test-input': test.input || '',
-			'test-expected-output': test.expected_output || '',
-		});
-
-		setIsModalOpen(true);
-	};
-
-	const handleViewResult = (resultId: number) => {
-		const result = results.find(r => r.id === resultId);
-		if (result && result.id !== undefined) {
-			setEditingId(result.id);
-			setModalType('result');
-			setIsModalOpen(true);
-		}
-	};
-
-	const handleDeleteAgent = async (agentId: number) => {
-		const agent = agents.find(a => a.id === agentId);
-		if (!agent) return;
-		
-		setDeleteType('agent');
-		setDeleteId(agentId);
-		setDeleteName(agent.name);
-		setIsDeleteModalOpen(true);
-	};
-
-	const handleDeleteTest = async (testId: number) => {
-		const test = tests.find(t => t.id === testId);
-		if (!test) return;
-		
-		setDeleteType('test');
-		setDeleteId(testId);
-		setDeleteName(test.name);
-		setIsDeleteModalOpen(true);
-	};
-
-	const handleConfirmDelete = async () => {
-		if (!deleteId || !deleteType) return;
-		
-		setIsDeleting(true);
-		try {
-			if (deleteType === 'agent') {
-				await api.deleteAgent(deleteId);
-			} else if (deleteType === 'test') {
-				await api.deleteTest(deleteId);
-			}
-			
-			await fetchData();
-			setIsDeleteModalOpen(false);
-			setDeleteType(null);
-			setDeleteId(null);
-			setDeleteName('');
-		} catch (error) {
-			console.error(`Error deleting ${deleteType}:`, error);
-			setError(error instanceof Error ? error.message : `Failed to delete ${deleteType}`);
-		} finally {
-			setIsDeleting(false);
-		}
-	};
-
 	return (
 		<main className={styles.main}>
 			<AppSideNav activeItem={activeNav} onNavChange={setActiveNav} />
@@ -571,8 +546,6 @@ export default function Home() {
 				<div className={styles.content}>
 					{activeNav === 'tests' && (
 						<Tests
-							isLoading={isLoading}
-							tests={tests}
 							onAddClick={() => handleAddClick('test')}
 							onEditTest={handleEditTest}
 							onDeleteTest={handleDeleteTest}
@@ -581,8 +554,6 @@ export default function Home() {
 
 					{activeNav === 'agents' && (
 						<Agents
-							isLoading={isLoading}
-							agents={agents}
 							onAddClick={() => handleAddClick('agent')}
 							onEditAgent={handleEditAgent}
 							onDeleteAgent={handleDeleteAgent}
@@ -591,10 +562,6 @@ export default function Home() {
 
 					{activeNav === 'results' && (
 						<Results
-							isLoading={isLoading}
-							results={results}
-							agents={agents}
-							tests={tests}
 							onViewResult={handleViewResult}
 							onAddTestClick={() => handleAddClick('test')}
 						/>
@@ -602,18 +569,14 @@ export default function Home() {
 
 					{activeNav === 'jobs' && (
 						<JobsManager 
-							agents={agents} 
-							tests={tests} 
-							onRefresh={fetchData} 
+							onRefresh={fetchAllData} 
 							onResultView={handleViewResult} 
 						/>
 					)}
 
 					{activeNav === 'run' && (
 						<TestExecutor 
-							agents={agents} 
-							tests={tests} 
-							onJobCreated={fetchData} 
+							onJobCreated={fetchAllData} 
 						/>
 					)}
 				</div>

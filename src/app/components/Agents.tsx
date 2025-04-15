@@ -1,25 +1,24 @@
 import { Button, InlineLoading } from '@carbon/react';
 import { Add, DataTable as DataTableIcon } from '@carbon/icons-react';
-import { Agent } from '@/lib/api';
 import styles from '../page.module.scss';
 import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
+import { useAgents } from '@/lib/AppDataContext';
 
 interface AgentsProps {
-  isLoading: boolean;
-  agents: Agent[];
   onAddClick: () => void;
   onEditAgent: (id: number) => void;
   onDeleteAgent: (id: number) => void;
 }
 
 export default function Agents({
-  isLoading,
-  agents,
   onAddClick,
   onEditAgent,
   onDeleteAgent
 }: AgentsProps) {
+  // Get data from context
+  const { agents, isLoading } = useAgents();
+
   const agentRows = agents.map((agent) => ({
     id: agent.id?.toString() || `agent-${Date.now()}`,
     name: agent.name,

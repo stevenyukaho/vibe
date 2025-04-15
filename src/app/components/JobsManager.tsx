@@ -19,17 +19,22 @@ import {
 } from '@carbon/react';
 import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
 import { api, Job, JobStatus } from '@/lib/api';
-import { Agent, Test } from '../../../../backend/src/types';
 import styles from './JobsManager.module.scss';
+import { useAgents, useTests } from '@/lib/AppDataContext';
 
 interface JobsManagerProps {
-  agents: Agent[];
-  tests: Test[];
   onRefresh: () => void;
   onResultView: (resultId: number) => void;
 }
 
-export default function JobsManager({ agents, tests, onRefresh, onResultView }: JobsManagerProps) {
+export default function JobsManager({ 
+  onRefresh, 
+  onResultView 
+}: JobsManagerProps) {
+  // Get data from context
+  const { agents } = useAgents();
+  const { tests } = useTests();
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);

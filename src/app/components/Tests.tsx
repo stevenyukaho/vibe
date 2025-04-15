@@ -1,25 +1,24 @@
 import { Button, InlineLoading } from '@carbon/react';
 import { Add, TestTool } from '@carbon/icons-react';
-import { Test } from '@/lib/api';
 import styles from '../page.module.scss';
 import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
+import { useTests } from '@/lib/AppDataContext';
 
 interface TestsProps {
-  isLoading: boolean;
-  tests: Test[];
   onAddClick: () => void;
   onEditTest: (id: number) => void;
   onDeleteTest: (id: number) => void;
 }
 
 export default function Tests({
-  isLoading,
-  tests,
   onAddClick,
   onEditTest,
   onDeleteTest
 }: TestsProps) {
+  // Get data from context
+  const { tests, isLoading } = useTests();
+
   const testRows = tests.map((test) => ({
     id: test.id?.toString() || `test-${Date.now()}`,
     name: test.name,
