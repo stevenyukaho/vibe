@@ -212,9 +212,8 @@ export default function JobsManager({
             renderIcon={ViewFilled} 
             onClick={() => handleViewJob(job.id)}
             iconDescription="View job details"
-          >
-            View
-          </Button>
+            hasIconOnly
+          />
           <Button 
             kind="ghost" 
             size="sm" 
@@ -236,9 +235,8 @@ export default function JobsManager({
             }}
             iconDescription="Re-run this job"
             disabled={rerunningJob}
-          >
-            Re-run
-          </Button>
+            hasIconOnly
+          />
           {isPendingOrRunning && (
             <Button 
               kind="danger" 
@@ -247,20 +245,18 @@ export default function JobsManager({
               onClick={() => handleCancelJob(job.id)}
               iconDescription="Cancel this job"
               disabled={cancelingJob}
-            >
-              Cancel
-            </Button>
+              hasIconOnly
+            />
           )}
           <Button 
-            kind="ghost" 
+            kind="danger--ghost" 
             size="sm" 
             renderIcon={TrashCan} 
             onClick={() => handleDeleteJob(job.id)}
             iconDescription="Delete this job"
             disabled={deletingJob}
-          >
-            Delete
-          </Button>
+            hasIconOnly
+          />
         </div>
       ),
     };
