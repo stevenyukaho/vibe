@@ -1,1 +1,5 @@
 @use '@carbon/styles';
+
+body > div > main {
+    min-height: calc(100vh - 3rem);
+}
