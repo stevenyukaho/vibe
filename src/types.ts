@@ -15,7 +15,7 @@ export interface Agent {
   name: string;
   version: string;
   prompt: string;
-  settings: string;
+  settings: string;  // JSON string containing configuration settings
   created_at?: string;
 }
 
@@ -34,23 +34,24 @@ export interface TestResult {
   agent_id: number;
   test_id: number;
   output: string;
-  intermediate_steps?: string;
+  intermediate_steps?: string;  // JSON string containing intermediate processing steps
   success: boolean;
-  execution_time?: number;
+  execution_time?: number;  // Time in milliseconds
   created_at?: string;
 }
 
 export interface Job {
-  id: string;
+  id: string;  // UUID
   agent_id: number;
   test_id: number;
   status: JobStatus;
-  progress?: number;
+  progress?: number;  // 0-100 percentage
   partial_result?: string;
   result_id?: number;
   error?: string;
   created_at?: string;
   updated_at?: string;
+  suite_run_id?: number; // Reference to parent suite run
 }
 
 export interface JobFilters {
