@@ -1,6 +1,7 @@
 'use client';
 
 import { Content, Theme, Header, HeaderName } from '@carbon/react';
+import { AppDataProvider } from '@/lib/AppDataContext';
 import './globals.scss';
 
 export default function RootLayout({
@@ -16,7 +17,9 @@ export default function RootLayout({
             <HeaderName prefix='AI'>Agent Testing Suite</HeaderName>
           </Header>
           <Content>
-            {children}
+            <AppDataProvider>
+              {children}
+            </AppDataProvider>
           </Content>
         </Theme>
       </body>
