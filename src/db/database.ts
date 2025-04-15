@@ -54,9 +54,47 @@ db.exec(`
     error TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    suite_run_id INTEGER,
     FOREIGN KEY (agent_id) REFERENCES agents(id),
     FOREIGN KEY (test_id) REFERENCES tests(id),
-    FOREIGN KEY (result_id) REFERENCES results(id)
+    FOREIGN KEY (result_id) REFERENCES results(id),
+    FOREIGN KEY (suite_run_id) REFERENCES suite_runs(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS test_suites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    tags TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS test_suite_tests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suite_id INTEGER NOT NULL,
+    test_id INTEGER NOT NULL,
+    sequence INTEGER,
+    FOREIGN KEY (suite_id) REFERENCES test_suites(id) ON DELETE CASCADE,
+    FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE,
+    UNIQUE(suite_id, test_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS suite_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suite_id INTEGER NOT NULL,
+    agent_id INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    progress INTEGER DEFAULT 0,
+    total_tests INTEGER NOT NULL,
+    completed_tests INTEGER DEFAULT 0,
+    successful_tests INTEGER DEFAULT 0,
+    failed_tests INTEGER DEFAULT 0,
+    average_execution_time REAL,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    FOREIGN KEY (suite_id) REFERENCES test_suites(id),
+    FOREIGN KEY (agent_id) REFERENCES agents(id)
   );
 `);
 
@@ -67,6 +105,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_results_agent_test ON results(agent_id, test_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
   CREATE INDEX IF NOT EXISTS idx_jobs_agent_test ON jobs(agent_id, test_id);
+  CREATE INDEX IF NOT EXISTS idx_jobs_suite_run ON jobs(suite_run_id);
+  CREATE INDEX IF NOT EXISTS idx_test_suite_tests_suite ON test_suite_tests(suite_id);
+  CREATE INDEX IF NOT EXISTS idx_test_suite_tests_test ON test_suite_tests(test_id);
+  CREATE INDEX IF NOT EXISTS idx_suite_runs_suite ON suite_runs(suite_id);
+  CREATE INDEX IF NOT EXISTS idx_suite_runs_agent ON suite_runs(agent_id);
+  CREATE INDEX IF NOT EXISTS idx_suite_runs_status ON suite_runs(status);
 `);
 
 export default db;
