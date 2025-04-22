@@ -98,6 +98,13 @@ db.exec(`
   );
 `);
 
+// Migration: add suite_run_id column to jobs table if missing
+const pragmaStmt = db.prepare("PRAGMA table_info('jobs')");
+const columns = pragmaStmt.all() as Array<{ name: string }>;
+if (!columns.some(col => col.name === 'suite_run_id')) {
+  db.exec("ALTER TABLE jobs ADD COLUMN suite_run_id INTEGER");
+}
+
 // Create indexes for better performance
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agents_name_version ON agents(name, version);
