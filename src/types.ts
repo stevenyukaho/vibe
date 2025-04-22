@@ -60,6 +60,7 @@ export interface JobFilters {
 	test_id?: number;
 	before?: Date;
 	after?: Date;
+	suite_run_id?: number;
 }
 
 // Test Suite interfaces
