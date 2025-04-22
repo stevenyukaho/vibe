@@ -484,7 +484,7 @@ export const removeTestFromSuite = (suiteId: number, testId: number) => {
 	return statement.run(suiteId, testId);
 };
 
-export const getTestsInSuite = (suiteId: number) => {
+export const getTestsInSuite = (suiteId: number): Test[] => {
 	const query = `
 	SELECT t.*, tst.sequence
 	FROM tests t
