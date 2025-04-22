@@ -1,12 +1,13 @@
 import React from 'react';
 import { Tile, Button } from '@carbon/react';
+import type { CarbonIconType } from '@carbon/icons-react';
 import { Add } from '@carbon/icons-react';
 import styles from './EmptyState.module.scss';
 
 interface EmptyStateProps {
     title: string;
     description: string;
-    icon: React.ComponentType<{ size: number; className?: string }>;
+    icon: CarbonIconType;
     onAddClick: () => void;
 }
 
