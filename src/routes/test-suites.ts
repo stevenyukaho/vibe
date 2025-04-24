@@ -39,7 +39,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
             return res.status(400).json({ error: 'Invalid test suite ID' });
         }
 
-        const testSuite = getTestSuiteById(id);
+        const testSuite = await getTestSuiteById(id);
         if (!testSuite) {
             return res.status(404).json({ error: 'Test suite not found' });
         }
@@ -85,7 +85,7 @@ router.put('/:id', (async (req: Request<{ id: string }>, res: Response) => {
         const { name, description, tags } = req.body;
         
         // Check if test suite exists
-        const existingTestSuite = getTestSuiteById(id);
+        const existingTestSuite = await getTestSuiteById(id);
         if (!existingTestSuite) {
             return res.status(404).json({ error: 'Test suite not found' });
         }
@@ -110,7 +110,7 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
         }
 
         // Check if test suite exists
-        const existingTestSuite = getTestSuiteById(id);
+        const existingTestSuite = await getTestSuiteById(id);
         if (!existingTestSuite) {
             return res.status(404).json({ error: 'Test suite not found' });
         }
@@ -135,7 +135,7 @@ router.get('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =>
         }
 
         // Check if test suite exists
-        const existingTestSuite = getTestSuiteById(id);
+        const existingTestSuite = await getTestSuiteById(id);
         if (!existingTestSuite) {
             return res.status(404).json({ error: 'Test suite not found' });
         }
@@ -165,7 +165,7 @@ router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =
         }
 
         // Check if test suite exists
-        const existingTestSuite = getTestSuiteById(suiteId);
+        const existingTestSuite = await getTestSuiteById(suiteId);
         if (!existingTestSuite) {
             return res.status(404).json({ error: 'Test suite not found' });
         }
@@ -193,7 +193,7 @@ router.delete('/:id/tests/:testId', (async (req: Request<{ id: string, testId: s
         }
 
         // Check if test suite exists
-        const existingTestSuite = getTestSuiteById(suiteId);
+        const existingTestSuite = await getTestSuiteById(suiteId);
         if (!existingTestSuite) {
             return res.status(404).json({ error: 'Test suite not found' });
         }
@@ -223,7 +223,7 @@ router.put('/:id/tests/reorder', (async (req: Request<{ id: string }>, res: Resp
         }
 
         // Check if test suite exists
-        const existingTestSuite = getTestSuiteById(suiteId);
+        const existingTestSuite = await getTestSuiteById(suiteId);
         if (!existingTestSuite) {
             return res.status(404).json({ error: 'Test suite not found' });
         }
