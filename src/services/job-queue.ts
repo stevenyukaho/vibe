@@ -8,7 +8,8 @@ import {
   deleteJob as dbDeleteJob,
   getAgentById,
   getTestById,
-  createResult
+  createResult,
+  getExecutionTimeByResultId
 } from '../db/queries';
 import { agentService } from './agent-service';
 import { executeTest } from './agent-service-factory';
@@ -347,6 +348,133 @@ export class JobQueueService {
     }
     
     return false;
+  }
+
+  /**
+   * Create a new suite run and add jobs for all tests in the suite
+   * @param suite_id Suite ID to run
+   * @param agent_id Agent ID to use for the tests
+   * @returns The suite run ID
+   */
+  async createSuiteRun(suite_id: number, agent_id: number): Promise<number> {
+    // Get all tests in the suite
+    const tests = dbQueries.getTestsInSuite(suite_id);
+    
+    if (!tests || tests.length === 0) {
+      throw new Error(`No tests found in suite ${suite_id}`);
+    }
+
+    // Create suite run record
+    const suiteRun: SuiteRun = {
+      suite_id,
+      agent_id,
+      status: JobStatus.PENDING,
+      progress: 0,
+      total_tests: tests.length,
+      completed_tests: 0,
+      successful_tests: 0,
+      failed_tests: 0
+    };
+    const createdSuiteRun = await dbQueries.createSuiteRun(suiteRun);
+    if (!createdSuiteRun.id) {
+      throw new Error('Failed to create suite run');
+    }
+    // Create jobs for each test in the suite
+    const jobPromises = tests.map(test => 
+      this.createJobForSuiteRun(agent_id, test.id!, createdSuiteRun.id!)
+    );
+    await Promise.all(jobPromises);
+    // Immediately mark suite run as RUNNING
+    await dbQueries.updateSuiteRun(createdSuiteRun.id, { status: JobStatus.RUNNING });
+    // Start processing queue
+    this.processQueue();
+    return createdSuiteRun.id;
+  }
+  
+  /**
+   * Create a job for a test within a suite run
+   * @param agent_id Agent ID to use
+   * @param test_id Test ID to run
+   * @param suite_run_id Suite run ID
+   * @returns The job ID
+   */
+  private async createJobForSuiteRun(
+    agent_id: number, 
+    test_id: number, 
+    suite_run_id: number
+  ): Promise<string> {
+    const id = uuidv4();
+    const job: Job = {
+      id,
+      agent_id,
+      test_id,
+      status: JobStatus.PENDING,
+      progress: 0,
+      suite_run_id
+    };
+    
+    // Save to database
+    await dbCreateJob(job);
+    
+    // Add to in-memory queue
+    this.jobs.set(id, job);
+    
+    return id;
+  }
+  
+  /**
+   * Update a suite run's progress based on completed jobs
+   * @param suite_run_id Suite run ID
+   */
+  async updateSuiteRunProgress(suite_run_id: number): Promise<void> {
+    // Get suite run
+    const suiteRun = await dbQueries.getSuiteRunById(suite_run_id);
+    if (!suiteRun) {
+      throw new Error(`Suite run ${suite_run_id} not found`);
+    }
+    
+    // Get all jobs for this suite run
+    const jobs = await dbListJobs({ suite_run_id });
+    
+    // Calculate progress
+    const totalJobs = jobs.length;
+    const completedJobs = jobs.filter(job => 
+      job.status === JobStatus.COMPLETED || 
+      job.status === JobStatus.FAILED || 
+      job.status === JobStatus.TIMEOUT
+    );
+    const successfulJobs = jobs.filter(job => job.status === JobStatus.COMPLETED);
+    
+    // Get results for completed jobs
+    const executionTimes = completedJobs
+      .map(job => job.result_id)
+      .filter((id): id is number => id !== undefined && id !== null)
+      .map(id => getExecutionTimeByResultId(id) || 0);
+    
+    const averageExecutionTime = executionTimes.length > 0
+      ? executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length
+      : undefined;
+    
+    // Calculate overall progress percentage
+    const progress = Math.floor((completedJobs.length / totalJobs) * 100);
+    
+    // Determine suite run status
+    let status = suiteRun.status;
+    if (completedJobs.length === totalJobs) {
+      status = JobStatus.COMPLETED;
+    } else if (jobs.some(job => job.status === JobStatus.RUNNING)) {
+      status = JobStatus.RUNNING;
+    }
+    
+    // Update suite run
+    await dbQueries.updateSuiteRun(suite_run_id, {
+      status,
+      progress,
+      completed_tests: completedJobs.length,
+      successful_tests: successfulJobs.length,
+      failed_tests: completedJobs.length - successfulJobs.length,
+      average_execution_time: averageExecutionTime
+    });
   }
 }
 
