@@ -62,6 +62,20 @@ export default function AppSideNav() {
                 >
                     Run Test
                 </SideNavLink>
+                <SideNavLink
+                    renderIcon={DataTable}
+                    isActive={activeItem === 'test-suites'}
+                    onClick={() => handleNavChange('test-suites')}
+                >
+                    Suites
+                </SideNavLink>
+                <SideNavLink
+                    renderIcon={Dashboard}
+                    isActive={activeItem === 'suite-runs'}
+                    onClick={() => handleNavChange('suite-runs')}
+                >
+                    Suite Runs
+                </SideNavLink>
             </SideNavItems>
         </SideNav>
     );
