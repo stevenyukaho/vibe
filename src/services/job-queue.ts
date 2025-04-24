@@ -251,6 +251,11 @@ export class JobQueueService {
         result_id: savedResult.id,
         progress: 100
       });
+      
+      // If job is part of a suite run, update suite run progress
+      if (job.suite_run_id) {
+        await this.updateSuiteRunProgress(job.suite_run_id);
+      }
     } catch (error) {
       // Mark job as failed
       await this.updateJob(job.id, {
@@ -258,6 +263,11 @@ export class JobQueueService {
         error: error instanceof Error ? error.message : String(error),
         progress: 0
       });
+      
+      // If job is part of a suite run, update suite run progress
+      if (job.suite_run_id) {
+        await this.updateSuiteRunProgress(job.suite_run_id);
+      }
     }
   }
   
