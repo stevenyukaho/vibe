@@ -6,6 +6,8 @@ import resultRoutes from './routes/results';
 import executeRoutes from './routes/execute';
 import jobsRoutes from './routes/jobs';
 import testSuiteRoutes from './routes/test-suites';
+import executeSuiteRoutes from './routes/execute-suite';
+import suiteRunsRoutes from './routes/suite-runs';
 import { serverConfig } from './config';
 
 const app = express();
@@ -22,6 +24,8 @@ app.use('/api/results', resultRoutes);
 app.use('/api/execute', executeRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/test-suites', testSuiteRoutes);
+app.use('/api/execute-suite', executeSuiteRoutes);
+app.use('/api/suite-runs', suiteRunsRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
