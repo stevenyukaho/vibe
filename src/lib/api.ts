@@ -225,6 +225,89 @@ export const api = {
         return response.json();
     },
 
+    // Test Suites
+    async getTestSuites(): Promise<(TestSuite & { test_count: number })[]> {
+        const response = await fetch(`${API_URL}/api/test-suites`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch test suites');
+        }
+        return response.json();
+    },
+
+    async getTestsInSuite(suite_id: number): Promise<Test[]> {
+        const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/tests`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch tests in suite');
+        }
+        return response.json();
+    },
+
+    async executeSuite(suite_id: number, agent_id: number): Promise<{ suite_run_id: number }> {
+        const response = await fetch(`${API_URL}/api/execute-suite`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ suite_id, agent_id }),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to execute suite');
+        }
+        return response.json();
+    },
+
+    // Suite Runs
+    async getSuiteRuns(): Promise<SuiteRun[]> {
+        const response = await fetch(`${API_URL}/api/suite-runs`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch suite runs');
+        }
+        return response.json();
+    },
+
+    async getSuiteRunJobs(suite_run_id: number): Promise<Job[]> {
+        const response = await fetch(`${API_URL}/api/suite-runs/${suite_run_id}/jobs`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch suite run jobs');
+        }
+        return response.json();
+    },
+
+    // Single Suite Run
+    async getSuiteRun(id: number): Promise<SuiteRun> {
+        const response = await fetch(`${API_URL}/api/suite-runs/${id}`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch suite run');
+        }
+        return response.json();
+    },
+
+    async deleteSuiteRun(id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/suite-runs/${id}`, {
+            method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+            let errorMessage = 'Failed to delete suite run';
+            try {
+                const error = await response.json();
+                errorMessage = error.error || errorMessage;
+            } catch {
+                // Ignore JSON parsing errors
+            }
+            throw new Error(errorMessage);
+        }
+    },
+    
+    async rerunSuiteRun(id: number): Promise<{ suite_run_id: number }> {
+        const suiteRun = await this.getSuiteRun(id);
+        return this.executeSuite(suiteRun.suite_id, suiteRun.agent_id);
+    },
+
     // Jobs
     async getJobs(): Promise<Job[]> {
         const response = await fetch(`${API_URL}/api/jobs`);
@@ -294,6 +377,65 @@ export const api = {
                 // Ignore JSON parsing errors
             }
             throw new Error(errorMessage);
+        }
+    },
+
+    // Suite management
+    async createTestSuite(suite: Omit<TestSuite, 'id' | 'created_at' | 'updated_at'>): Promise<TestSuite> {
+        const response = await fetch(`${API_URL}/api/test-suites`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(suite),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create test suite');
+        }
+        return response.json();
+    },
+
+    async updateTestSuite(id: number, suite: Partial<TestSuite>): Promise<TestSuite> {
+        const response = await fetch(`${API_URL}/api/test-suites/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(suite),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update test suite');
+        }
+        return response.json();
+    },
+
+    async deleteTestSuite(id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/test-suites/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete test suite');
+        }
+    },
+
+    async addTestToSuite(suite_id: number, test_id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/tests`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ test_id }),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to add test to suite');
+        }
+    },
+
+    async removeTestFromSuite(suite_id: number, test_id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/tests/${test_id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to remove test from suite');
         }
     }
 };
