@@ -619,3 +619,18 @@ export const listSuiteRuns = (filters: SuiteRunFilters = {}) => {
 export const getJobsBySuiteRunId = (suiteRunId: number) => {
 	return db.prepare('SELECT * FROM jobs WHERE suite_run_id = ?').all(suiteRunId) as Job[];
 };
+
+export const deleteSuiteRun = (id: number) => {
+	// Start a transaction to ensure all operations succeed or fail together
+	const transaction = db.transaction(() => {
+		// Delete associated jobs
+		const deleteJobsStmt = db.prepare('DELETE FROM jobs WHERE suite_run_id = ?');
+		deleteJobsStmt.run(id);
+
+		// Delete the suite run
+		const deleteSuiteRunStmt = db.prepare('DELETE FROM suite_runs WHERE id = ?');
+		return deleteSuiteRunStmt.run(id);
+	});
+
+	return transaction();
+};
