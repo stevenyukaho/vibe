@@ -578,7 +578,7 @@ export const updateSuiteRun = (id: number, updates: Partial<SuiteRun>) => {
 	return statement.get({ ...filteredUpdates, id }) as SuiteRun;
 };
 
-export const getSuiteRunById = (id: number) => {
+export const getSuiteRunById = (id: number): SuiteRun | undefined => {
 	return db.prepare('SELECT * FROM suite_runs WHERE id = ?').get(id) as SuiteRun;
 };
 
