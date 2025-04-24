@@ -37,7 +37,6 @@ export default function JobsManager({
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [jobModalOpen, setJobModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +44,12 @@ export default function JobsManager({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [deletingJob, setDeletingJob] = useState(false);
   const [cancelingJob, setCancelingJob] = useState(false);
+  
+  // Confirmation modal states
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState<number | null>(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [jobToCancel, setJobToCancel] = useState<number | null>(null);
 
   // Fetch jobs
   const fetchJobs = async () => {
@@ -60,25 +65,9 @@ export default function JobsManager({
     }
   };
 
-  // Start polling for job status updates
+  // Initial fetch
   useEffect(() => {
     fetchJobs();
-
-    // Set up polling for job updates
-    const interval = setInterval(() => {
-      const hasActiveJobs = jobs.some(job => job.status === 'pending' || job.status === 'running');
-      if (hasActiveJobs) {
-        fetchJobs();
-      }
-    }, 3000); // Poll every 3 seconds
-
-    setPollingInterval(interval);
-
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-    };
   }, []);
 
   // Handle job selection for viewing details
@@ -135,45 +124,61 @@ export default function JobsManager({
     }
   };
 
-  // Delete a job
-  const handleDeleteJob = async (jobId: number) => {
-    if (window.confirm('Are you sure you want to delete this job? This will permanently remove it from the system.')) {
-      setDeletingJob(true);
-      setError(null);
-      setSuccessMessage(null);
-      
-      try {
-        await api.deleteJob(jobId);
-        fetchJobs();
-        onRefresh();
-        setSuccessMessage('Job deleted successfully');
-      } catch (error) {
-        console.error('Error deleting job:', error);
-        setError(error instanceof Error ? error.message : 'Failed to delete job');
-      } finally {
-        setDeletingJob(false);
-      }
+  // Open delete confirmation modal
+  const handleDeleteJobOpen = (jobId: number) => {
+    setJobToDelete(jobId);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Delete a job after confirmation
+  const handleDeleteJobConfirm = async () => {
+    if (jobToDelete === null) return;
+    
+    setDeletingJob(true);
+    setError(null);
+    setSuccessMessage(null);
+    
+    try {
+      await api.deleteJob(jobToDelete);
+      fetchJobs();
+      onRefresh();
+      setSuccessMessage('Job deleted successfully');
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      setError(error instanceof Error ? error.message : 'Failed to delete job');
+    } finally {
+      setDeletingJob(false);
+      setIsDeleteModalOpen(false);
+      setJobToDelete(null);
     }
   };
 
-  // Cancel a job
-  const handleCancelJob = async (jobId: number) => {
-    if (window.confirm('Are you sure you want to cancel this job? This will stop the job execution.')) {
-      setCancelingJob(true);
-      setError(null);
-      setSuccessMessage(null);
-      
-      try {
-        await api.cancelJob(jobId);
-        fetchJobs();
-        onRefresh();
-        setSuccessMessage('Job canceled successfully');
-      } catch (error) {
-        console.error('Error canceling job:', error);
-        setError(error instanceof Error ? error.message : 'Failed to cancel job');
-      } finally {
-        setCancelingJob(false);
-      }
+  // Open cancel confirmation modal
+  const handleCancelJobOpen = (jobId: number) => {
+    setJobToCancel(jobId);
+    setIsCancelModalOpen(true);
+  };
+
+  // Cancel a job after confirmation
+  const handleCancelJobConfirm = async () => {
+    if (jobToCancel === null) return;
+    
+    setCancelingJob(true);
+    setError(null);
+    setSuccessMessage(null);
+    
+    try {
+      await api.cancelJob(jobToCancel);
+      fetchJobs();
+      onRefresh();
+      setSuccessMessage('Job canceled successfully');
+    } catch (error) {
+      console.error('Error canceling job:', error);
+      setError(error instanceof Error ? error.message : 'Failed to cancel job');
+    } finally {
+      setCancelingJob(false);
+      setIsCancelModalOpen(false);
+      setJobToCancel(null);
     }
   };
 
@@ -242,7 +247,7 @@ export default function JobsManager({
               kind="danger" 
               size="sm" 
               renderIcon={StopFilled} 
-              onClick={() => handleCancelJob(job.id)}
+              onClick={() => handleCancelJobOpen(job.id)}
               iconDescription="Cancel this job"
               disabled={cancelingJob}
               hasIconOnly
@@ -252,7 +257,7 @@ export default function JobsManager({
             kind="danger--ghost" 
             size="sm" 
             renderIcon={TrashCan} 
-            onClick={() => handleDeleteJob(job.id)}
+            onClick={() => handleDeleteJobOpen(job.id)}
             iconDescription="Delete this job"
             disabled={deletingJob}
             hasIconOnly
@@ -288,6 +293,17 @@ export default function JobsManager({
         />
       )}
 
+      {successMessage && (
+        <InlineNotification
+          kind="success"
+          title="Success"
+          subtitle={successMessage}
+          hideCloseButton={false}
+          onCloseButtonClick={() => setSuccessMessage(null)}
+          style={{ marginBottom: '1rem' }}
+        />
+      )}
+
       {jobs.length === 0 ? (
         <p>No jobs found. Start a new test execution to create a job.</p>
       ) : (
@@ -296,8 +312,8 @@ export default function JobsManager({
             <Table {...getTableProps()}>
               <TableHead>
                 <TableRow>
-                  {headers.map(header => (
-                    <TableHeader {...getHeaderProps({ header })} key={header.key}>
+                  {headers.map((header, index) => (
+                    <TableHeader {...getHeaderProps({ header })} key={`header-${header.key}-${index}`}>
                       {header.header}
                     </TableHeader>
                   ))}
@@ -400,7 +416,7 @@ export default function JobsManager({
                     renderIcon={StopFilled}
                     onClick={() => {
                       if (selectedJob) {
-                        handleCancelJob(selectedJob.id);
+                        handleCancelJobOpen(selectedJob.id);
                         setJobModalOpen(false);
                       }
                     }}
@@ -416,7 +432,7 @@ export default function JobsManager({
                   renderIcon={TrashCan}
                   onClick={() => {
                     if (selectedJob) {
-                      handleDeleteJob(selectedJob.id);
+                      handleDeleteJobOpen(selectedJob.id);
                       setJobModalOpen(false);
                     }
                   }}
