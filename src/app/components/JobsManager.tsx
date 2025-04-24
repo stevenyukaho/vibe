@@ -459,6 +459,34 @@ export default function JobsManager({
           </ModalBody>
         </Modal>
       )}
+
+      {/* Delete Job Confirmation Modal */}
+      <Modal
+        open={isDeleteModalOpen}
+        modalHeading="Delete Job"
+        primaryButtonText={deletingJob ? "Deleting..." : "Delete"}
+        secondaryButtonText="Cancel"
+        onRequestClose={() => setIsDeleteModalOpen(false)}
+        onRequestSubmit={handleDeleteJobConfirm}
+        primaryButtonDisabled={deletingJob}
+        danger
+      >
+        <p>Are you sure you want to delete this job? This will permanently remove it from the system.</p>
+      </Modal>
+
+      {/* Cancel Job Confirmation Modal */}
+      <Modal
+        open={isCancelModalOpen}
+        modalHeading="Cancel Job"
+        primaryButtonText={cancelingJob ? "Canceling..." : "Cancel Job"}
+        secondaryButtonText="Go Back"
+        onRequestClose={() => setIsCancelModalOpen(false)}
+        onRequestSubmit={handleCancelJobConfirm}
+        primaryButtonDisabled={cancelingJob}
+        danger
+      >
+        <p>Are you sure you want to cancel this job? This will stop the job execution.</p>
+      </Modal>
     </div>
   );
 }
