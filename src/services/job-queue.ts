@@ -95,9 +95,10 @@ export class JobQueueService {
    * Create a new job and add it to the queue
    * @param agent_id Agent ID to use for the test
    * @param test_id Test ID to run
+   * @param suite_run_id Optional suite run ID if this job is part of a suite run
    * @returns The job ID
    */
-  async createJob(agent_id: number, test_id: number): Promise<string> {
+  async createJob(agent_id: number, test_id: number, suite_run_id?: number): Promise<string> {
     const id = uuidv4();
     const job: Job = {
       id,
@@ -106,6 +107,11 @@ export class JobQueueService {
       status: JobStatus.PENDING,
       progress: 0
     };
+    
+    // Add suite_run_id if provided
+    if (suite_run_id) {
+      job.suite_run_id = suite_run_id;
+    }
     
     // Save to database
     await dbCreateJob(job);
