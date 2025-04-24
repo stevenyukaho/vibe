@@ -14,6 +14,7 @@ export interface Job {
     agent_id: number;
     test_id: number;
     status: JobStatus;
+    progress: number;
     result_id: number | null;
     created_at: string;
     updated_at: string;
