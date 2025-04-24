@@ -262,9 +262,9 @@ export const getResultById = (id: number) => {
 export async function createJob(job: Job): Promise<Job> {
 	const statement = db.prepare(`
 	INSERT INTO jobs (
-	  id, agent_id, test_id, status, progress, partial_result, result_id, error
+	  id, agent_id, test_id, status, progress, partial_result, result_id, error, suite_run_id
 	) VALUES (
-	  @id, @agent_id, @test_id, @status, @progress, @partial_result, @result_id, @error
+	  @id, @agent_id, @test_id, @status, @progress, @partial_result, @result_id, @error, @suite_run_id
 	)
   `);
 
@@ -276,7 +276,8 @@ export async function createJob(job: Job): Promise<Job> {
 		progress: job.progress || 0,
 		partial_result: job.partial_result || null,
 		result_id: job.result_id || null,
-		error: job.error || null
+		error: job.error || null,
+		suite_run_id: job.suite_run_id || null
 	});
 
 	const result = await getJobById(job.id);
@@ -354,6 +355,11 @@ export async function listJobs(filters: JobFilters = {}): Promise<Job[]> {
 	if (filters.before) {
 		conditions.push('created_at <= @before');
 		params.before = filters.before.toISOString();
+	}
+
+	if (filters.suite_run_id) {
+		conditions.push('suite_run_id = @suite_run_id');
+		params.suite_run_id = filters.suite_run_id;
 	}
 
 	if (conditions.length > 0) {
@@ -455,7 +461,15 @@ export const deleteTestSuite = (id: number) => {
 };
 
 export const getTestSuites = () => {
-	return db.prepare('SELECT * FROM test_suites ORDER BY created_at DESC').all() as TestSuite[];
+	// Return all test suites with a test_count field
+	const query = `
+	SELECT s.*, COUNT(tst.test_id) as test_count
+	FROM test_suites s
+	LEFT JOIN test_suite_tests tst ON s.id = tst.suite_id
+	GROUP BY s.id
+	ORDER BY s.created_at DESC
+	`;
+	return db.prepare(query).all() as (TestSuite & { test_count: number })[];
 };
 
 export const getTestSuiteById = (id: number) => {
@@ -513,13 +527,11 @@ export const createSuiteRun = (suiteRun: SuiteRun) => {
 	const statement = db.prepare(`
 	INSERT INTO suite_runs (
 	  suite_id, agent_id, status, progress, 
-	  total_tests, completed_tests, successful_tests, failed_tests,
-	  average_execution_time
+	  total_tests, completed_tests, successful_tests, failed_tests
 	)
 	VALUES (
 	  @suite_id, @agent_id, @status, @progress,
-	  @total_tests, @completed_tests, @successful_tests, @failed_tests,
-	  @average_execution_time
+	  @total_tests, @completed_tests, @successful_tests, @failed_tests
 	)
 	RETURNING *
   `);
