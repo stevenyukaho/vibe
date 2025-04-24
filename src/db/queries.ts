@@ -254,6 +254,14 @@ export const getResultById = (id: number) => {
 	return db.prepare('SELECT * FROM results WHERE id = ?').get(id) as TestResult;
 };
 
+/**
+ * Get execution time from a result by ID
+ */
+export const getExecutionTimeByResultId = (resultId: number): number | undefined => {
+	const result = db.prepare('SELECT execution_time FROM results WHERE id = ?').get(resultId) as { execution_time?: number };
+	return result?.execution_time;
+};
+
 // Job Queries
 
 /**
