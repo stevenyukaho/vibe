@@ -1,0 +1,92 @@
+.container {
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+
+.notification {
+  margin-bottom: 1rem;
+}
+
+.tilesGrid {
+  margin-bottom: 2rem;
+}
+
+.suiteTile {
+  height: 100%;
+  width: 100%;
+  margin-bottom: 1rem;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+  }
+}
+
+.tileContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+}
+
+.description {
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  color: #666;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+}
+
+.tileFooter {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tileDate {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.tagContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  
+  svg {
+    margin-right: 0.25rem;
+    color: #666;
+  }
+}
+
+.pagination {
+  margin-top: 1.5rem;
+}
+
+.previewTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
