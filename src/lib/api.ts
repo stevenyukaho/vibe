@@ -20,6 +20,32 @@ export interface Job {
     error?: string;
 }
 
+// Test Suite and Suite Run interfaces
+export interface TestSuite {
+    id: number;
+    name: string;
+    description?: string;
+    tags?: string;
+    created_at?: string;
+    updated_at?: string;
+    test_count?: number;
+}
+
+export interface SuiteRun {
+    id: number;
+    suite_id: number;
+    agent_id: number;
+    status: JobStatus;
+    progress: number;
+    total_tests: number;
+    completed_tests: number;
+    successful_tests: number;
+    failed_tests: number;
+    average_execution_time?: number;
+    started_at: string;
+    completed_at?: string;
+}
+
 export const api = {
     // Agents
     async getAgents(): Promise<Agent[]> {
