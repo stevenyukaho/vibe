@@ -13,38 +13,17 @@ import {
 } from '../db/queries';
 import { agentService } from './agent-service';
 import { executeTest } from './agent-service-factory';
+import {
+  SuiteRun,
+  JobStatus,
+  Job,
+  JobFilters
+} from '../types';
+// Import functions directly from db/queries to avoid TypeScript errors
+import * as dbQueries from '../db/queries';
 
-// Job status enum
-export enum JobStatus {
-  PENDING = 'pending',
-  RUNNING = 'running',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  TIMEOUT = 'timeout'
-}
-
-// Job data structure
-export interface Job {
-  id: string;
-  agent_id: number;
-  test_id: number;
-  status: JobStatus;
-  progress?: number;
-  partial_result?: string;
-  result_id?: number;
-  error?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-// Job filters for listing jobs
-export interface JobFilters {
-  status?: JobStatus;
-  agent_id?: number;
-  test_id?: number;
-  before?: Date;
-  after?: Date;
-}
+// Export types from the main types file
+export { Job, JobStatus, JobFilters } from '../types';
 
 /**
  * Job Queue Service for managing asynchronous test execution
