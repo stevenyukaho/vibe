@@ -3,6 +3,31 @@ import { Agent, Test, TestResult } from '../../../backend/src/exports';
 // Re-export types for use in components
 export type { Agent, Test, TestResult };
 
+export interface LLMConfig {
+    id: number;
+    name: string;
+    provider: string;
+    config: string;
+    priority: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface LLMRequestOptions {
+    prompt: string;
+    max_tokens?: number;
+    temperature?: number;
+    stop?: string[];
+}
+
+export interface LLMResponse {
+    text: string;
+    provider: string;
+    model: string;
+    config_id: number;
+    error?: string;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 // Job status type (frontend-specific version)
