@@ -150,7 +150,7 @@ export default function Home() {
 	
 	// Success rate calculation
 	const testSuccessRate = results.length > 0 
-		? (results.filter(r => (r as ResultWithStatus).status === 'success').length / results.length * 100).toFixed(1) 
+		? (results.filter(r => (r as ResultWithStatus).success).length / results.length * 100).toFixed(1) 
 		: '0.0';
 		
 	// Recent activity calculation
