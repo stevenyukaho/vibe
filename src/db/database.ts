@@ -96,6 +96,16 @@ db.exec(`
     FOREIGN KEY (suite_id) REFERENCES test_suites(id),
     FOREIGN KEY (agent_id) REFERENCES agents(id)
   );
+
+  CREATE TABLE IF NOT EXISTS llm_configs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    config TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 100,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migration: add suite_run_id column to jobs table if missing
@@ -118,6 +128,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_suite_runs_suite ON suite_runs(suite_id);
   CREATE INDEX IF NOT EXISTS idx_suite_runs_agent ON suite_runs(agent_id);
   CREATE INDEX IF NOT EXISTS idx_suite_runs_status ON suite_runs(status);
+  CREATE INDEX IF NOT EXISTS idx_llm_configs_priority ON llm_configs(priority);
+  CREATE INDEX IF NOT EXISTS idx_llm_configs_provider ON llm_configs(provider);
 `);
 
 export default db;
