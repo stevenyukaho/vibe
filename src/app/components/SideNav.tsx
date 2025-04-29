@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { SideNav, SideNavItems, SideNavLink } from '@carbon/react';
 import { useRouter, usePathname } from 'next/navigation';
-import { TestTool, DataTable, Report, Dashboard, Play } from '@carbon/icons-react';
+import {
+    TestTool,
+    DataTable,
+    Report,
+    Dashboard,
+    Play,
+    CloudServices
+} from '@carbon/icons-react';
 import styles from './SideNav.module.scss';
 
 export default function AppSideNav() {
@@ -75,6 +82,13 @@ export default function AppSideNav() {
                     onClick={() => handleNavChange('suite-runs')}
                 >
                     Suite Runs
+                </SideNavLink>
+                <SideNavLink
+                    renderIcon={CloudServices}
+                    isActive={activeItem === 'llm-configs'}
+                    onClick={() => handleNavChange('llm-configs')}
+                >
+                    LLM Configs
                 </SideNavLink>
             </SideNavItems>
         </SideNav>
