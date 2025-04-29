@@ -1,7 +1,15 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { api, Agent, Test, TestResult } from './api';
+import {
+    api,
+    Agent,
+    Test,
+    TestResult,
+    LLMConfig,
+    LLMRequestOptions,
+    LLMResponse
+} from './api';
 
 // Define the context state shape
 interface AppDataContextState {
@@ -9,12 +17,14 @@ interface AppDataContextState {
     agents: Agent[];
     tests: Test[];
     results: TestResult[];
+    llmConfigs: LLMConfig[];
 
     // Loading states
     loading: {
         agents: boolean;
         tests: boolean;
         results: boolean;
+        llmConfigs: boolean;
     };
 
     // Error states
@@ -22,6 +32,7 @@ interface AppDataContextState {
         agents?: string | null;
         tests?: string | null;
         results?: string | null;
+        llmConfigs?: string | null;
     };
 
     // Actions
@@ -37,10 +48,18 @@ interface AppDataContextState {
     updateTest: (id: number, test: Partial<Test>) => Promise<Test>;
     deleteTest: (id: number) => Promise<void>;
 
+    // LLM config actions
+    createLLMConfig: (config: Omit<LLMConfig, 'id' | 'created_at' | 'updated_at'>) => Promise<LLMConfig>;
+    updateLLMConfig: (id: number, config: Partial<LLMConfig>) => Promise<LLMConfig>;
+    deleteLLMConfig: (id: number) => Promise<void>;
+    callLLM: (id: number, options: LLMRequestOptions) => Promise<LLMResponse>;
+    callLLMWithFallback: (options: LLMRequestOptions) => Promise<LLMResponse>;
+
     // Utility methods
     getAgentById: (id: number) => Agent | undefined;
     getTestById: (id: number) => Test | undefined;
     getResultById: (id: number) => TestResult | undefined;
+    getLLMConfigById: (id: number) => LLMConfig | undefined;
 }
 
 // Create the context with initial undefined value
@@ -57,12 +76,14 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
     const [agents, setAgents] = useState<Agent[]>([]);
     const [tests, setTests] = useState<Test[]>([]);
     const [results, setResults] = useState<TestResult[]>([]);
+    const [llmConfigs, setLLMConfigs] = useState<LLMConfig[]>([]);
 
     // Loading states
     const [loading, setLoading] = useState<AppDataContextState['loading']>({
         agents: false,
         tests: false,
-        results: false
+        results: false,
+        llmConfigs: false
     });
 
     // Error states
@@ -73,7 +94,8 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         await Promise.all([
             fetchAgents(),
             fetchTests(),
-            fetchResults()
+            fetchResults(),
+            fetchLLMConfigs()
         ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -129,6 +151,24 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
             }));
         } finally {
             setLoading(prev => ({ ...prev, results: false }));
+        }
+    }, []);
+
+    // Fetch LLM configs
+    const fetchLLMConfigs = useCallback(async () => {
+        setLoading(prev => ({ ...prev, llmConfigs: true }));
+        try {
+            const data = await api.getLLMConfigs();
+            setLLMConfigs(data);
+            setErrors(prev => ({ ...prev, llmConfigs: null }));
+        } catch (error) {
+            console.error('Error fetching LLM configs:', error);
+            setErrors(prev => ({
+                ...prev,
+                llmConfigs: error instanceof Error ? error.message : 'Failed to fetch LLM configs'
+            }));
+        } finally {
+            setLoading(prev => ({ ...prev, llmConfigs: false }));
         }
     }, []);
 
@@ -254,6 +294,77 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         }
     }, []);
 
+    // Create LLM config
+    const createLLMConfig = useCallback(async (configData: Omit<LLMConfig, 'id' | 'created_at' | 'updated_at'>) => {
+        setLoading(prev => ({ ...prev, llmConfigs: true }));
+        try {
+            const newConfig = await api.createLLMConfig(configData);
+            setLLMConfigs(prev => [...prev, newConfig]);
+            setErrors(prev => ({ ...prev, llmConfigs: null }));
+            return newConfig;
+        } catch (error) {
+            console.error('Error creating LLM config:', error);
+            setErrors(prev => ({
+                ...prev,
+                llmConfigs: error instanceof Error ? error.message : 'Failed to create LLM config'
+            }));
+            throw error;
+        } finally {
+            setLoading(prev => ({ ...prev, llmConfigs: false }));
+        }
+    }, []);
+
+    // Update LLM config
+    const updateLLMConfig = useCallback(async (id: number, configData: Partial<LLMConfig>) => {
+        setLoading(prev => ({ ...prev, llmConfigs: true }));
+        try {
+            const updatedConfig = await api.updateLLMConfig(id, configData);
+            setLLMConfigs(prev => prev.map(config =>
+                config.id === id ? { ...config, ...updatedConfig } : config
+            ));
+            setErrors(prev => ({ ...prev, llmConfigs: null }));
+            return updatedConfig;
+        } catch (error) {
+            console.error('Error updating LLM config:', error);
+            setErrors(prev => ({
+                ...prev,
+                llmConfigs: error instanceof Error ? error.message : 'Failed to update LLM config'
+            }));
+            throw error;
+        } finally {
+            setLoading(prev => ({ ...prev, llmConfigs: false }));
+        }
+    }, []);
+
+    // Delete LLM config
+    const deleteLLMConfig = useCallback(async (id: number) => {
+        setLoading(prev => ({ ...prev, llmConfigs: true }));
+        try {
+            await api.deleteLLMConfig(id);
+            setLLMConfigs(prev => prev.filter(config => config.id !== id));
+            setErrors(prev => ({ ...prev, llmConfigs: null }));
+        } catch (error) {
+            console.error('Error deleting LLM config:', error);
+            setErrors(prev => ({
+                ...prev,
+                llmConfigs: error instanceof Error ? error.message : 'Failed to delete LLM config'
+            }));
+            throw error;
+        } finally {
+            setLoading(prev => ({ ...prev, llmConfigs: false }));
+        }
+    }, []);
+
+    // Call specific LLM
+    const callLLM = useCallback(async (id: number, options: LLMRequestOptions) => {
+        return await api.callLLM(id, options);
+    }, []);
+
+    // Call LLM with fallback
+    const callLLMWithFallback = useCallback(async (options: LLMRequestOptions) => {
+        return await api.callLLMWithFallback(options);
+    }, []);
+
     // Initial data load
     useEffect(() => {
         fetchAllData();
@@ -263,12 +374,14 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
     const getAgentById = (id: number) => agents.find(agent => agent.id === id);
     const getTestById = (id: number) => tests.find(test => test.id === id);
     const getResultById = (id: number) => results.find(result => result.id === id);
+    const getLLMConfigById = (id: number) => llmConfigs.find(config => config.id === id);
 
     const contextValue: AppDataContextState = {
         // Data
         agents,
         tests,
         results,
+        llmConfigs,
 
         // Loading states
         loading,
@@ -289,10 +402,18 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         updateTest,
         deleteTest,
 
+        // LLM config actions
+        createLLMConfig,
+        updateLLMConfig,
+        deleteLLMConfig,
+        callLLM,
+        callLLMWithFallback,
+
         // Utility methods
         getAgentById,
         getTestById,
-        getResultById
+        getResultById,
+        getLLMConfigById
     };
 
     return (
@@ -342,5 +463,20 @@ export function useResults() {
         results,
         isLoading: loading.results,
         error: errors.results
+    };
+}
+
+export function useLLMConfigs() {
+    const context = useAppData();
+    return {
+        llmConfigs: context.llmConfigs,
+        loading: context.loading.llmConfigs,
+        error: context.errors.llmConfigs,
+        createLLMConfig: context.createLLMConfig,
+        updateLLMConfig: context.updateLLMConfig,
+        deleteLLMConfig: context.deleteLLMConfig,
+        callLLM: context.callLLM,
+        callLLMWithFallback: context.callLLMWithFallback,
+        getLLMConfigById: context.getLLMConfigById
     };
 }
