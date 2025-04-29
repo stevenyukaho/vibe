@@ -102,3 +102,13 @@ export interface SuiteRunFilters {
 	before?: Date;
 	after?: Date;
 }
+
+export interface LLMConfig {
+	id?: number;
+	name: string;
+	provider: string;
+	config: string;  // JSON-stringified configuration object
+	priority: number;
+	created_at?: string;
+	updated_at?: string;
+}
