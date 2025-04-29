@@ -462,5 +462,111 @@ export const api = {
             const error = await response.json();
             throw new Error(error.error || 'Failed to remove test from suite');
         }
-    }
+    },
+
+    // LLM Configs
+    async getLLMConfigs(): Promise<LLMConfig[]> {
+        const response = await fetch(`${API_URL}/api/llm-configs`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch LLM configs');
+        }
+        
+        return response.json();
+    },
+
+    async getLLMConfigById(id: number): Promise<LLMConfig> {
+        const response = await fetch(`${API_URL}/api/llm-configs/${id}`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch LLM config');
+        }
+        
+        return response.json();
+    },
+
+    async createLLMConfig(config: Omit<LLMConfig, 'id' | 'created_at' | 'updated_at'>): Promise<LLMConfig> {
+        const response = await fetch(`${API_URL}/api/llm-configs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create LLM config');
+        }
+        
+        return response.json();
+    },
+
+    async updateLLMConfig(id: number, config: Partial<LLMConfig>): Promise<LLMConfig> {
+        const response = await fetch(`${API_URL}/api/llm-configs/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update LLM config');
+        }
+        
+        return response.json();
+    },
+
+    async deleteLLMConfig(id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/llm-configs/${id}`, {
+            method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+            let errorMessage = `Failed to delete LLM config (Status: ${response.status})`;
+            
+            // Try to parse response as JSON, but don't fail if it's not JSON
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch {
+                    // Ignore JSON parsing errors
+                }
+            }
+            
+            throw new Error(errorMessage);
+        }
+    },
+
+    async callLLM(id: number, options: LLMRequestOptions): Promise<LLMResponse> {
+        const response = await fetch(`${API_URL}/api/llm-configs/${id}/call`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(options),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to call LLM');
+        }
+        
+        return response.json();
+    },
+
+    async callLLMWithFallback(options: LLMRequestOptions): Promise<LLMResponse> {
+        const response = await fetch(`${API_URL}/api/llm-configs/call`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(options),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to call LLM with fallback');
+        }
+        
+        return response.json();
+    },
 };
