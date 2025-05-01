@@ -1,0 +1,54 @@
+@use "@carbon/react/scss/spacing" as *;
+@use "@carbon/react/scss/type" as *;
+
+// Error message
+.errorNotification {
+	margin-bottom: $spacing-05;
+}
+
+// Help Panel
+.helpSection {
+	margin-bottom: 0;
+}
+
+.sectionHeading {
+	font-weight: 600;
+	margin-bottom: $spacing-03;
+	margin-top: 0;
+}
+
+.subSectionHeading {
+	font-weight: 600;
+	margin-top: $spacing-05;
+	margin-bottom: $spacing-03;
+}
+
+.exampleHeading {
+	font-weight: 600;
+	margin-top: $spacing-05;
+	margin-bottom: $spacing-03;
+}
+
+.helpText {
+	margin-bottom: $spacing-03;
+}
+
+.helpList {
+	list-style-type: disc;
+	margin-left: $spacing-06;
+	margin-top: $spacing-03;
+	margin-bottom: $spacing-05;
+}
+
+.listItem {
+	margin-bottom: $spacing-02;
+}
+
+// Test Connection
+.testConnection {
+	margin-top: $spacing-05;
+}
+
+.testConnectionStatus {
+	margin-top: $spacing-03;
+}
