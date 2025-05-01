@@ -546,7 +546,7 @@ export default function AgentFormModal({
 							/>
 
 							{/* Test Connection Button */}
-							<div>
+							<div className={styles.testConnection}>
 								<Button
 									kind="tertiary"
 									onClick={testApiConnection}
@@ -558,13 +558,13 @@ export default function AgentFormModal({
 								</Button>
 
 								{testConnectionStatus && !testConnectionStatus.loading && (
-									<InlineNotification
+									<InlineNotification 
+										className={styles.testConnectionStatus}
 										kind={testConnectionStatus.success ? 'success' : 'error'}
 										title={testConnectionStatus.success ? 'Success' : 'Error'}
 										subtitle={testConnectionStatus.message}
 										hideCloseButton
 										lowContrast
-										style={{ marginTop: '0.5rem' }}
 									/>
 								)}
 							</div>
