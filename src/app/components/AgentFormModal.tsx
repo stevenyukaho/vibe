@@ -118,40 +118,31 @@ export default function AgentFormModal({
 				}
 
 				// Validate response mapping JSON if provided
-				if (formData['agent-response-mapping']) {
-					try {
-						const mapping = JSON.parse(formData['agent-response-mapping']);
-
-						// Verify it has at least an output field
-						if (!mapping.output) {
-							setError('Response mapping must include an "output" field');
-							setIsSaving(false);
-							return;
-						}
-					} catch (error) {
-						console.error('Invalid JSON in response mapping:', error);
-						setError('Invalid JSON in response mapping');
-						setIsSaving(false);
-						return;
+				if (formData['agent-response-mapping'] !== undefined) {
+					if (formData['agent-response-mapping']) {
+						settings = {
+							...settings,
+							response_mapping: formData['agent-response-mapping']
+						};
+					} else {
+						delete settings['response_mapping'];
 					}
 				}
 
 				// Validate headers JSON if provided
-				if (formData['agent-headers']) {
+				if (formData['agent-headers'] !== undefined) {
 					try {
-						const headers = JSON.parse(formData['agent-headers']);
-
-						// Verify it's an object
-						if (typeof headers !== 'object' || headers === null || Array.isArray(headers)) {
-							setError('Headers must be a valid JSON object');
-							setIsSaving(false);
-							return;
+						if (formData['agent-headers']) {
+							settings = {
+								...settings,
+								headers: JSON.parse(formData['agent-headers'])
+							};
+						} else {
+							delete settings['headers'];
 						}
 					} catch (error) {
-						console.error('Invalid JSON in headers:', error);
-						setError('Invalid JSON in headers');
-						setIsSaving(false);
-						return;
+						console.error('Error parsing headers:', error);
+						// If invalid JSON, don't add headers
 					}
 				}
 			}
@@ -237,20 +228,28 @@ export default function AgentFormModal({
 				}
 
 				// Add response mapping if provided
-				if (formData['agent-response-mapping']) {
-					settings = {
-						...settings,
-						response_mapping: formData['agent-response-mapping']
-					};
+				if (formData['agent-response-mapping'] !== undefined) {
+					if (formData['agent-response-mapping']) {
+						settings = {
+							...settings,
+							response_mapping: formData['agent-response-mapping']
+						};
+					} else {
+						delete settings['response_mapping'];
+					}
 				}
 
 				// Add headers if provided
-				if (formData['agent-headers']) {
+				if (formData['agent-headers'] !== undefined) {
 					try {
-						settings = {
-							...settings,
-							headers: JSON.parse(formData['agent-headers'])
-						};
+						if (formData['agent-headers']) {
+							settings = {
+								...settings,
+								headers: JSON.parse(formData['agent-headers'])
+							};
+						} else {
+							delete settings['headers'];
+						}
 					} catch (error) {
 						console.error('Error parsing headers:', error);
 						// If invalid JSON, don't add headers
