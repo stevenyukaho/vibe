@@ -35,6 +35,13 @@ export default function AppSideNav() {
         >
             <SideNavItems>
                 <SideNavLink
+                    renderIcon={Dashboard}
+                    isActive={activeItem === ''}
+                    onClick={() => handleNavChange('')}
+                >
+                    Dashboard
+                </SideNavLink>
+                <SideNavLink
                     renderIcon={TestTool}
                     isActive={activeItem === 'tests'}
                     onClick={() => handleNavChange('tests')}
