@@ -9,6 +9,9 @@ import {
 	RadioButtonGroup,
 	RadioButton,
 	InlineNotification,
+	Accordion,
+	AccordionItem,
+	CodeSnippet
 } from '@carbon/react';
 import { Launch } from '@carbon/icons-react';
 import { api } from '@/lib/api';
@@ -590,6 +593,137 @@ export default function AgentFormModal({
 							onChange={handleInputChange}
 						/>
 					)}
+
+					{/* Help Panel */}
+					<Accordion>
+						<AccordionItem title="Need help?">
+							<div className={styles.helpSection}>
+								<h5 className={styles.sectionHeading}>Request Template</h5>
+								<p className={styles.helpText}>The request template formats your test input for the external API. It should be a valid JSON string with a placeholder for where the test input should go.</p>
+								<ul className={styles.helpList}>
+									<li className={styles.listItem}>Must include <code>{"{{input}}"}</code> as a placeholder for the test input</li>
+									<li className={styles.listItem}>Should be valid JSON when the placeholder is replaced with text</li>
+								</ul>
+								<h6 className={styles.exampleHeading}>Example for OpenAI:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										model: "gpt-4", 
+										messages: [
+											{ role: "user", content: "{{input}}" }
+										]
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Anthropic/Claude:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										model: "claude-3-5-sonnet-20240620", 
+										messages: [
+											{ role: "user", content: "{{input}}" }
+										],
+										max_tokens: 1024
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Google Gemini:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										contents: [
+											{ role: "user", parts: [{ text: "{{input}}" }] }
+										],
+										generationConfig: {
+											temperature: 0.7,
+											maxOutputTokens: 1024
+										}
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Mistral AI:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										model: "mistral-large-latest", 
+										messages: [
+											{ role: "user", content: "{{input}}" }
+										],
+										temperature: 0.7,
+										max_tokens: 1000
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Cohere:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										message: "{{input}}",
+										model: "command",
+										temperature: 0.7,
+										max_tokens: 1000
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Ollama:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										model: "llama3",
+										prompt: "{{input}}",
+										options: {
+											temperature: 0.7,
+											num_predict: 1000
+										}
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h5 className={styles.subSectionHeading}>Response Mapping</h5>
+								<p className={styles.helpText}>Response mapping is required when using External API Agent type. It tells the system how to extract information from the API response.</p>
+								<ul className={styles.helpList}>
+									<li className={styles.listItem}>The <strong>&quot;output&quot;</strong> field is mandatory and should point to where the main content is in the response</li>
+									<li className={styles.listItem}>Use dot notation to access nested properties (e.g., &quot;choices.0.message.content&quot;)</li>
+									<li className={styles.listItem}>You can include optional <strong>&quot;success_criteria&quot;</strong> to determine if the response was successful</li>
+								</ul>
+								<h6 className={styles.exampleHeading}>Example for OpenAI:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ output: "choices.0.message.content" }, null, 2)}
+								</CodeSnippet>
+								<h6 className={styles.exampleHeading}>Example for Claude:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ output: "content.0.text" }, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Google Gemini:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ output: "candidates.0.content.parts.0.text" }, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Mistral AI:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ output: "choices.0.message.content" }, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Cohere:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ output: "text" }, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Ollama:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ output: "response" }, null, 2)}
+								</CodeSnippet>
+
+								<h5 className={styles.subSectionHeading}>Headers</h5>
+								<p className={styles.helpText}>Custom HTTP headers to send with the request to the API endpoint.</p>
+								<ul className={styles.helpList}>
+									<li className={styles.listItem}>Must be a valid JSON object with string values</li>
+									<li className={styles.listItem}>Authentication headers will be automatically added if you provide an API Key</li>
+								</ul>
+								<h6 className={styles.exampleHeading}>Example:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										"Content-Type": "application/json",
+										"X-Custom-Header": "custom-value"
+									}, null, 2)}
+								</CodeSnippet>
+							</div>
+						</AccordionItem>
+					</Accordion>
 				</Stack>
 			</Form>
 		</Modal>
