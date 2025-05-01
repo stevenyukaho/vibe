@@ -12,6 +12,7 @@ import {
 } from '@carbon/react';
 import { Launch } from '@carbon/icons-react';
 import { api } from '@/lib/api';
+import styles from './AgentFormModal.module.scss';
 
 interface AgentFormModalProps {
 	isOpen: boolean;
@@ -388,15 +389,14 @@ export default function AgentFormModal({
 			primaryButtonDisabled={isSaving}
 		>
 			{error && (
-				<div style={{
-					marginBottom: '1rem',
-					padding: '0.5rem',
-					backgroundColor: '#fff1f1',
-					color: '#da1e28',
-					borderLeft: '3px solid #da1e28'
-				}}>
-					{error}
-				</div>
+				<InlineNotification
+					kind="error"
+					title="Error"
+					subtitle={error}
+					hideCloseButton
+					lowContrast
+					className={styles.errorNotification}
+				/>
 			)}
 			<Form>
 				<Stack gap={7}>
