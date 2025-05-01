@@ -7,7 +7,8 @@ import {
     Report,
     Dashboard,
     Play,
-    CloudServices
+    CloudServices,
+    Rocket
 } from '@carbon/icons-react';
 import styles from './SideNav.module.scss';
 
@@ -84,7 +85,7 @@ export default function AppSideNav() {
                     Suites
                 </SideNavLink>
                 <SideNavLink
-                    renderIcon={Dashboard}
+                    renderIcon={Rocket}
                     isActive={activeItem === 'suite-runs'}
                     onClick={() => handleNavChange('suite-runs')}
                 >
