@@ -12,6 +12,7 @@ import {
 	Checkbox,
 	Button,
 	InlineLoading,
+	TextInput,
 } from '@carbon/react';
 import { parseLLMVariations } from '@/lib/parseLLMResponse';
 
@@ -23,6 +24,8 @@ export default function GenerateTestsPage() {
 
 	const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
 	const [seedInput, setSeedInput] = useState('');
+	const [description, setDescription] = useState('');
+	const [expectedOutput, setExpectedOutput] = useState('');
 	const [selectedLLMConfigId, setSelectedLLMConfigId] = useState<number | null>(null);
 	const [count, setCount] = useState(5);
 	const PROMPT_TEMPLATE = "You are a test generation assistant. Given an example user request: '{{seed}}', produce {{count}} similar variations that trigger the same action. Return a JSON array of strings.";
@@ -66,7 +69,12 @@ export default function GenerateTestsPage() {
 		setError(null);
 		try {
 			for (const text of toSave) {
-				const test = await createTest({ name: text, input: text });
+				const test = await createTest({ 
+					name: text, 
+					input: text,
+					description,
+					expected_output: expectedOutput
+				});
 				if (selectedSuiteId) {
 					await api.addTestToSuite(selectedSuiteId, test.id!);
 				}
@@ -92,6 +100,24 @@ export default function GenerateTestsPage() {
 					placeholder="Enter a user request example..."
 					value={seedInput}
 					onChange={e => setSeedInput(e.currentTarget.value)}
+					style={{ marginBottom: '1rem' }}
+				/>
+
+				<TextInput
+					id="description"
+					labelText="Description (applied to all generated tests)"
+					placeholder="Enter test description"
+					value={description}
+					onChange={e => setDescription(e.currentTarget.value)}
+					style={{ marginBottom: '1rem' }}
+				/>
+
+				<TextArea
+					id="expected-output"
+					labelText="Expected Output (applied to all generated tests)"
+					placeholder="Enter expected output"
+					value={expectedOutput}
+					onChange={e => setExpectedOutput(e.currentTarget.value)}
 					style={{ marginBottom: '1rem' }}
 				/>
 
