@@ -181,11 +181,11 @@ export default function GenerateTestsPage() {
 				</Button>
 			</Form>
 
-			{error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
+			{error && <div style={{ color: 'red', marginTop: '1rem' }}>{error}</div>}
 			{isGenerating && <InlineLoading description="Generating..." />}
 
 			{!!generated.length && (
-				<div style={{ marginTop: '2rem' }}>
+				<div style={{ marginBottom: '2rem' }}>
 					<h2>Generated Variations</h2>
 					{generated.map((g, i) => (
 						<Checkbox
@@ -198,7 +198,7 @@ export default function GenerateTestsPage() {
 								arr[i].selected = !arr[i].selected;
 								setGenerated(arr);
 							}}
-							style={{ display: 'block', marginTop: '0.5rem' }}
+							style={{ display: 'block', marginBottom: '0.5rem' }}
 						/>
 					))}
 
