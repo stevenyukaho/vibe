@@ -4,6 +4,7 @@ import styles from '../page.module.scss';
 import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
 import { useTests } from '@/lib/AppDataContext';
+import { useRouter } from 'next/navigation';
 
 interface TestsProps {
   onAddClick: () => void;
@@ -16,7 +17,7 @@ export default function Tests({
   onEditTest,
   onDeleteTest
 }: TestsProps) {
-  // Get data from context
+  const router = useRouter();
   const { tests, isLoading } = useTests();
 
   const testRows = tests.map((test) => ({
@@ -38,9 +39,14 @@ export default function Tests({
       <div className={styles.panelHeader}>
         <h2>Tests</h2>
         {testRows.length > 0 && (
-          <Button renderIcon={Add} onClick={onAddClick}>
-            Add Test
-          </Button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Button kind="secondary" renderIcon={Add} onClick={() => router.push('/tests/generate')}>
+              Generate Tests
+            </Button>
+            <Button renderIcon={Add} onClick={onAddClick}>
+              Add Test
+            </Button>
+          </div>
         )}
       </div>
       {isLoading ? (
