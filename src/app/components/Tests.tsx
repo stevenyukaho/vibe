@@ -63,7 +63,7 @@ export default function Tests({
         <EmptyState
           title="Test Cases"
           description="Add your first test case with input data and expected outputs."
-          icon={TestTool as React.ComponentType<{ size: number; className?: string }>}
+          icon={TestTool}
           onAddClick={onAddClick}
         />
       )}
