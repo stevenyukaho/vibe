@@ -55,7 +55,7 @@ export default function Results({
         <EmptyState
           title="Test Results"
           description="Run tests against your agents to see results here."
-          icon={Report as React.ComponentType<{ size: number; className?: string }>}
+          icon={Report}
           onAddClick={onAddTestClick}
         />
       )}
