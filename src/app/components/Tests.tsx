@@ -58,6 +58,17 @@ export default function Tests({
           type="test" 
           onEdit={onEditTest}
           onDelete={onDeleteTest}
+          onGenerate={(id) => {
+            const test = tests.find(t => t.id === id);
+            if (test) {
+              const params = new URLSearchParams({
+                seed: test.input,
+                description: test.description || '',
+                expectedOutput: test.expected_output || ''
+              });
+              router.push(`/tests/generate?${params.toString()}`);
+            }
+          }}
         />
       ) : (
         <EmptyState
