@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppData, useTests, useLLMConfigs } from '@/lib/AppDataContext';
 import { api, TestSuite } from '@/lib/api';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
 	Form,
 	TextArea,
@@ -18,14 +18,18 @@ import { parseLLMVariations } from '@/lib/parseLLMResponse';
 
 export default function GenerateTestsPage() {
 	const router = useRouter();
+	const searchParams = useSearchParams();
 	const { fetchAllData } = useAppData();
 	const { llmConfigs, callLLM } = useLLMConfigs();
 	const { createTest } = useTests();
 
 	const [testSuites, setTestSuites] = useState<TestSuite[]>([]);
-	const [seedInput, setSeedInput] = useState('');
-	const [description, setDescription] = useState('');
-	const [expectedOutput, setExpectedOutput] = useState('');
+	const initialSeed = searchParams.get('seed') ?? '';
+	const initialDesc = searchParams.get('description') ?? '';
+	const initialExpected = searchParams.get('expectedOutput') ?? '';
+	const [seedInput, setSeedInput] = useState(initialSeed);
+	const [description, setDescription] = useState(initialDesc);
+	const [expectedOutput, setExpectedOutput] = useState(initialExpected);
 	const [selectedLLMConfigId, setSelectedLLMConfigId] = useState<number | null>(null);
 	const [count, setCount] = useState(5);
 	const PROMPT_TEMPLATE = "You are a test generation assistant. Given an example user request: '{{seed}}', produce {{count}} similar variations that trigger the same action. Return a JSON array of strings.";
