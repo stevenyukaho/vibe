@@ -1,5 +1,5 @@
 import { Button, InlineLoading } from '@carbon/react';
-import { Add, TestTool } from '@carbon/icons-react';
+import { Add, AiGenerate, TestTool } from '@carbon/icons-react';
 import styles from '../page.module.scss';
 import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
@@ -40,7 +40,7 @@ export default function Tests({
         <h2>Tests</h2>
         {testRows.length > 0 && (
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Button kind="secondary" renderIcon={Add} onClick={() => router.push('/tests/generate')}>
+            <Button kind="secondary" renderIcon={AiGenerate} onClick={() => router.push('/tests/generate')}>
               Generate Tests
             </Button>
             <Button renderIcon={Add} onClick={onAddClick}>
