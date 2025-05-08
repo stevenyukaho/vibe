@@ -9,7 +9,7 @@ import {
 	Tag,
 	Button,
 } from '@carbon/react';
-import { Edit, TrashCan, ViewFilled } from '@carbon/icons-react';
+import { Edit, TrashCan, ViewFilled, AiGenerate } from '@carbon/icons-react';
 
 interface TableCell {
 	id: string;
@@ -26,6 +26,7 @@ interface TableRendererProps {
 	onEdit?: (id: number) => void;
 	onDelete?: (id: number) => void;
 	onView?: (id: number) => void;
+	onGenerate?: (id: number) => void;
 }
 
 export default function TableRenderer({
@@ -34,7 +35,8 @@ export default function TableRenderer({
 	type,
 	onEdit,
 	onDelete,
-	onView
+	onView,
+	onGenerate
 }: TableRendererProps) {
 	return (
 		<DataTable rows={rows} headers={headers}>
@@ -116,6 +118,19 @@ export default function TableRenderer({
 															}
 														}}
 													/>
+													{onGenerate && (
+														<Button
+															kind="ghost"
+															size="sm"
+															renderIcon={AiGenerate}
+															iconDescription="Generate Variations"
+															hasIconOnly
+															onClick={() => {
+																const testId = parseInt(row.id, 10);
+																if (!isNaN(testId)) onGenerate(testId);
+															}}
+														/>
+													)}
 													<Button
 														kind="danger--ghost"
 														size="sm"
