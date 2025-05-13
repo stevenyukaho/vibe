@@ -22,7 +22,7 @@ import {
 	Stack,
 	InlineNotification
 } from '@carbon/react';
-import { ChevronLeft, TrashCan, Rocket, Add } from '@carbon/icons-react';
+import { ChevronLeft, Rocket, ArrowRight, ArrowLeft } from '@carbon/icons-react';
 
 interface PageProps {
 	params: { id: string };
@@ -39,7 +39,6 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [allTests, setAllTests] = useState<Test[]>([]);
-	const [selectedTestToAdd, setSelectedTestToAdd] = useState<number | ''>('');
 	const [isRunning, setIsRunning] = useState(false);
 	const router = useRouter();
 
@@ -111,16 +110,14 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 		}
 	};
 
-	const handleAddTest = async () => {
-		if (selectedTestToAdd === '') {
+	const handleAddTestToSuiteTable = async (testId: number) => {
+		if (!suite) {
 			return;
 		}
-		
 		try {
-			await api.addTestToSuite(suite!.id, selectedTestToAdd);
-			const updated = await api.getTestsInSuite(suite!.id);
-			setTests(updated);
-			setSelectedTestToAdd('');
+			await api.addTestToSuite(suite.id, testId);
+			const updatedTestsInSuite = await api.getTestsInSuite(suite.id);
+			setTests(updatedTestsInSuite);
 			setError(null);
 		} catch (err: unknown) {
 			if (err instanceof Error) {
@@ -131,11 +128,14 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 		}
 	};
 
-	const handleRemoveTest = async (testId: number) => {
+	const handleRemoveTestFromSuiteTable = async (testId: number) => {
+		if (!suite) {
+			return;
+		}
 		try {
-			await api.removeTestFromSuite(suite!.id, testId);
-			const updated = await api.getTestsInSuite(suite!.id);
-			setTests(updated);
+			await api.removeTestFromSuite(suite.id, testId);
+			const updatedTestsInSuite = await api.getTestsInSuite(suite.id);
+			setTests(updatedTestsInSuite);
 			setError(null);
 		} catch (err: unknown) {
 			if (err instanceof Error) {
@@ -146,8 +146,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 		}
 	};
 
-	// Get list of tests that are not already in the test suite
-	const availableTests = allTests.filter(
+	const availableTestsToDisplay = allTests.filter(
 		(t) => !tests.some((st) => st.id === t.id)
 	);
 
@@ -160,13 +159,24 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 						<Button
 							kind="primary"
 							onClick={handleRunSuite}
-							disabled={!selectedAgentId || isRunning}
+							disabled={!selectedAgentId || isRunning || tests.length === 0}
 							renderIcon={Rocket}
 						>
 							{isRunning ? 'Running...' : 'Run Suite'}
 						</Button>
 					</div>
-					
+
+					<div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '-1rem', marginTop: '-1rem' }}>
+						<Link href="/test-suites" passHref>
+							<Button
+								kind="ghost"
+								renderIcon={ChevronLeft}
+							>
+								Back to Test Suites
+							</Button>
+						</Link>
+					</div>
+
 					{suite.description && (
 						<p>{suite.description}</p>
 					)}
@@ -195,85 +205,98 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 						</div>
 					</Tile>
 					
-					<div>
-						<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-							<h2>Tests</h2>
-							<div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-								<Dropdown
-									id="add-test-select"
-									titleText=""
-									label="Select test to add"
-									disabled={availableTests.length === 0}
-									items={availableTests.map(test => ({
-										id: String(test.id),
-										label: test.name
-									}))}
-									selectedItem={selectedTestToAdd ? {
-										id: String(selectedTestToAdd),
-										label: allTests.find(t => t.id === selectedTestToAdd)?.name || ''
-									} : undefined}
-									onChange={({ selectedItem }) => selectedItem && setSelectedTestToAdd(parseInt(selectedItem.id, 10))}
-								/>
-								<Button
-									kind="secondary"
-									size="sm"
-									onClick={handleAddTest}
-									disabled={selectedTestToAdd === ''}
-									renderIcon={Add}
-								>
-									Add Test
-								</Button>
-							</div>
-						</div>
-						
-						{tests.length > 0 ? (
-							<TableContainer title="Tests">
-								<Table>
-									<TableHead>
-										<TableRow>
-											<TableHeader>Name</TableHeader>
-											<TableHeader>Description</TableHeader>
-											<TableHeader>Actions</TableHeader>
-										</TableRow>
-									</TableHead>
-									<TableBody>
-										{tests.map((test) => (
-											<TableRow key={test.id}>
-												<TableCell>{test.name}</TableCell>
-												<TableCell>{test.description || '-'}</TableCell>
-												<TableCell>
-													<Button
-														kind="ghost"
-														size="sm"
-														hasIconOnly
-														renderIcon={TrashCan}
-														iconDescription="Remove test"
-														tooltipPosition="left"
-														onClick={() => handleRemoveTest(test.id!)}
-													/>
-												</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
-							</TableContainer>
-						) : (
-							<Tile>
-								<p>No tests have been added to this suite yet. Use the dropdown above to add tests.</p>
+					<h2>Tests</h2>
+					{error && (
+						<InlineNotification
+							kind="error"
+							title="Error modifying tests"
+							subtitle={error}
+							onCloseButtonClick={() => setError(null)}
+							style={{ marginBottom: '1rem' }}
+							hideCloseButton={false}
+						/>
+					)}
+					<Grid>
+						<Column md={4} lg={8} sm={4} className="cds--col-padding">
+							<Tile style={{ height: '100%' }}>
+								<h4>Available Tests ({availableTestsToDisplay.length})</h4>
+								{availableTestsToDisplay.length > 0 ? (
+									<TableContainer>
+										<Table size="sm" useZebraStyles={false}>
+											<TableHead>
+												<TableRow>
+													<TableHeader>Name</TableHeader>
+													<TableHeader>Description</TableHeader>
+													<TableHeader style={{ width: '50px' }}>Action</TableHeader>
+												</TableRow>
+											</TableHead>
+											<TableBody>
+												{availableTestsToDisplay.map((test) => (
+													<TableRow key={`available-${test.id}`}>
+														<TableCell>{test.name}</TableCell>
+														<TableCell>{test.description || '-'}</TableCell>
+														<TableCell>
+															<Button
+																kind="ghost"
+																size="sm"
+																hasIconOnly
+																renderIcon={ArrowRight}
+																iconDescription="Add to suite"
+																tooltipPosition="left"
+																onClick={() => handleAddTestToSuiteTable(test.id!)}
+															/>
+														</TableCell>
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+									</TableContainer>
+								) : (
+									<p style={{paddingTop: '1rem'}}>No other tests available to add.</p>
+								)}
 							</Tile>
-						)}
-					</div>
-					
-					<div>
-						<Link href="/test-suites" passHref>
-							<Button
-								kind="ghost"
-								renderIcon={ChevronLeft}
-							>
-								Back to Test Suites
-							</Button>
-						</Link>
-					</div>
+						</Column>
+
+						<Column md={4} lg={8} sm={4} className="cds--col-padding">
+							<Tile style={{ height: '100%' }}>
+								<h4>Tests in Suite ({tests.length})</h4>
+								{tests.length > 0 ? (
+									<TableContainer>
+										<Table size="sm" useZebraStyles={false}>
+											<TableHead>
+												<TableRow>
+													<TableHeader style={{ width: '50px' }}>Action</TableHeader>
+													<TableHeader>Name</TableHeader>
+													<TableHeader>Description</TableHeader>
+												</TableRow>
+											</TableHead>
+											<TableBody>
+												{tests.map((test) => (
+													<TableRow key={`suite-${test.id}`}>
+														<TableCell>
+															<Button
+																kind="ghost"
+																size="sm"
+																hasIconOnly
+																renderIcon={ArrowLeft}
+																iconDescription="Remove from suite"
+																tooltipPosition="right"
+																onClick={() => handleRemoveTestFromSuiteTable(test.id!)}
+															/>
+														</TableCell>
+														<TableCell>{test.name}</TableCell>
+														<TableCell>{test.description || '-'}</TableCell>
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+									</TableContainer>
+								) : (
+									<p style={{paddingTop: '1rem'}}>No tests have been added to this suite. Add tests from the &quot;Available Tests&quot; list.</p>
+								)}
+							</Tile>
+						</Column>
+					</Grid>
 				</Stack>
 			</Column>
 		</Grid>
