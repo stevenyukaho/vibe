@@ -93,6 +93,10 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 			setError('Please select an agent');
 			return;
 		}
+		if (tests.length === 0) {
+			setError('Cannot run an empty suite. Please add tests.');
+			return;
+		}
 		try {
 			setIsRunning(true);
 			const { suite_run_id } = await api.executeSuite(suite.id, selectedAgentId);
