@@ -138,6 +138,8 @@ export default function SuiteRunsPage() {
 		{ key: 'id', header: 'ID' },
 		{ key: 'status', header: 'Status' },
 		{ key: 'progress', header: 'Progress' },
+		{ key: 'total_execution_time', header: 'Total execution time' },
+		{ key: 'success_rate', header: 'Success rate' },
 		{ key: 'actions', header: 'Actions' }
 	];
 
@@ -177,12 +179,26 @@ export default function SuiteRunsPage() {
 		);
 	};
 
-	const rows = runs.map((run) => ({
-		id: String(run.id),
-		status: run.status,
-		progress: `${run.progress}% (${run.completed_tests}/${run.total_tests})`,
-		actions: getRowActions(String(run.id))
-	}));
+	const rows = runs.map((run) => {
+		// Calculate Total Execution Time in seconds (sum of individual test times)
+		const totalMs = typeof run.total_execution_time === 'number' ? run.total_execution_time : 0;
+		const totalExecutionTimeSec = totalMs / 1000;
+
+		// Calculate Success Rate
+		const successfulTests = typeof run.successful_tests === 'number' ? run.successful_tests : 0;
+		const successRate = run.total_tests > 0
+			? (successfulTests / run.total_tests) * 100
+			: null;
+
+		return {
+			id: String(run.id),
+			status: run.status,
+			progress: `${run.progress}% (${run.completed_tests}/${run.total_tests})`,
+			total_execution_time: totalExecutionTimeSec > 0 ? `${totalExecutionTimeSec.toFixed(2)}s` : 'N/A',
+			success_rate: successRate !== null ? `${successRate.toFixed(1)}%` : 'N/A',
+			actions: getRowActions(String(run.id))
+		};
+	});
 
 	return (
 		<>
