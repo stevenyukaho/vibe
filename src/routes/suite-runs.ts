@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { listSuiteRuns, getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun } from '../db/queries';
+import { listSuiteRuns, getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId } from '../db/queries';
 import { JobStatus } from '../types';
 
 const router = Router();
@@ -35,7 +35,22 @@ router.get('/', (async (req: Request, res: Response) => {
 		}
 
 		const suiteRuns = await listSuiteRuns(filters);
-		res.json(suiteRuns);
+		// Fallback: if total_execution_time is zero or missing, compute it from individual result times
+		const enriched = await Promise.all(
+			suiteRuns.map(async run => {
+				if (!run.total_execution_time && run.completed_tests > 0) {
+					const jobs = await getJobsBySuiteRunId(run.id!);
+					const sumMs = jobs
+						.map(j => j.result_id)
+						.filter((id): id is number => id !== undefined && id !== null)
+						.map(id => (getExecutionTimeByResultId(id) || 0) * 1000)
+						.reduce((s, t) => s + t, 0);
+					run.total_execution_time = sumMs;
+				}
+				return run;
+			})
+		);
+		res.json(enriched);
 	} catch (error) {
 		console.error('Error listing suite runs:', error);
 		res.status(500).json({
@@ -61,6 +76,16 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 			return res.status(404).json({ error: 'Suite run not found' });
 		}
 
+		// Fallback: compute total_execution_time if missing or zero
+		if (!suiteRun.total_execution_time && suiteRun.completed_tests > 0) {
+			const jobs = await getJobsBySuiteRunId(id);
+			const sumMs = jobs
+				.map(j => j.result_id)
+				.filter((id): id is number => id !== undefined && id !== null)
+				.map(id => (getExecutionTimeByResultId(id) || 0) * 1000)
+				.reduce((s, t) => s + t, 0);
+			suiteRun.total_execution_time = sumMs;
+		}
 		res.json(suiteRun);
 	} catch (error) {
 		console.error(`Error getting suite run ${req.params.id}:`, error);
