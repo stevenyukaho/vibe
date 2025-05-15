@@ -68,6 +68,7 @@ export interface SuiteRun {
     successful_tests: number;
     failed_tests: number;
     average_execution_time?: number;
+    total_execution_time?: number;
     started_at: string;
     completed_at?: string;
 }
