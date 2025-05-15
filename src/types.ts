@@ -91,6 +91,7 @@ export interface SuiteRun {
 	successful_tests: number;
 	failed_tests: number;
 	average_execution_time?: number;  // Time in milliseconds
+	total_execution_time?: number;  // Time in milliseconds
 	started_at?: string;
 	completed_at?: string;
 }

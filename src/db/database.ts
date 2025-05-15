@@ -91,6 +91,7 @@ db.exec(`
     successful_tests INTEGER DEFAULT 0,
     failed_tests INTEGER DEFAULT 0,
     average_execution_time REAL,
+    total_execution_time REAL,
     started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP,
     FOREIGN KEY (suite_id) REFERENCES test_suites(id),
@@ -113,6 +114,12 @@ const pragmaStmt = db.prepare("PRAGMA table_info('jobs')");
 const columns = pragmaStmt.all() as Array<{ name: string }>;
 if (!columns.some(col => col.name === 'suite_run_id')) {
   db.exec("ALTER TABLE jobs ADD COLUMN suite_run_id INTEGER");
+}
+
+// Migration: add total_execution_time column to suite_runs table if missing
+const suiteRunsInfo = db.prepare("PRAGMA table_info('suite_runs')").all() as Array<{ name: string }>;
+if (!suiteRunsInfo.some(col => col.name === 'total_execution_time')) {
+  db.exec("ALTER TABLE suite_runs ADD COLUMN total_execution_time REAL DEFAULT 0");
 }
 
 // Create indexes for better performance
