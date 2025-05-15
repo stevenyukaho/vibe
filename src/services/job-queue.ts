@@ -434,14 +434,15 @@ export class JobQueueService {
 		);
 		const successfulJobs = jobs.filter(job => job.status === JobStatus.COMPLETED);
 		
-		// Get results for completed jobs
-		const executionTimes = completedJobs
+		// Get results for completed jobs (in seconds -> convert to ms)
+		const executionTimesSec = completedJobs
 			.map(job => job.result_id)
 			.filter((id): id is number => id !== undefined && id !== null)
 			.map(id => getExecutionTimeByResultId(id) || 0);
-		
-		const averageExecutionTime = executionTimes.length > 0
-			? executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length
+		const executionTimesMs = executionTimesSec.map(sec => sec * 1000);
+		const totalExecutionTime = executionTimesMs.reduce((sum, ms) => sum + ms, 0);
+		const averageExecutionTime = executionTimesMs.length > 0
+			? totalExecutionTime / executionTimesMs.length
 			: undefined;
 		
 		// Calculate overall progress percentage
@@ -462,7 +463,8 @@ export class JobQueueService {
 			completed_tests: completedJobs.length,
 			successful_tests: successfulJobs.length,
 			failed_tests: completedJobs.length - successfulJobs.length,
-			average_execution_time: averageExecutionTime
+			average_execution_time: averageExecutionTime,
+			total_execution_time: totalExecutionTime
 		});
 	}
 }
