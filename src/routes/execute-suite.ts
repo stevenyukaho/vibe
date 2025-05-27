@@ -44,7 +44,7 @@ router.post('/', (async (req: Request, res: Response) => {
 		try {
 			suiteRunId = await jobQueue.createSuiteRun(suite_id, agent_id);
 		} catch (err: any) {
-			if (err.message.startsWith(`No tests found in suite`)) {
+			if (err.message.startsWith(`No tests found in suite`) || err.message.startsWith(`No entries found in suite`)) {
 				return res.status(400).json({ error: err.message });
 			}
 			throw err;
