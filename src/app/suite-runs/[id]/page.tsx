@@ -104,7 +104,7 @@ export default function SuiteRunDetailPage() {
 		return {
 			id: String(job.id),
 			test: testName,
-			status: job.status,
+			status: { value: job.status, error: job.error },
 			progress: job.progress,
 			actions: job.result_id ? (
 				<Button
@@ -202,12 +202,13 @@ export default function SuiteRunDetailPage() {
 									{rows.map((row) => (
 										<TableRow key={row.id}>
 											{row.cells.map((cell) => {
-												// Handle status cell with Tag component
+												// Handle status cell with Tag component and error message
 												if (cell.info.header === 'status') {
-													const tagType = getStatusTagType(cell.value);
+													const tagType = getStatusTagType(cell.value.value);
 													return (
 														<TableCell key={cell.id}>
-															<Tag type={tagType}>{cell.value}</Tag>
+															<Tag type={tagType}>{cell.value.value}</Tag>
+															{cell.value.error && cell.value.error}
 														</TableCell>
 													);
 												}
