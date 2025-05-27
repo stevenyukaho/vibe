@@ -579,4 +579,61 @@ export const api = {
         
         return response.json();
     },
+
+    // Suite Entries
+    async getSuiteEntries(suite_id: number): Promise<SuiteEntry[]> {
+        const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/entries`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch suite entries');
+        }
+        const data = await response.json() as SuiteEntry[];
+        return data;
+    },
+
+    async addSuiteEntry(suite_id: number, entry: { sequence?: number; test_id?: number; child_suite_id?: number; agent_id_override?: number }): Promise<SuiteEntry> {
+        const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/entries`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to add suite entry');
+        }
+        const data = await response.json() as SuiteEntry;
+        return data;
+    },
+
+    async updateSuiteEntry(suite_id: number, entry_id: number, updates: { sequence?: number; agent_id_override?: number | null }): Promise<void> {
+        const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/entries/${entry_id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates)
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update suite entry');
+        }
+    },
+
+    async deleteSuiteEntry(suite_id: number, entry_id: number): Promise<void> {
+        const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/entries/${entry_id}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete suite entry');
+        }
+    },
+
+    async reorderSuiteEntries(suite_id: number, entry_orders: { entry_id: number; sequence: number }[]): Promise<{ success: boolean }> {
+        const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/entries/reorder`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entry_orders })
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to reorder suite entries');
+        }
+        const data = await response.json() as { success: boolean };
+        return data;
+    }
 };
