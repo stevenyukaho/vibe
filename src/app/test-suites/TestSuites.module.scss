@@ -90,3 +90,90 @@
   gap: 0.5rem;
   margin-top: 0.75rem;
 }
+
+// Detail page styles
+.backButton {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: -1rem;
+  margin-top: -1rem;
+}
+
+.runConfigTile {
+  h3 {
+    margin-bottom: 1rem;
+  }
+}
+
+.agentSelect {
+  margin-top: 1rem;
+  max-width: 300px;
+}
+
+.dualPanelGrid {
+  min-height: 500px;
+}
+
+.panelTile {
+  height: 100%;
+  padding: 1rem;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.searchContainer {
+  margin-bottom: 1rem;
+}
+
+.scrollableTable {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.itemDescription {
+  font-size: 0.875rem;
+  color: #6f6f6f;
+}
+
+.agentOverrideSelect {
+  min-width: 150px;
+}
+
+.entryAgentSelect {
+  min-width: 180px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 2rem;
+  color: #6f6f6f;
+}
+
+.emptyStateWithIcon {
+  text-align: center;
+  padding: 3rem;
+  color: #6f6f6f;
+
+  svg {
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  p:last-child {
+    font-size: 0.875rem;
+  }
+}
+
+.scrollableEntries {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.entryName {
+  font-weight: bold;
+}
