@@ -113,3 +113,13 @@ export interface LLMConfig {
 	created_at?: string;
 	updated_at?: string;
 }
+
+// SuiteEntry represents a test or child suite entry in a nested suite structure
+export interface SuiteEntry {
+	id: number;
+	parent_suite_id: number;
+	sequence: number;
+	test_id?: number;
+	child_suite_id?: number;
+	agent_id_override?: number;
+}
