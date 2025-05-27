@@ -122,6 +122,34 @@ if (!suiteRunsInfo.some(col => col.name === 'total_execution_time')) {
   db.exec("ALTER TABLE suite_runs ADD COLUMN total_execution_time REAL DEFAULT 0");
 }
 
+// Migration: create suite_entries table if missing and migrate existing entries
+const suiteEntriesInfo = db.prepare("PRAGMA table_info('suite_entries')").all() as Array<{ name: string }>;
+if (!suiteEntriesInfo.some(col => col.name === 'id')) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS suite_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      parent_suite_id INTEGER NOT NULL,
+      sequence INTEGER,
+      test_id INTEGER,
+      child_suite_id INTEGER,
+      agent_id_override INTEGER,
+      FOREIGN KEY (parent_suite_id) REFERENCES test_suites(id) ON DELETE CASCADE,
+      FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE,
+      FOREIGN KEY (child_suite_id) REFERENCES test_suites(id) ON DELETE CASCADE
+    );
+  `);
+  db.exec(`
+    INSERT INTO suite_entries (parent_suite_id, sequence, test_id)
+    SELECT suite_id, sequence, test_id FROM test_suite_tests;
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_suite_entries_parent ON suite_entries(parent_suite_id);
+    CREATE INDEX IF NOT EXISTS idx_suite_entries_sequence ON suite_entries(sequence);
+    CREATE INDEX IF NOT EXISTS idx_suite_entries_test ON suite_entries(test_id);
+    CREATE INDEX IF NOT EXISTS idx_suite_entries_child ON suite_entries(child_suite_id);
+  `);
+}
+
 // Create indexes for better performance
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agents_name_version ON agents(name, version);
