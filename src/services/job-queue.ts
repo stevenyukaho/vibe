@@ -346,11 +346,10 @@ export class JobQueueService {
 	 * @returns The suite run ID
 	 */
 	async createSuiteRun(suite_id: number, agent_id: number): Promise<number> {
-		// Get all tests in the suite
-		const tests = dbQueries.getTestsInSuite(suite_id);
-		
-		if (!tests || tests.length === 0) {
-			throw new Error(`No tests found in suite ${suite_id}`);
+		// Get suite entries and flatten to leaf tests with agent overrides
+		const leaves = dbQueries.getFlattenedLeaves(suite_id, agent_id);
+		if (!leaves || leaves.length === 0) {
+			throw new Error(`No entries found in suite ${suite_id}`);
 		}
 
 		// Create suite run record
@@ -359,7 +358,7 @@ export class JobQueueService {
 			agent_id,
 			status: JobStatus.PENDING,
 			progress: 0,
-			total_tests: tests.length,
+			total_tests: leaves.length,
 			completed_tests: 0,
 			successful_tests: 0,
 			failed_tests: 0
@@ -368,9 +367,9 @@ export class JobQueueService {
 		if (!createdSuiteRun.id) {
 			throw new Error('Failed to create suite run');
 		}
-		// Create jobs for each test in the suite
-		const jobPromises = tests.map(test => 
-			this.createJobForSuiteRun(agent_id, test.id!, createdSuiteRun.id!)
+		// Create jobs for each leaf test in the suite
+		const jobPromises = leaves.map(({ test_id, agent_id: jobAgentId }) =>
+			this.createJobForSuiteRun(jobAgentId, test_id, createdSuiteRun.id!)
 		);
 		await Promise.all(jobPromises);
 		// Immediately mark suite run as RUNNING
