@@ -73,6 +73,15 @@ export interface SuiteRun {
     completed_at?: string;
 }
 
+export interface SuiteEntry {
+    id: number;
+    parent_suite_id: number;
+    sequence: number;
+    test_id?: number;
+    child_suite_id?: number;
+    agent_id_override?: number;
+}
+
 export const api = {
     // Agents
     async getAgents(): Promise<Agent[]> {
