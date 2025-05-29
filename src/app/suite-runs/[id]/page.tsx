@@ -34,13 +34,14 @@ export default function SuiteRunDetailPage() {
 	const [jobs, setJobs] = useState<Job[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [previousStatus, setPreviousStatus] = useState<string | null>(null);
 	
 	// Result modal state
 	const [selectedResultId, setSelectedResultId] = useState<number | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 	const [resultError, setResultError] = useState<string | null>(null);
 
-	const { getTestById, getResultById } = useAppData();
+	const { getTestById, getResultById, fetchAllData } = useAppData();
 	
 	const handleResultView = (id: number) => {
 		const result = getResultById(id);
@@ -68,6 +69,24 @@ export default function SuiteRunDetailPage() {
 					api.getSuiteRunJobs(runId)
 				]);
 				if (!mounted) return;
+				
+				// Check if status changed to "completed" and refresh all data
+				if (previousStatus !== runData.status && runData.status === 'completed') {
+					await fetchAllData();
+				}
+				
+				// Check if any job got a new result_id (indicating it just completed)
+				const newlyCompletedJobs = jobsData.filter(job => 
+					job.result_id && !jobs.find(prevJob => 
+						prevJob.id === job.id && prevJob.result_id === job.result_id
+					)
+				);
+				
+				if (newlyCompletedJobs.length > 0) {
+					await fetchAllData();
+				}
+				
+				setPreviousStatus(runData.status);
 				setSuiteRun(runData);
 				setJobs(jobsData);
 			} catch (err: unknown) {
@@ -80,7 +99,7 @@ export default function SuiteRunDetailPage() {
 		fetchData();
 		const interval = setInterval(fetchData, 2000);
 		return () => { mounted = false; clearInterval(interval); };
-	}, [runId]);
+	}, [runId, previousStatus, fetchAllData]);
 
 	if (loading) {
 		return <InlineLoading description="Loading suite run details..." />;
