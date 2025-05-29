@@ -11,7 +11,8 @@ import {
 	InlineNotification,
 	Accordion,
 	AccordionItem,
-	CodeSnippet
+	CodeSnippet,
+	Dropdown
 } from '@carbon/react';
 import { Launch } from '@carbon/icons-react';
 import { api } from '@/lib/api';
@@ -220,6 +221,14 @@ export default function AgentFormModal({
 					settings = {
 						...settings,
 						api_key: formData['agent-api-key']
+					};
+				}
+
+				// Add HTTP method if provided, default to POST
+				if (formData['agent-http-method']) {
+					settings = {
+						...settings,
+						http_method: formData['agent-http-method']
 					};
 				}
 
@@ -511,6 +520,33 @@ export default function AgentFormModal({
 								value={formData['agent-api-endpoint'] || ''}
 								onChange={handleInputChange}
 								required
+							/>
+							<Dropdown
+								id="agent-http-method"
+								titleText="HTTP Method"
+								label="Select HTTP method"
+								items={[
+									{ id: 'POST', label: 'POST' },
+									{ id: 'GET', label: 'GET' },
+									{ id: 'PUT', label: 'PUT' },
+									{ id: 'PATCH', label: 'PATCH' },
+									{ id: 'DELETE', label: 'DELETE' }
+								]}
+								selectedItem={
+									formData['agent-http-method']
+									? { id: formData['agent-http-method'], label: formData['agent-http-method'] }
+									: { id: 'POST', label: 'POST' }
+								}
+								onChange={(e) => {
+									const event = {
+										target: {
+											id: 'agent-http-method',
+											value: e.selectedItem?.id || 'POST'
+										}
+									} as React.ChangeEvent<HTMLInputElement>;
+									handleInputChange(event);
+								}}
+								helperText="HTTP method to use for API requests (default: POST)"
 							/>
 							<TextInput
 								id="agent-api-key"

@@ -67,6 +67,7 @@ export default function AgentsPage() {
 				if (settings.type === 'external_api') {
 					data['agent-api-endpoint'] = settings.api_endpoint ?? '';
 					data['agent-api-key'] = settings.api_key ?? '';
+					data['agent-http-method'] = settings.http_method ?? 'POST';
 					data['agent-request-template'] = settings.request_template ?? '';
 					if (settings.response_mapping !== undefined) {
 						data['agent-response-mapping'] = typeof settings.response_mapping === 'string'
