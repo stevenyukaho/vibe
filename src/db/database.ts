@@ -122,6 +122,18 @@ if (!suiteRunsInfo.some(col => col.name === 'total_execution_time')) {
   db.exec("ALTER TABLE suite_runs ADD COLUMN total_execution_time REAL DEFAULT 0");
 }
 
+// Migration: add job polling columns to jobs table if missing
+const jobsInfo = db.prepare("PRAGMA table_info('jobs')").all() as Array<{ name: string }>;
+if (!jobsInfo.some(col => col.name === 'job_type')) {
+  db.exec("ALTER TABLE jobs ADD COLUMN job_type TEXT DEFAULT 'crewai'");
+}
+if (!jobsInfo.some(col => col.name === 'claimed_by')) {
+  db.exec("ALTER TABLE jobs ADD COLUMN claimed_by TEXT");
+}
+if (!jobsInfo.some(col => col.name === 'claimed_at')) {
+  db.exec("ALTER TABLE jobs ADD COLUMN claimed_at DATETIME");
+}
+
 // Migration: create suite_entries table if missing and migrate existing entries
 const suiteEntriesInfo = db.prepare("PRAGMA table_info('suite_entries')").all() as Array<{ name: string }>;
 if (!suiteEntriesInfo.some(col => col.name === 'id')) {
@@ -158,6 +170,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
   CREATE INDEX IF NOT EXISTS idx_jobs_agent_test ON jobs(agent_id, test_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_suite_run ON jobs(suite_run_id);
+  CREATE INDEX IF NOT EXISTS idx_jobs_job_type ON jobs(job_type);
+  CREATE INDEX IF NOT EXISTS idx_jobs_status_type ON jobs(status, job_type);
   CREATE INDEX IF NOT EXISTS idx_test_suite_tests_suite ON test_suite_tests(suite_id);
   CREATE INDEX IF NOT EXISTS idx_test_suite_tests_test ON test_suite_tests(test_id);
   CREATE INDEX IF NOT EXISTS idx_suite_runs_suite ON suite_runs(suite_id);
