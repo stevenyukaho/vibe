@@ -63,12 +63,32 @@ export class ApiService {
 				}
 			];
 
-			// Make API call
-			const response = await axios.post(
-				request.api_endpoint,
-				requestPayload,
-				config
-			);
+			// Get HTTP method, default to POST
+			const httpMethod = request.http_method || 'POST';
+
+			let response;
+			if (httpMethod === 'GET') {
+				// For GET requests, append query parameters instead of body
+				const url = new URL(request.api_endpoint);
+				if (request.request_template) {
+					const formattedRequest = this.formatRequest(request.test_input, request.request_template);
+					Object.entries(formattedRequest).forEach(([key, value]) => {
+						url.searchParams.append(key, String(value));
+					});
+				} else {
+					url.searchParams.append('input', request.test_input);
+				}
+				
+				response = await axios.get(url.toString(), config);
+			} else {
+				// For POST, PUT, PATCH, DELETE - use request body
+				response = await axios({
+					method: httpMethod.toLowerCase(),
+					url: request.api_endpoint,
+					data: requestPayload,
+					...config
+				});
+			}
 
 			// Log the API response
 			intermediateSteps.push({
