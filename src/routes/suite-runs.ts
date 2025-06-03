@@ -1,9 +1,55 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { listSuiteRuns, getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId } from '../db/queries';
+import { listSuiteRuns, getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId, getAgentById } from '../db/queries';
 import { JobStatus } from '../types';
 
 const router = Router();
+
+/**
+ * Utility function to recalculate and enrich suite run data with accurate progress and execution time
+ * This handles cases where older data wasn't stored properly in the database
+ */
+async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
+	const jobs = await getJobsBySuiteRunId(suiteRun.id!);
+	
+	// Calculate actual job states
+	const completedJobs = jobs.filter(job => 
+		job.status === 'completed' || 
+		job.status === 'failed' || 
+		job.status === 'timeout'
+	);
+	const successfulJobs = jobs.filter(job => job.status === 'completed');
+	
+	// If the database values don't match the actual job states, use calculated values
+	// this is a fallback to ensure the UI is always up to date
+	if (suiteRun.completed_tests !== completedJobs.length || 
+		suiteRun.successful_tests !== successfulJobs.length) {
+		
+		suiteRun.completed_tests = completedJobs.length;
+		suiteRun.successful_tests = successfulJobs.length;
+		suiteRun.failed_tests = completedJobs.length - successfulJobs.length;
+		suiteRun.progress = Math.floor((completedJobs.length / Math.max(jobs.length, 1)) * 100);
+		
+		// Update status if all jobs are completed
+		if (completedJobs.length === jobs.length && jobs.length > 0) {
+			suiteRun.status = 'completed' as any;
+		} else if (jobs.some(job => job.status === 'running')) {
+			suiteRun.status = 'running' as any;
+		}
+	}
+
+	// Fallback: compute total_execution_time if missing or zero
+	if (!suiteRun.total_execution_time && suiteRun.completed_tests > 0) {
+		const sumMs = jobs
+			.map(j => j.result_id)
+			.filter((id): id is number => id !== undefined && id !== null)
+			.map(id => (getExecutionTimeByResultId(id) || 0) * 1000)
+			.reduce((s, t) => s + t, 0);
+		suiteRun.total_execution_time = sumMs;
+	}
+	
+	return suiteRun;
+}
 
 /**
  * GET /api/suite-runs
@@ -35,21 +81,21 @@ router.get('/', (async (req: Request, res: Response) => {
 		}
 
 		const suiteRuns = await listSuiteRuns(filters);
-		// Fallback: if total_execution_time is zero or missing, compute it from individual result times
+		
+		// Enrich with agent names and recalculated fields
 		const enriched = await Promise.all(
 			suiteRuns.map(async run => {
-				if (!run.total_execution_time && run.completed_tests > 0) {
-					const jobs = await getJobsBySuiteRunId(run.id!);
-					const sumMs = jobs
-						.map(j => j.result_id)
-						.filter((id): id is number => id !== undefined && id !== null)
-						.map(id => (getExecutionTimeByResultId(id) || 0) * 1000)
-						.reduce((s, t) => s + t, 0);
-					run.total_execution_time = sumMs;
-				}
-				return run;
+				// Add agent name to the run data
+				const agent = await getAgentById(run.agent_id);
+				const enrichedRun = {
+					...run,
+					agent_name: agent ? agent.name : `Agent #${run.agent_id}`
+				};
+
+				return await enrichSuiteRunWithCalculatedFields(enrichedRun);
 			})
 		);
+		
 		res.json(enriched);
 	} catch (error) {
 		console.error('Error listing suite runs:', error);
@@ -76,17 +122,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 			return res.status(404).json({ error: 'Suite run not found' });
 		}
 
-		// Fallback: compute total_execution_time if missing or zero
-		if (!suiteRun.total_execution_time && suiteRun.completed_tests > 0) {
-			const jobs = await getJobsBySuiteRunId(id);
-			const sumMs = jobs
-				.map(j => j.result_id)
-				.filter((id): id is number => id !== undefined && id !== null)
-				.map(id => (getExecutionTimeByResultId(id) || 0) * 1000)
-				.reduce((s, t) => s + t, 0);
-			suiteRun.total_execution_time = sumMs;
-		}
-		res.json(suiteRun);
+		// Apply recalculation logic
+		const enrichedSuiteRun = await enrichSuiteRunWithCalculatedFields(suiteRun);
+		
+		res.json(enrichedSuiteRun);
 	} catch (error) {
 		console.error(`Error getting suite run ${req.params.id}:`, error);
 		res.status(500).json({
