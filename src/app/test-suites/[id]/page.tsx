@@ -223,11 +223,11 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	
 	const availableTests: AvailableItem[] = allTests
 		.filter(t => t.id != null && !usedTestIds.has(t.id))
-		.map(t => ({ id: t.id!, name: t.name, type: 'test' as const, description: t.description }));
+		.map(t => ({ id: t.id!, name: t.name, type: 'test', description: t.description }));
 	
 	const availableSuites: AvailableItem[] = allSuites
 		.filter(s => !usedSuiteIds.has(s.id!))
-		.map(s => ({ id: s.id!, name: s.name, type: 'suite' as const, description: s.description }));
+		.map(s => ({ id: s.id!, name: s.name, type: 'suite', description: s.description }));
 
 	// Filter items based on search and active tab
 	const getFilteredItems = () => {
