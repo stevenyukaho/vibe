@@ -41,7 +41,7 @@ export default function SuiteRunDetailPage() {
 	const [modalOpen, setModalOpen] = useState(false);
 	const [resultError, setResultError] = useState<string | null>(null);
 
-	const { getTestById, getResultById, fetchAllData } = useAppData();
+	const { getTestById, getResultById, getAgentById, fetchAllData } = useAppData();
 	
 	const handleResultView = (id: number) => {
 		const result = getResultById(id);
@@ -113,6 +113,7 @@ export default function SuiteRunDetailPage() {
 
 	const headers = [
 		{ key: 'test', header: 'Test' },
+		{ key: 'agent', header: 'Agent' },
 		{ key: 'status', header: 'Status' },
 		{ key: 'progress', header: 'Progress' },
 		{ key: 'actions', header: 'Actions' }
@@ -120,9 +121,13 @@ export default function SuiteRunDetailPage() {
 
 	const rows = jobs.map((job) => {
 		const testName = getTestById(job.test_id)?.name || `#${job.test_id}`;
+		const agent = getAgentById(job.agent_id);
+		const agentName = agent ? `${agent.name} (v${agent.version})` : `Agent #${job.agent_id}`;
+		
 		return {
 			id: String(job.id),
 			test: testName,
+			agent: agentName,
 			status: { value: job.status, error: job.error },
 			progress: job.progress,
 			actions: job.result_id ? (
