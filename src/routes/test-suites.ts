@@ -11,17 +11,37 @@ import {
     getTestsInSuite,
     reorderTestsInSuite
 } from '../db/queries';
+import { suiteProcessingService } from '../services/suite-processing-service';
 
 const router = Router();
 
 /**
  * GET /api/test-suites
- * Get all test suites
+ * Get all test suites with test counts
  */
 router.get('/', (async (_req: Request, res: Response) => {
     try {
         const testSuites = getTestSuites();
-        res.json(testSuites);
+        
+        // Add test count for each suite by flattening the nested structure
+        const testSuitesWithCounts = testSuites.map(suite => {
+            let testCount = 0;
+            try {
+                // Use a default agent ID of 1 for counting purposes (agent doesn't matter for counting)
+                const leaves = suiteProcessingService.getFlattenedLeaves(suite.id!, 1);
+                testCount = leaves.length;
+            } catch (error) {
+                console.warn(`Error calculating test count for suite ${suite.id}:`, error);
+                testCount = 0;
+            }
+            
+            return {
+                ...suite,
+                test_count: testCount
+            };
+        });
+        
+        res.json(testSuitesWithCounts);
     } catch (error) {
         console.error('Error fetching test suites:', error);
         res.status(500).json({ error: 'Failed to fetch test suites' });
