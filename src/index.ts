@@ -30,7 +30,7 @@ app.use('/api/suite-runs', suiteRunsRoutes);
 app.use('/api/llm-configs', llmConfigRoutes);
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
+app.get('/api/health', (req: Request, res: Response) => {
 	res.json({ status: 'ok' });
 });
 
