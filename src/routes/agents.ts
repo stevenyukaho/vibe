@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { createAgent, getAgents, getAgentById, updateAgent, deleteAgent } from '../db/queries';
-import type { Agent } from '../db/queries';
+import type { Agent } from '../types';
 
 const router = Router();
 

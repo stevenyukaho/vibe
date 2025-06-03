@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { createResult, getResults, getResultById } from '../db/queries';
-import type { TestResult } from '../db/queries';
+import type { TestResult } from '../types';
 
 const router = Router();
 
