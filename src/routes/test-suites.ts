@@ -23,13 +23,12 @@ router.get('/', (async (_req: Request, res: Response) => {
     try {
         const testSuites = getTestSuites();
         
-        // Add test count for each suite by flattening the nested structure
+        // Add test count for each suite by counting the nested structure
         const testSuitesWithCounts = testSuites.map(suite => {
             let testCount = 0;
             try {
-                // Use a default agent ID of 1 for counting purposes (agent doesn't matter for counting)
-                const leaves = suiteProcessingService.getFlattenedLeaves(suite.id!, 1);
-                testCount = leaves.length;
+                // Use the dedicated counting method that doesn't need agent validation
+                testCount = suiteProcessingService.countLeafTests(suite.id!);
             } catch (error) {
                 console.warn(`Error calculating test count for suite ${suite.id}:`, error);
                 testCount = 0;

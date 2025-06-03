@@ -26,6 +26,41 @@ interface AgentValidationResult {
 export class SuiteProcessingService {
 	
 	/**
+	 * Count the total number of leaf tests in a nested suite structure
+	 * This method is optimized for counting only and skips agent validation
+	 */
+	public countLeafTests(
+		parentSuiteId: number, 
+		visited: Set<number> = new Set()
+	): number {
+		// Prevent infinite recursion by checking if we've already visited this suite
+		if (visited.has(parentSuiteId)) {
+			console.warn(`[Suite Count] Circular reference detected: Suite ${parentSuiteId} references itself. Skipping to prevent infinite recursion.`);
+			return 0;
+		}
+		visited.add(parentSuiteId);
+
+		const entries = getEntriesInSuite(parentSuiteId);
+		
+		let count = 0;
+
+		for (const entry of entries) {
+			if (entry.test_id) {
+				count += 1;
+			} else if (entry.child_suite_id) {
+				// Child suite entry - recursively count its tests
+				const childVisited = new Set(visited);
+				count += this.countLeafTests(entry.child_suite_id, childVisited);
+			}
+		}
+
+		// Remove current suite from visited set when backtracking
+		visited.delete(parentSuiteId);
+		
+		return count;
+	}
+
+	/**
 	 * Validate an agent and its settings
 	 */
 	private validateAgent(agentId: number, context: string = ''): AgentValidationResult {
