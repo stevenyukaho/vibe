@@ -189,10 +189,12 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 
 	const handleUpdateEntryAgent = async (entryId: number, agentId: number | null) => {
 		try {
-			await api.updateSuiteEntry(suiteId, entryId, { agent_id_override: agentId });
-			// Always refresh entries from backend to ensure persistence
-			const updatedEntries = await api.getSuiteEntries(suiteId);
-			setEntries(updatedEntries);
+			await api.updateSuiteEntry(suiteId, entryId, { agent_id_override: agentId || undefined });
+			setEntries(prev => prev.map(e => 
+				e.id === entryId 
+					? { ...e, agent_id_override: agentId || undefined }
+					: e
+			));
 			setError(null);
 		} catch (e: unknown) {
 			let message = 'An unknown error occurred';
