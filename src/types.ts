@@ -52,6 +52,9 @@ export interface Job {
 	created_at?: string;
 	updated_at?: string;
 	suite_run_id?: number; // Reference to parent suite run
+	job_type?: string; // 'crewai' or 'external_api' for routing to appropriate service
+	claimed_by?: string; // Service identifier that claimed this job
+	claimed_at?: string;
 }
 
 export interface JobFilters {
@@ -61,6 +64,7 @@ export interface JobFilters {
 	before?: Date;
 	after?: Date;
 	suite_run_id?: number;
+	job_type?: string;
 }
 
 // Test Suite interfaces
