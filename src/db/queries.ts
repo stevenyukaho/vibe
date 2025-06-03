@@ -283,9 +283,9 @@ export const getExecutionTimeByResultId = (resultId: number): number | undefined
 export async function createJob(job: Job): Promise<Job> {
 	const statement = db.prepare(`
 	INSERT INTO jobs (
-	  id, agent_id, test_id, status, progress, partial_result, result_id, error, suite_run_id
+	  id, agent_id, test_id, status, progress, partial_result, result_id, error, suite_run_id, job_type, claimed_by, claimed_at
 	) VALUES (
-	  @id, @agent_id, @test_id, @status, @progress, @partial_result, @result_id, @error, @suite_run_id
+	  @id, @agent_id, @test_id, @status, @progress, @partial_result, @result_id, @error, @suite_run_id, @job_type, @claimed_by, @claimed_at
 	)
   `);
 
@@ -298,7 +298,10 @@ export async function createJob(job: Job): Promise<Job> {
 		partial_result: job.partial_result || null,
 		result_id: job.result_id || null,
 		error: job.error || null,
-		suite_run_id: job.suite_run_id || null
+		suite_run_id: job.suite_run_id || null,
+		job_type: job.job_type || 'crewai',
+		claimed_by: job.claimed_by || null,
+		claimed_at: job.claimed_at || null
 	});
 
 	const result = await getJobById(job.id);
@@ -381,6 +384,11 @@ export async function listJobs(filters: JobFilters = {}): Promise<Job[]> {
 	if (filters.suite_run_id) {
 		conditions.push('suite_run_id = @suite_run_id');
 		params.suite_run_id = filters.suite_run_id;
+	}
+
+	if (filters.job_type) {
+		conditions.push('job_type = @job_type');
+		params.job_type = filters.job_type;
 	}
 
 	if (conditions.length > 0) {
@@ -482,15 +490,7 @@ export const deleteTestSuite = (id: number) => {
 };
 
 export const getTestSuites = () => {
-	// Return all test suites with a test_count field
-	const query = `
-	SELECT s.*, COUNT(tst.test_id) as test_count
-	FROM test_suites s
-	LEFT JOIN test_suite_tests tst ON s.id = tst.suite_id
-	GROUP BY s.id
-	ORDER BY s.created_at DESC
-	`;
-	return db.prepare(query).all() as (TestSuite & { test_count: number })[];
+	return db.prepare('SELECT * FROM test_suites ORDER BY created_at DESC').all() as TestSuite[];
 };
 
 export const getTestSuiteById = (id: number) => {
@@ -553,19 +553,7 @@ export const getEntriesInSuite = (parentSuiteId: number): SuiteEntry[] => {
     return stmt.all(parentSuiteId) as SuiteEntry[];
 };
 
-export function getFlattenedLeaves(parentSuiteId: number, defaultAgentId: number): { test_id: number; agent_id: number }[] {
-    const leaves: { test_id: number; agent_id: number }[] = [];
-    const entries = getEntriesInSuite(parentSuiteId);
-    for (const entry of entries) {
-        const agentId = entry.agent_id_override != null ? entry.agent_id_override : defaultAgentId;
-        if (entry.test_id != null) {
-            leaves.push({ test_id: entry.test_id, agent_id: agentId });
-        } else if (entry.child_suite_id != null) {
-            leaves.push(...getFlattenedLeaves(entry.child_suite_id, defaultAgentId));
-        }
-    }
-    return leaves;
-}
+
 
 export const addSuiteEntry = (entry: {
     parent_suite_id: number;
