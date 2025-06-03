@@ -9,12 +9,7 @@ import {
     addTestToSuite,
     removeTestFromSuite,
     getTestsInSuite,
-    reorderTestsInSuite,
-    getEntriesInSuite,
-    addSuiteEntry,
-    updateSuiteEntryOrder,
-    deleteSuiteEntry,
-    reorderSuiteEntries
+    reorderTestsInSuite
 } from '../db/queries';
 
 const router = Router();
