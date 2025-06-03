@@ -5,6 +5,9 @@ import { getAgentById, getTestById, getResultById } from '../db/queries';
 
 const router = Router();
 
+// Define fields that can be updated by users/services
+const UPDATABLE_JOB_FIELDS = ['status', 'progress', 'partial_result', 'result_id', 'error'] as const;
+
 // List all jobs with optional filtering
 router.get('/', (async (req: Request, res: Response) => {
   try {
@@ -38,6 +41,23 @@ router.get('/', (async (req: Request, res: Response) => {
     console.error('Error listing jobs:', error);
     res.status(500).json({ 
       error: 'Failed to list jobs', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+}) as any);
+
+// Get available jobs for polling (used by services)
+router.get('/available/:job_type?', (async (req: Request, res: Response) => {
+  try {
+    const jobType = req.params.job_type;
+    const limit = parseInt(req.query.limit as string || '10', 10);
+    
+    const jobs = await jobQueue.getAvailableJobs(jobType, limit);
+    res.json(jobs);
+  } catch (error) {
+    console.error('Error getting available jobs:', error);
+    res.status(500).json({ 
+      error: 'Failed to get available jobs', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
   }
@@ -156,6 +176,64 @@ router.delete('/:id', (async (req: Request, res: Response) => {
     console.error(`Error deleting job ${req.params.id}:`, error);
     res.status(500).json({ 
       error: 'Failed to delete job', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+}) as any);
+
+// Claim a job for execution (used by services)
+router.post('/:id/claim', (async (req: Request, res: Response) => {
+  try {
+    const { service_id } = req.body;
+    
+    if (!service_id) {
+      return res.status(400).json({ error: 'service_id is required' });
+    }
+    
+    const claimed = await jobQueue.claimJob(req.params.id, service_id);
+    
+    if (!claimed) {
+      return res.status(409).json({ error: 'Job could not be claimed (may be already running or completed)' });
+    }
+    
+    res.status(200).json({ 
+      message: 'Job claimed successfully',
+      job_id: req.params.id 
+    });
+  } catch (error) {
+    console.error(`Error claiming job ${req.params.id}:`, error);
+    res.status(500).json({ 
+      error: 'Failed to claim job', 
+      details: error instanceof Error ? error.message : 'Unknown error' 
+    });
+  }
+}) as any);
+
+// Update job status and progress (used by services during execution)
+router.put('/:id', (async (req: Request, res: Response) => {
+  try {
+    const updates = req.body;
+    
+    // Only allow whitelisted fields to be updated
+    const updateFields: any = {};
+    
+    for (const field of UPDATABLE_JOB_FIELDS) {
+      if (updates[field] !== undefined) {
+        updateFields[field] = updates[field];
+      }
+    }
+    
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+    
+    await jobQueue.updateJob(req.params.id, updateFields);
+    
+    res.status(200).json({ message: 'Job updated successfully' });
+  } catch (error) {
+    console.error(`Error updating job ${req.params.id}:`, error);
+    res.status(500).json({ 
+      error: 'Failed to update job', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
   }
