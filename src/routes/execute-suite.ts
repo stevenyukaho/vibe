@@ -39,16 +39,8 @@ router.post('/', (async (req: Request, res: Response) => {
 			return res.status(404).json({ error: "Test suite not found" });
 		}
 		
-		// Create a suite run with jobs for all tests in the suite, handling empty suites gracefully
-		let suiteRunId: number;
-		try {
-			suiteRunId = await jobQueue.createSuiteRun(suite_id, agent_id);
-		} catch (err: any) {
-			if (err.message.startsWith(`No tests found in suite`) || err.message.startsWith(`No entries found in suite`)) {
-				return res.status(400).json({ error: err.message });
-			}
-			throw err;
-		}
+		// Create a suite run with jobs for all tests in the suite
+		const suiteRunId = await jobQueue.createSuiteRun(suite_id, agent_id);
 		
 		res.json({
 			message: "Suite execution started successfully",
