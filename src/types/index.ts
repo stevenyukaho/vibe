@@ -9,6 +9,7 @@ export interface TestExecutionRequest {
   request_template?: string;
   response_mapping?: string;
   headers?: Record<string, string>;
+  http_method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 }
 
 /**
