@@ -136,6 +136,7 @@ export default function SuiteRunsPage() {
 
 	const headers = [
 		{ key: 'id', header: 'ID' },
+		{ key: 'agent_name', header: 'Agent' },
 		{ key: 'status', header: 'Status' },
 		{ key: 'progress', header: 'Progress' },
 		{ key: 'total_execution_time', header: 'Total execution time' },
@@ -192,6 +193,7 @@ export default function SuiteRunsPage() {
 
 		return {
 			id: String(run.id),
+			agent_name: run.agent_name, // Add agent_name to the row data
 			status: run.status,
 			progress: `${run.progress}% (${run.completed_tests}/${run.total_tests})`,
 			total_execution_time: totalExecutionTimeSec > 0 ? `${totalExecutionTimeSec.toFixed(2)}s` : 'N/A',
