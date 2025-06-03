@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import routes from './routes';
 import { SERVER_CONFIG } from './config';
+import { jobPoller } from './services/job-poller';
 
 // Create Express app
 const app = express();
@@ -39,15 +40,20 @@ const { port, host } = SERVER_CONFIG;
 app.listen(port, () => {
   console.log(`API Agent Service running at http://${host}:${port}`);
   console.log('Press Ctrl+C to stop');
+  
+  // Start job poller
+  jobPoller.startPolling();
 });
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
+  jobPoller.stopPolling();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully');
+  jobPoller.stopPolling();
   process.exit(0);
 });
