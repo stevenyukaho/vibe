@@ -286,7 +286,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 					<Tile className={styles.runConfigTile}>
 						<h3>Run Configuration</h3>
 						<div className={styles.agentSelect}>
-							<FormLabel>Choose Agent:</FormLabel>
+							<FormLabel>Default agent:</FormLabel>
 							<Select
 								id="agent-select"
 								labelText=""
