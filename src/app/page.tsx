@@ -202,7 +202,7 @@ export default function Home() {
 				
 				{/* Recent Test Runs */}
 				<Column sm={4} md={8} lg={8}>
-					<TileWrapper title="Recent Suite Runs">
+					<TileWrapper title="Recent suite runs">
 						{loading ? (
 							<ProgressIndicator />
 						) : recentSuiteRuns.length > 0 ? (
@@ -244,17 +244,17 @@ export default function Home() {
 								<TableHead>
 									<TableRow>
 										<TableHeader>Agent</TableHeader>
-										<TableHeader>Success Rate</TableHeader>
+										<TableHeader>Success rate</TableHeader>
 										<TableHeader>Tests</TableHeader>
-										<TableHeader>Avg. Time</TableHeader>
+										<TableHeader>Avg. time</TableHeader>
 										{agentMetrics.some(m => m.tokenUsage !== undefined) && (
-											<TableHeader>Token Usage</TableHeader>
+											<TableHeader>Token usage</TableHeader>
 										)}
 										{agentMetrics.some(m => m.modelCalls !== undefined) && (
-											<TableHeader>Model Calls</TableHeader>
+											<TableHeader>Model calls</TableHeader>
 										)}
 										{agentMetrics.some(m => m.toolCalls !== undefined) && (
-											<TableHeader>Tool Calls</TableHeader>
+											<TableHeader>Tool calls</TableHeader>
 										)}
 									</TableRow>
 								</TableHead>

@@ -165,11 +165,11 @@ export default function SuiteRunDetailPage() {
 						onClick={() => router.push('/suite-runs')} 
 						renderIcon={ChevronLeft}
 					>
-						Back to Suite Runs
+						Back to suite runs
 					</Button>
 				</div>
 
-				<h1>Suite Run {suiteRun.id}</h1>
+				<h1>Suite run {suiteRun.id}</h1>
 				
 				<Tile style={{ marginBottom: '2rem' }}>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

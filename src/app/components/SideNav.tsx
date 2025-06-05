@@ -75,7 +75,7 @@ export default function AppSideNav() {
                     isActive={activeItem === 'run'}
                     onClick={() => handleNavChange('run')}
                 >
-                    Run Test
+                    Run test
                 </SideNavLink>
                 <SideNavLink
                     renderIcon={DataTable}
@@ -89,14 +89,14 @@ export default function AppSideNav() {
                     isActive={activeItem === 'suite-runs'}
                     onClick={() => handleNavChange('suite-runs')}
                 >
-                    Suite Runs
+                    Suite runs
                 </SideNavLink>
                 <SideNavLink
                     renderIcon={CloudServices}
                     isActive={activeItem === 'llm-configs'}
                     onClick={() => handleNavChange('llm-configs')}
                 >
-                    LLM Configs
+                    LLM configs
                 </SideNavLink>
             </SideNavItems>
         </SideNav>

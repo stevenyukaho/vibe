@@ -206,7 +206,7 @@ export default function SuiteRunsPage() {
 		<>
 			<Grid>
 				<Column sm={4} md={8} lg={16}>
-					<h1>Suite Runs</h1>
+					<h1>Suite runs</h1>
 					{successMessage && (
 						<InlineNotification
 							kind="success"

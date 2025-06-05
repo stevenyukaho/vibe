@@ -293,7 +293,7 @@ export const api = {
         return response.json();
     },
 
-    // Suite Runs
+    // Suite runs
     async getSuiteRuns(): Promise<SuiteRun[]> {
         const response = await fetch(`${API_URL}/api/suite-runs`);
         if (!response.ok) {
@@ -312,7 +312,7 @@ export const api = {
         return response.json();
     },
 
-    // Single Suite Run
+    // Single suite run
     async getSuiteRun(id: number): Promise<SuiteRun> {
         const response = await fetch(`${API_URL}/api/suite-runs/${id}`);
         if (!response.ok) {
