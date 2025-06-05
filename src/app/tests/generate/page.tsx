@@ -100,11 +100,11 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 
 	return (
 		<div>
-			<h1>Generate Test Variations</h1>
+			<h1>Generate test variations</h1>
 			<Form>
 				<TextArea
 					id="seed-input"
-					labelText="Seed Example Input"
+					labelText="Seed example input"
 					placeholder="Enter a user request example..."
 					value={seedInput}
 					onChange={e => setSeedInput(e.currentTarget.value)}
@@ -122,7 +122,7 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 
 				<TextArea
 					id="expected-output"
-					labelText="Expected Output (applied to all generated tests)"
+					labelText="Expected output (applied to all generated tests)"
 					placeholder="Enter expected output"
 					value={expectedOutput}
 					onChange={e => setExpectedOutput(e.currentTarget.value)}
@@ -131,8 +131,8 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 
 				<Dropdown
 					id="llm-config-select"
-					label="LLM Config"
-					titleText="Select LLM Config"
+					label="LLM config"
+					titleText="Select LLM config"
 					items={llmConfigs.map(cfg => ({ id: String(cfg.id), label: cfg.name }))}
 					selectedItem={
 						selectedLLMConfigId
@@ -153,7 +153,7 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 
 				<NumberInput
 					id="count-input"
-					label="Number of Variations"
+					label="Number of variations"
 					value={count}
 					min={1}
 					max={20}
@@ -163,8 +163,8 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 
 				<Dropdown
 					id="suite-select"
-					label="Add to Test Suite (optional)"
-					titleText="Select Test Suite"
+					label="Add to test suite (optional)"
+					titleText="Select test suite"
 					items={testSuites.map(s => ({ id: String(s.id), label: s.name }))}
 					selectedItem={
 						selectedSuiteId
@@ -185,7 +185,7 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 					disabled={!seedInput || !selectedLLMConfigId || isGenerating}
 					style={{ marginBottom: '1rem' }}
 				>
-					{isGenerating ? 'Generating...' : 'Generate Variations'}
+					{isGenerating ? 'Generating...' : 'Generate variations'}
 				</Button>
 			</Form>
 
@@ -216,7 +216,7 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 						disabled={isSaving}
 						style={{ marginTop: '1rem' }}
 					>
-						{isSaving ? 'Saving...' : 'Save Selected Tests'}
+						{isSaving ? 'Saving...' : 'Save selected tests'}
 						{isSaving && <InlineLoading description="Saving tests..." />}
 					</Button>
 				</div>
