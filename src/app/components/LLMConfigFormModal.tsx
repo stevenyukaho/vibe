@@ -65,6 +65,7 @@ export default function LLMConfigFormModal({
 		{ id: 'ollama', label: 'Ollama' },
 		{ id: 'openai', label: 'OpenAI' },
 		{ id: 'anthropic', label: 'Anthropic' },
+		{ id: 'watsonx', label: 'IBM watsonx' },
 	];
 
 	// Handle form input changes
@@ -107,6 +108,17 @@ export default function LLMConfigFormModal({
 					null,
 					2
 				);
+			case 'watsonx':
+				return JSON.stringify(
+					{
+						model: 'ibm/granite-13b-instruct-v2',
+						api_key: '',
+						project_id: '',
+						base_url: 'https://us-south.ml.cloud.ibm.com',
+					},
+					null,
+					2
+				);
 			default:
 				return JSON.stringify({}, null, 2);
 		}
@@ -145,6 +157,15 @@ export default function LLMConfigFormModal({
 			if (formData.provider === 'openai' || formData.provider === 'anthropic') {
 				if (!configObj.api_key) {
 					throw new Error(`API key is required for ${formData.provider}`);
+				}
+			}
+
+			if (formData.provider === 'watsonx') {
+				if (!configObj.api_key) {
+					throw new Error('API key is required for watsonx');
+				}
+				if (!configObj.project_id) {
+					throw new Error('Project ID is required for watsonx');
 				}
 			}
 
