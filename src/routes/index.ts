@@ -6,7 +6,7 @@ import { TestExecutionRequest } from '../types';
 const router = Router();
 
 // Health check endpoint
-router.get('/health', ((req: Request, res: Response) => {
+router.get('/health', ((_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 }) as any);
 
@@ -32,10 +32,10 @@ router.post('/execute-test', (async (req: Request, res: Response) => {
     const result = await apiService.executeTest(request);
     
     // Return the result
-    res.status(200).json(result);
+    return res.status(200).json(result);
   } catch (error: any) {
     console.error('Error executing test:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to execute test',
       details: error.message || 'Unknown error'
     });

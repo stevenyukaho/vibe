@@ -13,7 +13,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // Logging middleware
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
@@ -22,12 +22,12 @@ app.use((req, res, next) => {
 app.use('/', routes);
 
 // Default 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
 // Error handler
-app.use((err: any, req: any, res: any, next: any) => {
+app.use((err: any, _req: any, res: any, _next: any) => {
   console.error('Unhandled error:', err);
   res.status(500).json({
     error: 'Server error',
