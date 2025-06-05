@@ -57,7 +57,7 @@ export default function Agents({
         <EmptyState
           title="Agent Configurations"
           description="Create your first AI agent configuration with custom prompts and settings."
-          icon={DataTableIcon as React.ComponentType<{ size: number; className?: string }>}
+          icon={DataTableIcon}
           onAddClick={onAddClick}
         />
       )}
