@@ -42,7 +42,7 @@ router.post('/', (async (req: Request, res: Response) => {
 		// Create a suite run with jobs for all tests in the suite
 		const suiteRunId = await jobQueue.createSuiteRun(suite_id, agent_id);
 		
-		res.json({
+		return res.json({
 			message: "Suite execution started successfully",
 			suite_run_id: suiteRunId,
 			suite_id,
@@ -50,7 +50,7 @@ router.post('/', (async (req: Request, res: Response) => {
 		});
 	} catch (error) {
 		console.error('Error executing suite:', error);
-		res.status(500).json({ 
+		return res.status(500).json({ 
 			error: 'Failed to execute test suite',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});

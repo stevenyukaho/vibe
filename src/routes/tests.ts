@@ -9,10 +9,10 @@ const router = Router();
 router.get('/', (async (_req: Request, res: Response) => {
     try {
         const tests = await getTests();
-        res.json(tests);
+        return res.json(tests);
     } catch (error) {
         console.error('Error fetching tests:', error);
-        res.status(500).json({ error: 'Failed to fetch tests' });
+        return res.status(500).json({ error: 'Failed to fetch tests' });
     }
 }) as any);
 
@@ -23,10 +23,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
         if (!test) {
             return res.status(404).json({ error: 'Test not found' });
         }
-        res.json(test);
+        return res.json(test);
     } catch (error) {
         console.error('Error fetching test:', error);
-        res.status(500).json({ error: 'Failed to fetch test' });
+        return res.status(500).json({ error: 'Failed to fetch test' });
     }
 }) as any);
 
@@ -44,10 +44,10 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
         }
         
         const test = await createTest(req.body);
-        res.status(201).json(test);
+        return res.status(201).json(test);
     } catch (error) {
         console.error('Error creating test:', error);
-        res.status(500).json({ 
+        return res.status(500).json({ 
             error: 'Failed to create test',
             details: error instanceof Error ? error.message : 'Unknown error'
         });
@@ -61,10 +61,10 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res:
         if (!test) {
             return res.status(404).json({ error: 'Test not found' });
         }
-        res.json(test);
+        return res.json(test);
     } catch (error) {
         console.error('Error updating test:', error);
-        res.status(500).json({ error: 'Failed to update test' });
+        return res.status(500).json({ error: 'Failed to update test' });
     }
 }) as any);
 
@@ -80,10 +80,10 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
         }
         
         await deleteTest(id);
-        res.status(204).send();
+        return res.status(204).send();
     } catch (error) {
         console.error('Error deleting test:', error);
-        res.status(500).json({ 
+        return res.status(500).json({ 
             error: 'Failed to delete test',
             details: error instanceof Error ? error.message : 'Unknown error'
         });

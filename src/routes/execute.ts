@@ -36,13 +36,13 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
     const jobId = await jobQueue.createJob(agent_id, test_id);
 
     // Return the job ID with 202 Accepted status
-    res.status(202).json({ 
+    return res.status(202).json({ 
       job_id: jobId,
       message: 'Test execution job created and queued for execution'
     });
   } catch (error: any) {
     console.error('Error executing test:', error);
-    res.status(500).json({ error: 'Failed to execute test', details: error instanceof Error ? error.message : 'Unknown error' });
+    return res.status(500).json({ error: 'Failed to execute test', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 }) as any);
 

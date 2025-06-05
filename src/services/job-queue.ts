@@ -36,17 +36,17 @@ function generateJobId(): string {
 export class JobQueueService {
 	private jobs: Map<string, Job>;
 	private runningJobs: Set<string>;
-	private maxConcurrentJobs: number;
+	// private _maxConcurrentJobs: number; // Currently unused, reserved for future concurrency control
 	private isProcessing: boolean;
 	
 	/**
 	 * Create a new JobQueueService
 	 * @param maxConcurrentJobs Maximum number of jobs to run concurrently
 	 */
-	constructor(maxConcurrentJobs = 3) {
+	constructor(_maxConcurrentJobs = 3) {
 		this.jobs = new Map();
 		this.runningJobs = new Set();
-		this.maxConcurrentJobs = maxConcurrentJobs;
+		// this._maxConcurrentJobs = maxConcurrentJobs;
 		this.isProcessing = false;
 		
 		// Initialize jobs from database

@@ -47,10 +47,10 @@ router.get('/', (async (_req: Request, res: Response) => {
             };
         });
         
-        res.json(testSuitesWithCounts);
+        return res.json(testSuitesWithCounts);
     } catch (error) {
         console.error('Error fetching test suites:', error);
-        res.status(500).json({ error: 'Failed to fetch test suites' });
+        return res.status(500).json({ error: 'Failed to fetch test suites' });
     }
 }) as any);
 
@@ -70,10 +70,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
             return res.status(404).json({ error: 'Test suite not found' });
         }
 
-        res.json(testSuite);
+        return res.json(testSuite);
     } catch (error) {
         console.error(`Error fetching test suite ${req.params.id}:`, error);
-        res.status(500).json({ error: 'Failed to fetch test suite' });
+        return res.status(500).json({ error: 'Failed to fetch test suite' });
     }
 }) as any);
 
@@ -90,10 +90,10 @@ router.post('/', (async (req: Request, res: Response) => {
         }
 
         const testSuite = createTestSuite({ name, description, tags });
-        res.status(201).json(testSuite);
+        return res.status(201).json(testSuite);
     } catch (error) {
         console.error('Error creating test suite:', error);
-        res.status(500).json({ error: 'Failed to create test suite' });
+        return res.status(500).json({ error: 'Failed to create test suite' });
     }
 }) as any);
 
@@ -117,10 +117,10 @@ router.put('/:id', (async (req: Request<{ id: string }>, res: Response) => {
         }
 
         const updatedTestSuite = updateTestSuite(id, { name, description, tags });
-        res.json(updatedTestSuite);
+        return res.json(updatedTestSuite);
     } catch (error) {
         console.error(`Error updating test suite ${req.params.id}:`, error);
-        res.status(500).json({ error: 'Failed to update test suite' });
+        return res.status(500).json({ error: 'Failed to update test suite' });
     }
 }) as any);
 
@@ -142,10 +142,10 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
         }
 
         deleteTestSuite(id);
-        res.status(204).send();
+        return res.status(204).send();
     } catch (error) {
         console.error(`Error deleting test suite ${req.params.id}:`, error);
-        res.status(500).json({ error: 'Failed to delete test suite' });
+        return res.status(500).json({ error: 'Failed to delete test suite' });
     }
 }) as any);
 
@@ -167,10 +167,10 @@ router.get('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =>
         }
 
         const tests = getTestsInSuite(id);
-        res.json(tests);
+        return res.json(tests);
     } catch (error) {
         console.error(`Error fetching tests for suite ${req.params.id}:`, error);
-        res.status(500).json({ error: 'Failed to fetch tests for suite' });
+        return res.status(500).json({ error: 'Failed to fetch tests for suite' });
     }
 }) as any);
 
@@ -198,10 +198,10 @@ router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =
 
         const testId = parseInt(test_id);
         const result = addTestToSuite(suiteId, testId, sequence);
-        res.status(201).json(result);
+        return res.status(201).json(result);
     } catch (error) {
         console.error(`Error adding test to suite ${req.params.id}:`, error);
-        res.status(500).json({ error: 'Failed to add test to suite' });
+        return res.status(500).json({ error: 'Failed to add test to suite' });
     }
 }) as any);
 
@@ -225,10 +225,10 @@ router.delete('/:id/tests/:testId', (async (req: Request<{ id: string, testId: s
         }
 
         removeTestFromSuite(suiteId, testId);
-        res.status(204).send();
+        return res.status(204).send();
     } catch (error) {
         console.error(`Error removing test ${req.params.testId} from suite ${req.params.id}:`, error);
-        res.status(500).json({ error: 'Failed to remove test from suite' });
+        return res.status(500).json({ error: 'Failed to remove test from suite' });
     }
 }) as any);
 
@@ -255,10 +255,10 @@ router.put('/:id/tests/reorder', (async (req: Request<{ id: string }>, res: Resp
         }
 
         reorderTestsInSuite(suiteId, test_orders);
-        res.status(200).json({ success: true });
+        return res.status(200).json({ success: true });
     } catch (error) {
         console.error(`Error reordering tests in suite ${req.params.id}:`, error);
-        res.status(500).json({ error: 'Failed to reorder tests in suite' });
+        return res.status(500).json({ error: 'Failed to reorder tests in suite' });
     }
 }) as any);
 
@@ -280,10 +280,10 @@ router.get('/:id/entries', (async (req: Request<{ id: string }>, res: Response) 
 		}
 
 		const entries = getEntriesInSuite(suiteId);
-		res.json(entries);
+		return res.json(entries);
 	} catch (error) {
 		console.error(`Error fetching entries for suite ${req.params.id}:`, error);
-		res.status(500).json({ error: 'Failed to fetch entries for suite' });
+		return res.status(500).json({ error: 'Failed to fetch entries for suite' });
 	}
 }) as any);
 
@@ -321,10 +321,10 @@ router.post('/:id/entries', (async (req: Request<{ id: string }>, res: Response)
 			agent_id_override: agent_id_override ? parseInt(agent_id_override) : undefined
 		});
 		
-		res.status(201).json(entry);
+		return res.status(201).json(entry);
 	} catch (error) {
 		console.error(`Error adding entry to suite ${req.params.id}:`, error);
-		res.status(500).json({ error: 'Failed to add entry to suite' });
+		return res.status(500).json({ error: 'Failed to add entry to suite' });
 	}
 }) as any);
 
@@ -342,10 +342,10 @@ router.put('/:id/entries/:entryId', (async (req: Request<{ id: string, entryId: 
 		const { sequence, agent_id_override } = req.body;
 		
 		updateSuiteEntryOrder(entryId, sequence, agent_id_override);
-		res.json({ message: 'Entry updated successfully' });
+		return res.json({ message: 'Entry updated successfully' });
 	} catch (error) {
 		console.error(`Error updating entry ${req.params.entryId}:`, error);
-		res.status(500).json({ error: 'Failed to update entry' });
+		return res.status(500).json({ error: 'Failed to update entry' });
 	}
 }) as any);
 
@@ -361,10 +361,10 @@ router.delete('/:id/entries/:entryId', (async (req: Request<{ id: string, entryI
 		}
 
 		deleteSuiteEntry(entryId);
-		res.status(204).send();
+		return res.status(204).send();
 	} catch (error) {
 		console.error(`Error deleting entry ${req.params.entryId}:`, error);
-		res.status(500).json({ error: 'Failed to delete entry' });
+		return res.status(500).json({ error: 'Failed to delete entry' });
 	}
 }) as any);
 
@@ -398,10 +398,10 @@ router.put('/:id/entries/reorder', (async (req: Request<{ id: string }>, res: Re
 		}
 
 		reorderSuiteEntries(suiteId, entry_orders);
-		res.json({ message: 'Entries reordered successfully' });
+		return res.json({ message: 'Entries reordered successfully' });
 	} catch (error) {
 		console.error(`Error reordering entries in suite ${req.params.id}:`, error);
-		res.status(500).json({ error: 'Failed to reorder entries' });
+		return res.status(500).json({ error: 'Failed to reorder entries' });
 	}
 }) as any);
 

@@ -36,10 +36,10 @@ router.get('/', (async (req: Request, res: Response) => {
     }
     
     const jobs = await jobQueue.listJobs(filters);
-    res.json(jobs);
+    return res.json(jobs);
   } catch (error) {
     console.error('Error listing jobs:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to list jobs', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
@@ -53,10 +53,10 @@ router.get('/available/:job_type?', (async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string || '10', 10);
     
     const jobs = await jobQueue.getAvailableJobs(jobType, limit);
-    res.json(jobs);
+    return res.json(jobs);
   } catch (error) {
     console.error('Error getting available jobs:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to get available jobs', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
@@ -80,10 +80,10 @@ router.get('/:id', (async (req: Request, res: Response) => {
       enrichedJob.result = await getResultById(job.result_id);
     }
     
-    res.json(enrichedJob);
+    return res.json(enrichedJob);
   } catch (error) {
     console.error(`Error getting job ${req.params.id}:`, error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to get job', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
@@ -116,13 +116,13 @@ router.post('/', (async (req: Request, res: Response) => {
     const jobId = await jobQueue.createJob(agent_id, test_id);
     
     // Return the job ID with 202 Accepted status
-    res.status(202).json({ 
+    return res.status(202).json({ 
       job_id: jobId,
       message: 'Job created and queued for execution'
     });
   } catch (error) {
     console.error('Error creating job:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to create job', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
@@ -152,10 +152,10 @@ router.post('/:id/cancel', (async (req: Request, res: Response) => {
       error: 'Job canceled by user'
     });
     
-    res.status(200).json({ message: 'Job canceled successfully' });
+    return res.status(200).json({ message: 'Job canceled successfully' });
   } catch (error) {
     console.error(`Error canceling job ${req.params.id}:`, error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to cancel job', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
@@ -171,10 +171,10 @@ router.delete('/:id', (async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    res.status(200).json({ message: 'Job deleted successfully' });
+    return res.status(200).json({ message: 'Job deleted successfully' });
   } catch (error) {
     console.error(`Error deleting job ${req.params.id}:`, error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to delete job', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
@@ -196,13 +196,13 @@ router.post('/:id/claim', (async (req: Request, res: Response) => {
       return res.status(409).json({ error: 'Job could not be claimed (may be already running or completed)' });
     }
     
-    res.status(200).json({ 
+    return res.status(200).json({ 
       message: 'Job claimed successfully',
       job_id: req.params.id 
     });
   } catch (error) {
     console.error(`Error claiming job ${req.params.id}:`, error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to claim job', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });
@@ -229,10 +229,10 @@ router.put('/:id', (async (req: Request, res: Response) => {
     
     await jobQueue.updateJob(req.params.id, updateFields);
     
-    res.status(200).json({ message: 'Job updated successfully' });
+    return res.status(200).json({ message: 'Job updated successfully' });
   } catch (error) {
     console.error(`Error updating job ${req.params.id}:`, error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to update job', 
       details: error instanceof Error ? error.message : 'Unknown error' 
     });

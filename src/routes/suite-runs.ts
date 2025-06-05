@@ -96,10 +96,10 @@ router.get('/', (async (req: Request, res: Response) => {
 			})
 		);
 		
-		res.json(enriched);
+		return res.json(enriched);
 	} catch (error) {
 		console.error('Error listing suite runs:', error);
-		res.status(500).json({
+		return res.status(500).json({
 			error: 'Failed to list suite runs',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
@@ -125,10 +125,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		// Apply recalculation logic
 		const enrichedSuiteRun = await enrichSuiteRunWithCalculatedFields(suiteRun);
 		
-		res.json(enrichedSuiteRun);
+		return res.json(enrichedSuiteRun);
 	} catch (error) {
 		console.error(`Error getting suite run ${req.params.id}:`, error);
-		res.status(500).json({
+		return res.status(500).json({
 			error: 'Failed to get suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
@@ -153,10 +153,10 @@ router.get('/:id/jobs', (async (req: Request<{ id: string }>, res: Response) => 
 		}
 
 		const jobs = await getJobsBySuiteRunId(id);
-		res.json(jobs);
+		return res.json(jobs);
 	} catch (error) {
 		console.error(`Error getting jobs for suite run ${req.params.id}:`, error);
-		res.status(500).json({
+		return res.status(500).json({
 			error: 'Failed to get jobs for suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
@@ -183,10 +183,10 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		// Delete the suite run and associated jobs
 		await deleteSuiteRun(id);
 
-		res.status(204).send();
+		return res.status(204).send();
 	} catch (error) {
 		console.error(`Error deleting suite run ${req.params.id}:`, error);
-		res.status(500).json({
+		return res.status(500).json({
 			error: 'Failed to delete suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});

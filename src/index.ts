@@ -30,12 +30,12 @@ app.use('/api/suite-runs', suiteRunsRoutes);
 app.use('/api/llm-configs', llmConfigRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req: Request, res: Response) => {
+app.get('/api/health', (_req: Request, res: Response) => {
 	res.json({ status: 'ok' });
 });
 
 // Basic error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 	console.error(err.stack);
 	res.status(500).json({ error: 'Something went wrong!' });
 });

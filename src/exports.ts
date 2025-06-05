@@ -1,2 +1,2 @@
 // Export common types for use in frontend
-export { Agent, Test, TestResult, JobStatus } from './types';
+export type { Agent, Test, TestResult, JobStatus } from './types';

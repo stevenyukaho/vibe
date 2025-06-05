@@ -6,15 +6,15 @@ import type { Agent } from '../types';
 const router = Router();
 
 // Get all agents
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', (async (_req: Request, res: Response) => {
     try {
         const agents = await getAgents();
-        res.json(agents);
+        return res.json(agents);
     } catch (error) {
         console.error('Error fetching agents:', error);
-        res.status(500).json({ error: 'Failed to fetch agents' });
+        return res.status(500).json({ error: 'Failed to fetch agents' });
     }
-});
+}) as any);
 
 // Get agent by ID
 router.get<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res: Response) => {
@@ -23,10 +23,10 @@ router.get<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res: Re
         if (!agent) {
             return res.status(404).json({ error: 'Agent not found' });
         }
-        res.json(agent);
+        return res.json(agent);
     } catch (error) {
         console.error('Error fetching agent:', error);
-        res.status(500).json({ error: 'Failed to fetch agent' });
+        return res.status(500).json({ error: 'Failed to fetch agent' });
     }
 }) as any);
 
@@ -56,10 +56,10 @@ router.post<{}, {}, Omit<Agent, 'id' | 'created_at'>>('/', (async (req: Request<
         }
         
         const agent = await createAgent(req.body);
-        res.status(201).json(agent);
+        return res.status(201).json(agent);
     } catch (error) {
         console.error('Error creating agent:', error);
-        res.status(500).json({ 
+        return res.status(500).json({ 
             error: 'Failed to create agent',
             details: error instanceof Error ? error.message : 'Unknown error'
         });
@@ -92,10 +92,10 @@ router.put<{ id: string }, {}, Partial<Agent>>('/:id', (async (req: Request<{ id
         }
         
         const updatedAgent = await updateAgent(id, req.body);
-        res.json(updatedAgent);
+        return res.json(updatedAgent);
     } catch (error) {
         console.error('Error updating agent:', error);
-        res.status(500).json({ 
+        return res.status(500).json({ 
             error: 'Failed to update agent',
             details: error instanceof Error ? error.message : 'Unknown error'
         });
@@ -114,10 +114,10 @@ router.delete<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res:
         }
         
         await deleteAgent(id);
-        res.status(204).send();
+        return res.status(204).send();
     } catch (error) {
         console.error('Error deleting agent:', error);
-        res.status(500).json({ 
+        return res.status(500).json({ 
             error: 'Failed to delete agent',
             details: error instanceof Error ? error.message : 'Unknown error'
         });

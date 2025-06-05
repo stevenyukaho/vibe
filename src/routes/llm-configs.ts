@@ -9,14 +9,14 @@ const router = express.Router();
 /**
  * Get all LLM configs ordered by priority
  */
-router.get('/', (req: Request, res: Response) => {
+router.get('/', ((_req: Request, res: Response) => {
 	try {
 		const configs = llmConfigService.getConfigs();
-		res.json(configs);
+		return res.json(configs);
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		return res.status(500).json({ error: error.message });
 	}
-});
+}) as any);
 
 /**
  * Get a single LLM config by ID
@@ -33,9 +33,9 @@ router.get('/:id', (async (req: Request, res: Response) => {
 			return res.status(404).json({ error: 'LLM config not found' });
 		}
 
-		res.json(config);
+		return res.json(config);
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		return res.status(500).json({ error: error.message });
 	}
 }) as any);
 
@@ -63,9 +63,9 @@ router.post('/', (async (req: Request, res: Response) => {
 		};
 
 		const createdConfig = createLLMConfig(newConfig);
-		res.status(201).json(createdConfig);
+		return res.status(201).json(createdConfig);
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		return res.status(500).json({ error: error.message });
 	}
 }) as any);
 
@@ -100,9 +100,9 @@ router.put('/:id', (async (req: Request, res: Response) => {
 			return res.status(404).json({ error: 'LLM config not found' });
 		}
 
-		res.json(updatedConfig);
+		return res.json(updatedConfig);
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		return res.status(500).json({ error: error.message });
 	}
 }) as any);
 
@@ -121,9 +121,9 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 			return res.status(404).json({ error: 'LLM config not found' });
 		}
 
-		res.status(204).send();
+		return res.status(204).send();
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		return res.status(500).json({ error: error.message });
 	}
 }) as any);
 
@@ -154,9 +154,9 @@ router.post('/:id/call', (async (req: Request, res: Response) => {
 			return res.status(500).json({ error: response.error });
 		}
 
-		res.json(response);
+		return res.json(response);
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		return res.status(500).json({ error: error.message });
 	}
 }) as any);
 
@@ -178,9 +178,9 @@ router.post('/call', (async (req: Request, res: Response) => {
 		};
 
 		const response = await llmConfigService.callLLMWithFallback(options);
-		res.json(response);
+		return res.json(response);
 	} catch (error: any) {
-		res.status(500).json({ error: error.message });
+		return res.status(500).json({ error: error.message });
 	}
 }) as any);
 
