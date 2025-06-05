@@ -94,6 +94,8 @@ export class LLMConfigService {
 				return this.callOpenAI(configData, options);
 			case 'anthropic':
 				return this.callAnthropic(configData, options);
+			case 'watsonx':
+				return this.callWatsonx(configData, options);
 			default:
 				throw new Error(`Unsupported LLM provider: ${config.provider}`);
 		}
@@ -212,6 +214,75 @@ export class LLMConfigService {
 		} catch (error: any) {
 			console.error('Anthropic request failed:', error.message);
 			throw new Error(`Anthropic request failed: ${error.message}`);
+		}
+	}
+
+	/**
+	 * Call watsonx API
+	 */
+	private async callWatsonx(configData: any, options: LLMRequestOptions): Promise<LLMResponse> {
+		const apiKey = configData.api_key;
+		const projectId = configData.project_id;
+		
+		if (!apiKey) {
+			throw new Error('watsonx API key is required');
+		}
+		if (!projectId) {
+			throw new Error('watsonx project ID is required');
+		}
+
+		const model = configData.model || 'ibm/granite-13b-instruct-v2';
+		const baseUrl = configData.base_url || 'https://us-south.ml.cloud.ibm.com';
+
+		try {
+			const tokenParams = new URLSearchParams();
+			tokenParams.append('grant_type', 'urn:ibm:params:oauth:grant-type:apikey');
+			tokenParams.append('apikey', apiKey);
+
+			const tokenResponse = await axios.post(
+				'https://iam.cloud.ibm.com/identity/token',
+				tokenParams,
+				{
+					headers: {
+						'Content-Type': 'application/x-www-form-urlencoded',
+						'Accept': 'application/json'
+					}
+				}
+			);
+
+			const accessToken = tokenResponse.data.access_token;
+
+			const response = await axios.post(
+				`${baseUrl}/ml/v1/text/generation?version=2023-05-29`,
+				{
+					input: options.prompt,
+					model_id: model,
+					project_id: projectId,
+					parameters: {
+						decoding_method: 'greedy',
+						max_new_tokens: options.max_tokens || 1000,
+						temperature: options.temperature || 0.7,
+						stop_sequences: options.stop || []
+					}
+				},
+				{
+					headers: {
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${accessToken}`,
+						'Accept': 'application/json'
+					}
+				}
+			);
+
+			return {
+				text: response.data.results[0].generated_text,
+				provider: 'watsonx',
+				model,
+				config_id: configData.id || 0
+			};
+		} catch (error: any) {
+			console.error('watsonx request failed:', error.message);
+			throw new Error(`watsonx request failed: ${error.message}`);
 		}
 	}
 }
