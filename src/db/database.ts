@@ -162,6 +162,21 @@ if (!suiteEntriesInfo.some(col => col.name === 'id')) {
   `);
 }
 
+// Migration: add similarity scoring columns to results table if missing
+const resultsInfo = db.prepare("PRAGMA table_info('results')").all() as Array<{ name: string }>;
+if (!resultsInfo.some(col => col.name === 'similarity_score')) {
+  db.exec("ALTER TABLE results ADD COLUMN similarity_score INTEGER");
+}
+if (!resultsInfo.some(col => col.name === 'similarity_scoring_status')) {
+  db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_status TEXT");
+}
+if (!resultsInfo.some(col => col.name === 'similarity_scoring_error')) {
+  db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_error TEXT");
+}
+if (!resultsInfo.some(col => col.name === 'similarity_scoring_metadata')) {
+  db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_metadata TEXT");
+}
+
 // Create indexes for better performance
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agents_name_version ON agents(name, version);
