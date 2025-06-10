@@ -25,6 +25,7 @@ export default function Results({
     test_name: tests.find(t => t.id === result.test_id)?.name || 'Unknown',
     success: result.success,
     execution_time: result.execution_time ? result.execution_time.toFixed(3) : '0.000',
+    similarity_score: result,
     created_at: new Date(result.created_at!).toLocaleString(),
   }));
 
@@ -33,7 +34,8 @@ export default function Results({
     { key: 'test_name', header: 'Test' },
     { key: 'success', header: 'Success' },
     { key: 'execution_time', header: 'Time (s)' },
-    { key: 'created_at', header: 'Created At' },
+    { key: 'similarity_score', header: 'Similarity score' },
+    { key: 'created_at', header: 'Created at' },
     { key: 'actions', header: 'Actions' },
   ];
 
@@ -42,15 +44,15 @@ export default function Results({
       <div className={styles.panelHeader}>
         <h2>Results</h2>
       </div>
-      {isLoading ? (
-        <InlineLoading description="Loading data..." />
-      ) : resultRows.length > 0 ? (
+      {resultRows.length > 0 ? (
         <TableRenderer 
           headers={resultHeaders} 
           rows={resultRows} 
           type="result" 
           onView={onViewResult}
         />
+      ) : isLoading ? (
+        <InlineLoading description="Loading data..." />
       ) : (
         <EmptyState
           title="Test Results"
