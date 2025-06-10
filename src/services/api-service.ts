@@ -154,19 +154,25 @@ export class ApiService {
 	 * 
 	 * @description
 	 * This method:
-	 * 1. Replaces {{input}} placeholders in the template with the actual input
-	 * 2. Parses the resulting string as JSON
-	 * 3. Falls back to a simple {input: input} object if parsing fails
+	 * 1. Properly escapes the input for JSON insertion
+	 * 2. Replaces {{input}} placeholders in the template with the escaped input
+	 * 3. Parses the resulting string as JSON
+	 * 4. Falls back to a simple {input: input} object if parsing fails
 	 * 
 	 * The template should be a valid JSON string with {{input}} placeholders.
 	 */
 	private formatRequest(input: string, template: string): any {
 		try {
-			// Replace input placeholder in template
-			const formattedTemplate = template.replace(/\{\{input\}\}/g, input);
+			// Properly escape the input for JSON insertion
+			const escapedInput = JSON.stringify(input).slice(1, -1); // Remove surrounding quotes
+			
+			// Replace input placeholder in template with escaped input
+			const formattedTemplate = template.replace(/\{\{input\}\}/g, escapedInput);
 			return JSON.parse(formattedTemplate);
 		} catch (error: any) {
 			console.error('Error formatting request:', error);
+			console.error('Template:', template);
+			console.error('Input:', input);
 			// Fallback to simple input
 			return { input };
 		}
