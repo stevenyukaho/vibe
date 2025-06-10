@@ -38,6 +38,10 @@ export interface TestResult {
 	success: boolean;
 	execution_time?: number;  // Time in milliseconds
 	created_at?: string;
+	similarity_score?: number;  // Similarity score (0-100)
+	similarity_scoring_status?: 'pending' | 'running' | 'completed' | 'failed';  // Scoring job status
+	similarity_scoring_error?: string;  // Error message if scoring failed
+	similarity_scoring_metadata?: string;  // JSON metadata about the scoring process
 }
 
 export interface Job {
