@@ -7,6 +7,7 @@ import { api, SuiteRun, Job } from '../lib/api';
 import { useEffect, useState } from 'react';
 import styles from './page.module.scss';
 import TileWrapper from './components/TileWrapper';
+import { calculateOverallAverageSimilarityScore, filterScoredResults } from '@/lib/similarityScoreUtils';
 
 interface ResultWithStatus {
 	status?: string;
@@ -154,16 +155,8 @@ export default function Home() {
 		: '0.0';
 		
 	// Average similarity score calculation
-	const scoredResults = results.filter(result => 
-		'similarity_score' in result && 
-		result.similarity_score !== undefined && 
-		result.similarity_score !== null &&
-		'similarity_scoring_status' in result &&
-		result.similarity_scoring_status === 'completed'
-	);
-	const avgSimilarityScore = scoredResults.length > 0 
-		? (scoredResults.reduce((sum, r) => sum + (r.similarity_score || 0), 0) / scoredResults.length).toFixed(1)
-		: 'N/A';
+	const avgSimilarityScore = calculateOverallAverageSimilarityScore(results);
+	const scoredResults = filterScoredResults(results);
 		
 	// Recent activity calculation
 	const lastWeekResults = results.filter(r => {
