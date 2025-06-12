@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppData } from '@/lib/AppDataContext';
 import Results from '../components/Results';
@@ -8,12 +8,23 @@ import ResultViewModal from '../components/ResultViewModal';
 
 export default function ResultsPage() {
 	const router = useRouter();
-	const { getResultById } = useAppData();
+	const { getResultById, fetchAllData } = useAppData();
 	const [selectedId, setSelectedId] = useState<number | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const selectedResult = selectedId !== null ? getResultById(selectedId) ?? null : null;
+
+	// Set up auto-refresh for scoring updates
+	useEffect(() => {
+		fetchAllData();
+
+		const interval = setInterval(() => {
+			fetchAllData();
+		}, 2000);
+
+		return () => clearInterval(interval);
+	}, [fetchAllData]);
 
 	const handleViewResult = (id: number) => {
 		const result = getResultById(id);
