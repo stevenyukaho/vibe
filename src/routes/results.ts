@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createResult, getResults, getResultById } from '../db/queries';
+import { createResult, getResults, getResultById, getTestById } from '../db/queries';
 import type { TestResult } from '../types';
+import { scoringService } from '../services/scoring-service';
 
 const router = Router();
 
@@ -39,6 +40,14 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_at'>>, res: Response) => {
     try {
         const result = await createResult(req.body);
+
+        const test = await getTestById(result.test_id);
+        if (test?.expected_output) {
+            scoringService.scoreTestResult(result, test).catch(error => {
+                console.error(`Failed to score result ${result.id}:`, error);
+            });
+        }
+        
         return res.status(201).json(result);
     } catch (error) {
         console.error('Error creating result:', error);
