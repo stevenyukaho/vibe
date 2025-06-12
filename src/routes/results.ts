@@ -55,4 +55,41 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
     }
 }) as any);
 
+router.post('/:id/score', (async (req: Request<{ id: string }, {}, { llm_config_id?: number }>, res: Response) => {
+    try {
+        const resultId = Number(req.params.id);
+        if (isNaN(resultId)) {
+            return res.status(400).json({ error: 'Invalid result ID' });
+        }
+
+        const result = await getResultById(resultId);
+        if (!result) {
+            return res.status(404).json({ error: 'Result not found' });
+        }
+
+        const test = await getTestById(result.test_id);
+        if (!test) {
+            return res.status(404).json({ error: 'Associated test not found' });
+        }
+
+        if (!test.expected_output) {
+            return res.status(400).json({ error: 'Test has no expected output to score against' });
+        }
+
+        const { llm_config_id } = req.body;
+
+        scoringService.scoreTestResult(result, test, llm_config_id).catch(error => {
+            console.error(`Failed to score result ${result.id}:`, error);
+        });
+
+        return res.status(202).json({ 
+            message: 'Scoring initiated',
+            result_id: resultId
+        });
+    } catch (error) {
+        console.error('Error initiating scoring:', error);
+        return res.status(500).json({ error: 'Failed to initiate scoring' });
+    }
+}) as any);
+
 export default router; 
