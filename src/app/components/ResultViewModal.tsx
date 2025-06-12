@@ -3,8 +3,14 @@ import {
 	Stack,
 	CodeSnippet,
 	Tag,
+	Button,
+	InlineNotification,
 } from '@carbon/react';
-import { TestResult } from '@/lib/api';
+import { Restart } from '@carbon/icons-react';
+import { TestResult, api } from '@/lib/api';
+import { useState } from 'react';
+import SimilarityScoreDisplay from './SimilarityScoreDisplay';
+import './ResultViewModal.scss';
 
 interface ResultViewModalProps {
 	isOpen: boolean;
@@ -19,6 +25,31 @@ export default function ResultViewModal({
 	error,
 	onClose
 }: ResultViewModalProps) {
+	const [rescoring, setRescoring] = useState(false);
+	const [rescoreError, setRescoreError] = useState<string | null>(null);
+	const [rescoreSuccess, setRescoreSuccess] = useState(false);
+
+	const handleRescore = async () => {
+		if (!result?.id) return;
+		
+		setRescoring(true);
+		setRescoreError(null);
+		setRescoreSuccess(false);
+		
+		try {
+			await api.scoreResult(result.id);
+			setRescoreSuccess(true);
+
+			setTimeout(() => setRescoreSuccess(false), 3000);
+		} catch (err) {
+			setRescoreError(err instanceof Error ? err.message : 'Failed to initiate scoring');
+		} finally {
+			setRescoring(false);
+		}
+	};
+
+	const canScore = result && result.similarity_scoring_status !== undefined;
+
 	return (
 		<Modal
 			open={isOpen}
@@ -26,61 +57,92 @@ export default function ResultViewModal({
 			primaryButtonText="Close"
 			onRequestClose={onClose}
 			onRequestSubmit={onClose}
+			size="lg"
+			className="result-view-modal"
 		>
 			<Stack gap={5}>
 				{error && (
-					<div style={{
-						marginBottom: '1rem',
-						padding: '0.5rem',
-						backgroundColor: '#fff1f1',
-						color: '#da1e28',
-						borderLeft: '3px solid #da1e28'
-					}}>
+					<div className="error-message">
 						{error}
 					</div>
 				)}
+				
+				{rescoreSuccess && (
+					<InlineNotification
+						kind="success"
+						title="Scoring initiated"
+						subtitle="The similarity score will be updated shortly."
+						hideCloseButton
+					/>
+				)}
+				
+				{rescoreError && (
+					<InlineNotification
+						kind="error"
+						title="Failed to initiate scoring"
+						subtitle={rescoreError}
+						hideCloseButton
+					/>
+				)}
+				
 				{result && (
 					<>
 						<div>
-							<h4 style={{ color: '#f4f4f4', marginBottom: '0.5rem' }}>Output</h4>
+							<h4 className="section-heading">Output</h4>
 							<CodeSnippet type="multi" feedback="Copied to clipboard" wrapText>
 								{result.output}
 							</CodeSnippet>
 						</div>
 						{result.intermediate_steps && (
 							<div>
-								<h4 style={{ color: '#f4f4f4', marginBottom: '0.5rem', marginTop: '1rem' }}>
-									Intermediate Steps
+								<h4 className="section-heading section-heading--with-top-margin">
+									Intermediate steps
 								</h4>
 								<CodeSnippet type="multi" feedback="Copied to clipboard" wrapText maxCollapsedNumberOfRows={20}>
 									{result.intermediate_steps}
 								</CodeSnippet>
 							</div>
 						)}
-						<div style={{
-							display: 'flex',
-							gap: '1rem',
-							alignItems: 'center',
-							marginTop: '1rem',
-							padding: '1rem',
-							backgroundColor: '#161616',
-							borderRadius: '4px'
-						}}>
-							<div>
-								<strong style={{ color: '#f4f4f4' }}>Success:</strong>{' '}
+						<div className="metadata-section">
+							<div className="metadata-item">
+								<strong>Success:</strong>{' '}
 								<Tag type={result.success ? 'green' : 'red'}>
 									{result.success ? 'Success' : 'Failed'}
 								</Tag>
 							</div>
 							{result.execution_time && (
-								<div>
-									<strong style={{ color: '#f4f4f4' }}>Execution Time:</strong>{' '}
-									<span style={{ color: '#f4f4f4' }}>
+								<div className="metadata-item">
+									<strong>Execution Time:</strong>{' '}
+									<span className="execution-time">
 										{result.execution_time.toFixed(3)}s
 									</span>
 								</div>
 							)}
 						</div>
+						
+						{/* Similarity score section */}
+						{canScore && (
+							<div className="similarity-score-section">
+								<div className="similarity-score-header">
+									<h4>Similarity score</h4>
+									<Button
+										kind="ghost"
+										size="sm"
+										renderIcon={Restart}
+										onClick={handleRescore}
+										disabled={rescoring}
+									>
+										{rescoring ? 'Scoring...' : 'Re-score'}
+									</Button>
+								</div>
+								<SimilarityScoreDisplay result={result} size="md" />
+								{result.similarity_scoring_error && (
+									<div className="similarity-error">
+										<strong>Error:</strong> {result.similarity_scoring_error}
+									</div>
+								)}
+							</div>
+						)}
 					</>
 				)}
 			</Stack>

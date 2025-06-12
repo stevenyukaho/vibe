@@ -1,0 +1,70 @@
+.result-view-modal {
+	.error-message {
+		margin-bottom: 1rem;
+		padding: 0.5rem;
+		background-color: #fff1f1;
+		color: #da1e28;
+		border-left: 3px solid #da1e28;
+	}
+
+	.section-heading {
+		color: #f4f4f4;
+		margin-bottom: 0.5rem;
+
+		&--with-top-margin {
+			margin-top: 1rem;
+		}
+	}
+
+	.metadata-section {
+		display: flex;
+		gap: 1rem;
+		align-items: center;
+		margin-top: 1rem;
+		padding: 1rem;
+		background-color: #161616;
+		border-radius: 4px;
+
+		.metadata-item {
+			strong {
+				color: #f4f4f4;
+			}
+
+			.execution-time {
+				color: #f4f4f4;
+			}
+		}
+	}
+
+	.similarity-score-section {
+		padding: 1rem;
+		background-color: #262626;
+		border-radius: 4px;
+		border: 1px solid #393939;
+
+		.similarity-score-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 0.5rem;
+
+			h4 {
+				color: #f4f4f4;
+				margin: 0;
+			}
+		}
+
+		.similarity-error {
+			margin-top: 0.5rem;
+			padding: 0.5rem;
+			background-color: #3c1618;
+			color: #ff8389;
+			border-radius: 4px;
+			font-size: 0.875rem;
+
+			strong {
+				font-weight: bold;
+			}
+		}
+	}
+}
