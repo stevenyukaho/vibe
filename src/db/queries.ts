@@ -267,6 +267,34 @@ export const getResultById = (id: number) => {
 	return db.prepare('SELECT * FROM results WHERE id = ?').get(id) as TestResult;
 };
 
+export const updateResult = (id: number, updates: Partial<TestResult>) => {
+	const filteredUpdates = Object.fromEntries(
+		Object.entries(updates).filter(([key, value]) => 
+			value !== undefined && 
+			key !== 'id' && 
+			key !== 'created_at'
+		)
+	);
+
+	// If there are no fields to update, return
+	if (Object.keys(filteredUpdates).length === 0) {
+		return;
+	}
+
+	const fields = Object.keys(filteredUpdates).map(key => `${key} = @${key}`);
+
+	const statement = db.prepare(`
+		UPDATE results
+		SET ${fields.join(', ')}
+		WHERE id = @id
+	`);
+
+	statement.run({
+		id,
+		...filteredUpdates
+	});
+};
+
 /**
  * Get execution time from a result by ID
  */
