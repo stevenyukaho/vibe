@@ -215,10 +215,12 @@ export const api = {
     },
 
     // Results
-    async getResults(filters?: { agent_id?: number; test_id?: number }): Promise<TestResult[]> {
+    async getResults(filters?: { agent_id?: number; test_id?: number; limit?: number; offset?: number }): Promise<TestResult[]> {
         const params = new URLSearchParams();
         if (filters?.agent_id) params.append('agent_id', filters.agent_id.toString());
         if (filters?.test_id) params.append('test_id', filters.test_id.toString());
+        if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+        if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
         
         const response = await fetch(`${API_URL}/api/results?${params}`);
         
