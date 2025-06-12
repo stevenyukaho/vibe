@@ -190,12 +190,12 @@ export default function Home() {
 					</TileWrapper>
 				</Column>
 				<Column sm={4} md={4} lg={4}>
-					<TileWrapper title="Test Results">
+					<TileWrapper title="Test results">
 						<div className={styles.metricValue}>{results.length}</div>
 					</TileWrapper>
 				</Column>
 				<Column sm={4} md={4} lg={4}>
-					<TileWrapper title="Success Rate">
+					<TileWrapper title="Success rate">
 						<div className={styles.metricValue}>{testSuccessRate}%</div>
 					</TileWrapper>
 				</Column>
