@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
 import {
     api,
     Agent,
@@ -376,7 +376,7 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
     const getResultById = (id: number) => results.find(result => result.id === id);
     const getLLMConfigById = (id: number) => llmConfigs.find(config => config.id === id);
 
-    const contextValue: AppDataContextState = {
+    const contextValue: AppDataContextState = useMemo(() => ({
         // Data
         agents,
         tests,
@@ -414,7 +414,7 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         getTestById,
         getResultById,
         getLLMConfigById
-    };
+    }), [agents, tests, results, llmConfigs, loading, errors, fetchAllData, createAgent, updateAgent, deleteAgent, createTest, updateTest, deleteTest, createLLMConfig, updateLLMConfig, deleteLLMConfig, callLLM, callLLMWithFallback]);
 
     return (
         <AppDataContext.Provider value={contextValue}>
