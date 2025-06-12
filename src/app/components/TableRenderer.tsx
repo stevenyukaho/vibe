@@ -10,18 +10,20 @@ import {
 	Button,
 } from '@carbon/react';
 import { Edit, TrashCan, ViewFilled, AiGenerate } from '@carbon/icons-react';
+import SimilarityScoreDisplay from './SimilarityScoreDisplay';
+import { TestResult } from '@/lib/api';
 
 interface TableCell {
 	id: string;
 	info: {
 		header: string;
 	};
-	value: string | number | boolean;
+	value: string | number | boolean | TestResult;
 }
 
 interface TableRendererProps {
 	headers: Array<{ key: string; header: string }>;
-	rows: Array<{ id: string; [key: string]: string | number | boolean }>;
+	rows: Array<{ id: string; [key: string]: string | number | boolean | TestResult }>;
 	type: 'agent' | 'test' | 'result';
 	onEdit?: (id: number) => void;
 	onDelete?: (id: number) => void;
@@ -61,6 +63,13 @@ export default function TableRenderer({
 												<Tag type={cell.value ? 'green' : 'red'}>
 													{cell.value ? 'Success' : 'Failed'}
 												</Tag>
+											</TableCell>
+										);
+									}
+									if (cell.info.header === 'similarity_score') {
+										return (
+											<TableCell key={`${cell.id}-${cellIndex}`}>
+												<SimilarityScoreDisplay result={cell.value as TestResult} />
 											</TableCell>
 										);
 									}
@@ -170,7 +179,9 @@ export default function TableRenderer({
 										);
 									}
 									return (
-										<TableCell key={`${cell.id}-${cellIndex}`}>{cell.value}</TableCell>
+										<TableCell key={`${cell.id}-${cellIndex}`}>
+											{typeof cell.value === 'object' ? JSON.stringify(cell.value) : String(cell.value)}
+										</TableCell>
 									);
 								})}
 							</TableRow>
