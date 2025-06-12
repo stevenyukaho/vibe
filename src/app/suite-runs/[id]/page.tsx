@@ -23,6 +23,7 @@ import {
 } from '@carbon/react';
 import { ChevronLeft, ViewFilled } from '@carbon/icons-react';
 import ResultViewModal from '../../components/ResultViewModal';
+import SimilarityScoreDisplay from '../../components/SimilarityScoreDisplay';
 
 export default function SuiteRunDetailPage() {
 	const params = useParams();
@@ -116,6 +117,7 @@ export default function SuiteRunDetailPage() {
 		{ key: 'agent', header: 'Agent' },
 		{ key: 'status', header: 'Status' },
 		{ key: 'progress', header: 'Progress' },
+		{ key: 'similarity_score', header: 'Similarity score' },
 		{ key: 'actions', header: 'Actions' }
 	];
 
@@ -123,6 +125,7 @@ export default function SuiteRunDetailPage() {
 		const testName = getTestById(job.test_id)?.name || `#${job.test_id}`;
 		const agent = getAgentById(job.agent_id);
 		const agentName = agent ? `${agent.name} (v${agent.version})` : `Agent #${job.agent_id}`;
+		const result = job.result_id ? getResultById(job.result_id) : null;
 		
 		return {
 			id: String(job.id),
@@ -130,6 +133,7 @@ export default function SuiteRunDetailPage() {
 			agent: agentName,
 			status: { value: job.status, error: job.error },
 			progress: job.progress,
+			similarity_score: result,
 			actions: job.result_id ? (
 				<Button
 					kind="ghost"
@@ -249,6 +253,14 @@ export default function SuiteRunDetailPage() {
 																/>
 															</div>
 															{cell.value}%
+														</TableCell>
+													);
+												}
+												// Handle similarity score cell
+												if (cell.info.header === 'similarity_score') {
+													return (
+														<TableCell key={cell.id}>
+															<SimilarityScoreDisplay result={cell.value} />
 														</TableCell>
 													);
 												}
