@@ -153,6 +153,18 @@ export default function Home() {
 		? (results.filter(r => (r as ResultWithStatus).success).length / results.length * 100).toFixed(1) 
 		: '0.0';
 		
+	// Average similarity score calculation
+	const scoredResults = results.filter(result => 
+		'similarity_score' in result && 
+		result.similarity_score !== undefined && 
+		result.similarity_score !== null &&
+		'similarity_scoring_status' in result &&
+		result.similarity_scoring_status === 'completed'
+	);
+	const avgSimilarityScore = scoredResults.length > 0 
+		? (scoredResults.reduce((sum, r) => sum + (r.similarity_score || 0), 0) / scoredResults.length).toFixed(1)
+		: 'N/A';
+		
 	// Recent activity calculation
 	const lastWeekResults = results.filter(r => {
 		const resultDate = new Date((r as ResultWithStatus).created_at || '');
@@ -185,6 +197,18 @@ export default function Home() {
 				<Column sm={4} md={4} lg={4}>
 					<TileWrapper title="Success Rate">
 						<div className={styles.metricValue}>{testSuccessRate}%</div>
+					</TileWrapper>
+				</Column>
+				<Column sm={4} md={4} lg={4}>
+					<TileWrapper title="Avg similarity score">
+						<div className={styles.metricValue}>
+							{avgSimilarityScore !== 'N/A' ? `${avgSimilarityScore}%` : avgSimilarityScore}
+						</div>
+						{scoredResults.length > 0 && (
+							<div style={{ fontSize: '0.75rem', color: '#6f6f6f', marginTop: '0.25rem' }}>
+								Based on {scoredResults.length} scored results
+							</div>
+						)}
 					</TileWrapper>
 				</Column>
 				
