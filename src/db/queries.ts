@@ -240,7 +240,7 @@ export const createResult = (result: TestResult) => {
 	}
 };
 
-export const getResults = (filters?: { agent_id?: number; test_id?: number }) => {
+export const getResults = (filters?: { agent_id?: number; test_id?: number; limit?: number; offset?: number }) => {
 	let query = 'SELECT * FROM results';
 	const params: any[] = [];
 
@@ -260,6 +260,16 @@ export const getResults = (filters?: { agent_id?: number; test_id?: number }) =>
 	}
 
 	query += ' ORDER BY created_at DESC';
+
+	if (filters?.limit !== undefined) {
+		query += ' LIMIT ?';
+		params.push(filters.limit);
+	}
+	if (filters?.offset !== undefined) {
+		query += ' OFFSET ?';
+		params.push(filters.offset);
+	}
+
 	return db.prepare(query).all(...params) as TestResult[];
 };
 

@@ -9,10 +9,12 @@ const router = Router();
 // Get all results with optional filters
 router.get('/', (async (req: Request, res: Response) => {
     try {
-        const { agent_id, test_id } = req.query;
+        const { agent_id, test_id, limit, offset } = req.query;
         const filters = {
             ...(agent_id && { agent_id: Number(agent_id) }),
             ...(test_id && { test_id: Number(test_id) }),
+            ...(limit && { limit: Number(limit) }),
+            ...(offset && { offset: Number(offset) })
         };
         const results = await getResults(filters);
         return res.json(results);
