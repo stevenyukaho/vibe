@@ -20,7 +20,8 @@ import {
 import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
 import { api, Job, JobStatus } from '@/lib/api';
 import styles from './JobsManager.module.scss';
-import { useAgents, useTests } from '@/lib/AppDataContext';
+import { useAgents, useTests, useAppData } from '@/lib/AppDataContext';
+import SimilarityScoreDisplay from './SimilarityScoreDisplay';
 
 interface JobsManagerProps {
   onRefresh: () => void;
@@ -31,9 +32,9 @@ export default function JobsManager({
   onRefresh, 
   onResultView 
 }: JobsManagerProps) {
-  // Get data from context
   const { agents } = useAgents();
   const { tests } = useTests();
+  const { getResultById } = useAppData();
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -188,6 +189,7 @@ export default function JobsManager({
     { key: 'agent', header: 'Agent' },
     { key: 'test', header: 'Test' },
     { key: 'status', header: 'Status' },
+    { key: 'similarity_score', header: 'Similarity score' },
     { key: 'created_at', header: 'Created' },
     { key: 'actions', header: 'Actions' },
   ];
@@ -196,6 +198,7 @@ export default function JobsManager({
   const rows = jobs.map(job => {
     const agent = agents.find(a => a.id === job.agent_id);
     const test = tests.find(t => t.id === job.test_id);
+    const result = job.result_id ? getResultById(job.result_id) : null;
     
     const isPendingOrRunning = job.status === 'pending' || job.status === 'running';
     
@@ -208,6 +211,7 @@ export default function JobsManager({
           {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
         </Tag>
       ),
+      similarity_score: result,
       created_at: new Date(job.created_at).toLocaleString(),
       actions: (
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -322,9 +326,17 @@ export default function JobsManager({
               <TableBody>
                 {rows.map(row => (
                   <TableRow {...getRowProps({ row })} key={row.id}>
-                    {row.cells.map(cell => (
-                      <TableCell key={cell.id}>{cell.value}</TableCell>
-                    ))}
+                    {row.cells.map(cell => {
+                      if (cell.info.header === 'similarity_score') {
+                        return (
+                          <TableCell key={cell.id}>
+                            <SimilarityScoreDisplay result={cell.value} />
+                          </TableCell>
+                        );
+                      }
+                      
+                      return <TableCell key={cell.id}>{cell.value}</TableCell>;
+                    })}
                   </TableRow>
                 ))}
               </TableBody>
