@@ -1,0 +1,26 @@
+.notAvailable {
+	color: #6f6f6f;
+}
+
+.loadingContainer {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.loadingText {
+	&.sm {
+		font-size: 0.875rem;
+	}
+	
+	&.md {
+		font-size: 1rem;
+	}
+}
+
+.errorContainer {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	color: #da1e28;
+}
