@@ -17,7 +17,8 @@ import {
 	Column,
 	Tag,
 	Button,
-	Modal
+	Modal,
+	Pagination
 } from '@carbon/react';
 import { ViewFilled, PlayFilled, TrashCan } from '@carbon/icons-react';
 import { useRouter } from 'next/navigation';
@@ -31,6 +32,9 @@ export default function SuiteRunsPage() {
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
 	const [rerunningId, setRerunningId] = useState<number | null>(null);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
+	const [currentPage, setCurrentPage] = useState(0);
+	const [pageSize, setPageSize] = useState(50);
+	const [hasMore, setHasMore] = useState(true);
 	
 	// Modal state
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -43,8 +47,12 @@ export default function SuiteRunsPage() {
 
 	const fetchRuns = async () => {
 		try {
-			const data = await api.getSuiteRuns();
+			const data = await api.getSuiteRuns({ 
+				limit: pageSize, 
+				offset: currentPage * pageSize 
+			});
 			setRuns(data);
+			setHasMore(data.length === pageSize);
 		} catch (err: unknown) {
 			if (err instanceof Error) setError(err.message);
 			else setError(String(err));
@@ -57,8 +65,12 @@ export default function SuiteRunsPage() {
 		let mounted = true;
 		async function loadData() {
 			try {
-				const data = await api.getSuiteRuns();
+				const data = await api.getSuiteRuns({ 
+					limit: pageSize, 
+					offset: currentPage * pageSize 
+				});
 				if (mounted) setRuns(data);
+				if (mounted) setHasMore(data.length === pageSize);
 			} catch (err: unknown) {
 				if (mounted) {
 					if (err instanceof Error) setError(err.message);
@@ -74,7 +86,7 @@ export default function SuiteRunsPage() {
 			mounted = false;
 			clearInterval(interval);
 		};
-	}, []);
+	}, [currentPage, pageSize]);
 
 	const handleViewRun = (id: number) => {
 		router.push(`/suite-runs/${id}`);
@@ -196,7 +208,7 @@ export default function SuiteRunsPage() {
 			? (successfulTests / run.total_tests) * 100
 			: null;
 
-		const avgSimilarityScore = calculateSuiteRunAverageSimilarityScore(results, run);
+		const avgSimilarityScore = run.avg_similarity_score ?? calculateSuiteRunAverageSimilarityScore(results, run);
 
 		return {
 			id: String(run.id),
@@ -284,6 +296,27 @@ export default function SuiteRunsPage() {
 								</Table>
 							)}
 						</DataTable>
+					)}
+					
+					{/* Pagination */}
+					{runs.length > 0 && (
+						<Pagination
+							totalItems={runs.length + (hasMore ? 1 : 0)} // Approximate total for "has more" logic
+							pageSize={pageSize}
+							pageSizes={[10, 25, 50, 100]}
+							page={currentPage + 1} // Carbon uses 1-based indexing
+							onChange={({ page, pageSize: newPageSize }) => {
+								if (newPageSize !== pageSize) {
+									setPageSize(newPageSize);
+									setCurrentPage(0);
+								} else {
+									setCurrentPage(page - 1); // Convert back to 0-based indexing
+								}
+							}}
+							backwardText="Previous page"
+							forwardText="Next page"
+							itemsPerPageText="Items per page:"
+						/>
 					)}
 				</Column>
 			</Grid>
