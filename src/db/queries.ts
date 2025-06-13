@@ -389,7 +389,7 @@ export async function updateJob(id: string, updates: Partial<Job>): Promise<void
 /**
  * List jobs with optional filtering
  */
-export async function listJobs(filters: JobFilters = {}): Promise<Job[]> {
+export async function listJobs(filters: JobFilters & { limit?: number; offset?: number } = {}): Promise<Job[]> {
 	let sql = 'SELECT * FROM jobs';
 	const params: any = {};
 	const conditions: string[] = [];
@@ -434,6 +434,15 @@ export async function listJobs(filters: JobFilters = {}): Promise<Job[]> {
 	}
 
 	sql += ' ORDER BY created_at DESC';
+
+	if (filters.limit !== undefined) {
+		sql += ' LIMIT @limit';
+		params.limit = filters.limit;
+	}
+	if (filters.offset !== undefined) {
+		sql += ' OFFSET @offset';
+		params.offset = filters.offset;
+	}
 
 	const statement = db.prepare(sql);
 	const rows = statement.all(params);
@@ -712,7 +721,7 @@ export const getSuiteRunById = (id: number): SuiteRun | undefined => {
 	return db.prepare('SELECT * FROM suite_runs WHERE id = ?').get(id) as SuiteRun;
 };
 
-export const listSuiteRuns = (filters: SuiteRunFilters = {}) => {
+export const listSuiteRuns = (filters: SuiteRunFilters & { limit?: number; offset?: number } = {}) => {
 	let query = 'SELECT * FROM suite_runs WHERE 1=1';
 	const params: any[] = [];
 
@@ -742,6 +751,15 @@ export const listSuiteRuns = (filters: SuiteRunFilters = {}) => {
 	}
 
 	query += ' ORDER BY started_at DESC';
+
+	if (filters.limit !== undefined) {
+		query += ' LIMIT ?';
+		params.push(filters.limit);
+	}
+	if (filters.offset !== undefined) {
+		query += ' OFFSET ?';
+		params.push(filters.offset);
+	}
 
 	return db.prepare(query).all(...params) as SuiteRun[];
 };
