@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { listSuiteRuns, getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId, getAgentById } from '../db/queries';
+import db from '../db/database';
 import { JobStatus } from '../types';
 
 const router = Router();
@@ -46,6 +47,27 @@ async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
 			.map(id => (getExecutionTimeByResultId(id) || 0) * 1000)
 			.reduce((s, t) => s + t, 0);
 		suiteRun.total_execution_time = sumMs;
+	}
+
+	// Calculate average similarity score (server-side to avoid heavy client work)
+	try {
+		const startTime = suiteRun.started_at;
+		const endTime = suiteRun.completed_at || new Date().toISOString();
+		const stmt = db.prepare(`
+			SELECT AVG(similarity_score) as avg_score
+			FROM results
+			WHERE agent_id = ?
+				AND created_at >= ?
+				AND created_at <= ?
+				AND similarity_score IS NOT NULL
+				AND similarity_scoring_status = 'completed'
+		`);
+		const row = stmt.get(suiteRun.agent_id, startTime, endTime) as { avg_score: number | null };
+		if (row && row.avg_score !== null) {
+			suiteRun.avg_similarity_score = row.avg_score;
+		}
+	} catch (err) {
+		console.error('Failed to compute average similarity score for suite run', suiteRun.id, err);
 	}
 	
 	return suiteRun;

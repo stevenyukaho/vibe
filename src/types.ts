@@ -100,6 +100,7 @@ export interface SuiteRun {
 	failed_tests: number;
 	average_execution_time?: number;  // Time in milliseconds
 	total_execution_time?: number;  // Time in milliseconds
+	avg_similarity_score?: number; // average similarity score for the run
 	started_at?: string;
 	completed_at?: string;
 }
