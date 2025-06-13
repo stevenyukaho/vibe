@@ -80,6 +80,14 @@ router.get('/', (async (req: Request, res: Response) => {
 			filters.after = new Date(req.query.after as string);
 		}
 
+		if (req.query.limit) {
+			filters.limit = parseInt(req.query.limit as string, 10);
+		}
+
+		if (req.query.offset) {
+			filters.offset = parseInt(req.query.offset as string, 10);
+		}
+
 		const suiteRuns = await listSuiteRuns(filters);
 		
 		// Enrich with agent names and recalculated fields

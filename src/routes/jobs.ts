@@ -11,7 +11,7 @@ const UPDATABLE_JOB_FIELDS = ['status', 'progress', 'partial_result', 'result_id
 // List all jobs with optional filtering
 router.get('/', (async (req: Request, res: Response) => {
   try {
-    const filters: JobFilters = {};
+    const filters: JobFilters & { limit?: number; offset?: number } = {};
     
     // Apply filters from query parameters
     if (req.query.status) {
@@ -33,6 +33,14 @@ router.get('/', (async (req: Request, res: Response) => {
     
     if (req.query.after) {
       filters.after = new Date(req.query.after as string);
+    }
+    
+    if (req.query.limit) {
+      filters.limit = parseInt(req.query.limit as string, 10);
+    }
+    
+    if (req.query.offset) {
+      filters.offset = parseInt(req.query.offset as string, 10);
     }
     
     const jobs = await jobQueue.listJobs(filters);
