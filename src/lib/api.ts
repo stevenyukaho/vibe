@@ -72,6 +72,7 @@ export interface SuiteRun {
     total_execution_time?: number;
     started_at: string;
     completed_at?: string;
+    avg_similarity_score?: number;
 }
 
 export interface SuiteEntry {
@@ -311,8 +312,12 @@ export const api = {
     },
 
     // Suite runs
-    async getSuiteRuns(): Promise<SuiteRun[]> {
-        const response = await fetch(`${API_URL}/api/suite-runs`);
+    async getSuiteRuns(filters?: { limit?: number; offset?: number }): Promise<SuiteRun[]> {
+        const params = new URLSearchParams();
+        if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+        if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
+        
+        const response = await fetch(`${API_URL}/api/suite-runs?${params}`);
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Failed to fetch suite runs');
@@ -362,8 +367,12 @@ export const api = {
     },
 
     // Jobs
-    async getJobs(): Promise<Job[]> {
-        const response = await fetch(`${API_URL}/api/jobs`);
+    async getJobs(filters?: { limit?: number; offset?: number }): Promise<Job[]> {
+        const params = new URLSearchParams();
+        if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+        if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
+        
+        const response = await fetch(`${API_URL}/api/jobs?${params}`);
         
         if (!response.ok) {
             const error = await response.json();
