@@ -16,6 +16,7 @@ import {
   InlineLoading,
   CodeSnippet,
   InlineNotification,
+  Pagination,
 } from '@carbon/react';
 import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
 import { api, Job, JobStatus } from '@/lib/api';
@@ -24,13 +25,11 @@ import { useAgents, useTests, useAppData } from '@/lib/AppDataContext';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
 
 interface JobsManagerProps {
-  onRefresh: () => void;
   onResultView: (resultId: number) => void;
 }
 
 export default function JobsManager({ 
-  onRefresh, 
-  onResultView 
+  onResultView
 }: JobsManagerProps) {
   const { agents } = useAgents();
   const { tests } = useTests();
@@ -52,24 +51,35 @@ export default function JobsManager({
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [jobToCancel, setJobToCancel] = useState<number | null>(null);
 
-  // Fetch jobs
-  const fetchJobs = async () => {
-    setIsLoading(true);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [hasMore, setHasMore] = useState(true);
+
+  const fetchJobs = async (force = false) => {
+    if (isLoading && !force) {
+      return;
+    }
+    
     try {
-      const fetchedJobs = await api.getJobs();
-      setJobs(fetchedJobs);
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch jobs');
+      setIsLoading(true);
+      const data = await api.getJobs({ 
+        limit: pageSize, 
+        offset: currentPage * pageSize 
+      });
+      setJobs(data);
+      setHasMore(data.length === pageSize);
+    } catch (err) {
+      console.error('Error fetching jobs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Initial fetch
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    fetchJobs(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
   // Handle job selection for viewing details
   const handleViewJob = (jobId: number) => {
@@ -102,7 +112,6 @@ export default function JobsManager({
   // Refresh job list
   const handleRefresh = () => {
     fetchJobs();
-    onRefresh();
   };
 
   // Re-run a job with the same agent and test
@@ -117,7 +126,6 @@ export default function JobsManager({
       const newJob = await api.createJob(selectedJob.agent_id, selectedJob.test_id);
       setSuccessMessage(`New job #${newJob.id} created successfully and is now queued for execution`);
       fetchJobs();
-      onRefresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to re-run job');
     } finally {
@@ -142,7 +150,6 @@ export default function JobsManager({
     try {
       await api.deleteJob(jobToDelete);
       fetchJobs();
-      onRefresh();
       setSuccessMessage('Job deleted successfully');
     } catch (error) {
       console.error('Error deleting job:', error);
@@ -171,7 +178,6 @@ export default function JobsManager({
     try {
       await api.cancelJob(jobToCancel);
       fetchJobs();
-      onRefresh();
       setSuccessMessage('Job canceled successfully');
     } catch (error) {
       console.error('Error canceling job:', error);
@@ -232,7 +238,6 @@ export default function JobsManager({
               api.createJob(job.agent_id, job.test_id)
                 .then(() => {
                   fetchJobs();
-                  onRefresh();
                 })
                 .catch(err => {
                   console.error('Error re-running job:', err);
@@ -343,6 +348,27 @@ export default function JobsManager({
             </Table>
           )}
         </DataTable>
+      )}
+
+      {/* Pagination */}
+      {jobs.length > 0 && (
+        <Pagination
+          totalItems={jobs.length + (hasMore ? 1 : 0)} // Approximate total for "has more" logic
+          pageSize={pageSize}
+          pageSizes={[10, 25, 50, 100]}
+          page={currentPage + 1} // Carbon uses 1-based indexing
+          onChange={({ page, pageSize: newPageSize }) => {
+            if (newPageSize !== pageSize) {
+              setPageSize(newPageSize);
+              setCurrentPage(0);
+            } else {
+              setCurrentPage(page - 1); // Convert back to 0-based indexing
+            }
+          }}
+          backwardText="Previous page"
+          forwardText="Next page"
+          itemsPerPageText="Items per page:"
+        />
       )}
 
       {/* Job Details Modal */}

@@ -1,9 +1,12 @@
-import { InlineLoading } from '@carbon/react';
+import { InlineLoading, Pagination } from '@carbon/react';
 import { Report } from '@carbon/icons-react';
 import styles from '../page.module.scss';
 import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
-import { useResults, useAgents, useTests } from '@/lib/AppDataContext';
+import { useAgents, useTests } from '@/lib/AppDataContext';
+import { TestResult } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
 
 interface ResultsProps {
   onViewResult: (id: number) => void;
@@ -14,10 +17,35 @@ export default function Results({
   onViewResult,
   onAddTestClick
 }: ResultsProps) {
-  // Get data from context
-  const { results, isLoading } = useResults();
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [hasMore, setHasMore] = useState(true);
+  
   const { agents } = useAgents();
   const { tests } = useTests();
+
+  const fetchResults = async () => {
+    try {
+      setLoading(true);
+      const data = await api.getResults({ 
+        limit: pageSize, 
+        offset: currentPage * pageSize 
+      });
+      setResults(data);
+      setHasMore(data.length === pageSize);
+    } catch (err: unknown) {
+      console.error('Failed to fetch results:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchResults();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize]);
 
   const resultRows = results.map((result) => ({
     id: result.id?.toString() || `result-${Date.now()}`,
@@ -45,13 +73,36 @@ export default function Results({
         <h2>Results</h2>
       </div>
       {resultRows.length > 0 ? (
-        <TableRenderer 
-          headers={resultHeaders} 
-          rows={resultRows} 
-          type="result" 
-          onView={onViewResult}
-        />
-      ) : isLoading ? (
+        <>
+          <TableRenderer 
+            headers={resultHeaders} 
+            rows={resultRows} 
+            type="result" 
+            onView={onViewResult}
+          />
+          
+          {/* Pagination */}
+          {results.length > 0 && (
+            <Pagination
+              totalItems={results.length + (hasMore ? 1 : 0)} // Approximate total for "has more" logic
+              pageSize={pageSize}
+              pageSizes={[10, 25, 50, 100]}
+              page={currentPage + 1} // Carbon uses 1-based indexing
+              onChange={({ page, pageSize: newPageSize }) => {
+                if (newPageSize !== pageSize) {
+                  setPageSize(newPageSize);
+                  setCurrentPage(0);
+                } else {
+                  setCurrentPage(page - 1); // Convert back to 0-based indexing
+                }
+              }}
+              backwardText="Previous page"
+              forwardText="Next page"
+              itemsPerPageText="Items per page:"
+            />
+          )}
+        </>
+      ) : loading ? (
         <InlineLoading description="Loading data..." />
       ) : (
         <EmptyState
