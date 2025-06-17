@@ -1,18 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAppData } from '@/lib/AppDataContext';
+import { useAgents } from '@/lib/AppDataContext';
 import Agents from '../components/Agents';
 import AgentFormModal from '../components/AgentFormModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 export default function AgentsPage() {
-	const { fetchAllData, getAgentById } = useAppData();
+	const { fetchAgents, agents } = useAgents();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 	const [deleteId, setDeleteId] = useState<number | null>(null);
 	const [deleteName, setDeleteName] = useState('');
+
+	const getAgentById = (id: number) => agents.find(agent => agent.id === id);
 
 	const handleAddClick = () => {
 		setEditingId(null);
@@ -102,7 +104,7 @@ export default function AgentsPage() {
 				formData={initialFormData}
 				onClose={() => setIsModalOpen(false)}
 				onSuccess={() => {
-					fetchAllData();
+					fetchAgents();
 					setIsModalOpen(false);
 				}}
 			/>
@@ -114,7 +116,7 @@ export default function AgentsPage() {
 				deleteId={deleteId}
 				onClose={() => setIsDeleteModalOpen(false)}
 				onSuccess={() => {
-					fetchAllData();
+					fetchAgents();
 					setIsDeleteModalOpen(false);
 				}}
 			/>

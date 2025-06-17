@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, SuiteRun } from '../../lib/api';
-import { useResults } from '@/lib/AppDataContext';
+import { api, SuiteRun } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 import {
 	DataTable,
 	Table,
@@ -21,9 +21,7 @@ import {
 	Pagination
 } from '@carbon/react';
 import { ViewFilled, PlayFilled, TrashCan } from '@carbon/icons-react';
-import { useRouter } from 'next/navigation';
 import SimilarityScoreDisplay from '../components/SimilarityScoreDisplay';
-import { calculateSuiteRunAverageSimilarityScore } from '@/lib/similarityScoreUtils';
 
 export default function SuiteRunsPage() {
 	const [runs, setRuns] = useState<SuiteRun[]>([]);
@@ -43,7 +41,6 @@ export default function SuiteRunsPage() {
 	const [rerunRunId, setRerunRunId] = useState<number | null>(null);
 	
 	const router = useRouter();
-	const { results } = useResults();
 
 	const fetchRuns = async () => {
 		try {
@@ -185,8 +182,6 @@ export default function SuiteRunsPage() {
 			? (successfulTests / run.total_tests) * 100
 			: null;
 
-		const avgSimilarityScore = run.avg_similarity_score ?? calculateSuiteRunAverageSimilarityScore(results, run);
-
 		return {
 			id: String(run.id),
 			agent_name: run.agent_name, // Add agent_name to the row data
@@ -194,7 +189,7 @@ export default function SuiteRunsPage() {
 			progress: `${run.progress}% (${run.completed_tests}/${run.total_tests})`,
 			total_execution_time: totalExecutionTimeSec > 0 ? `${totalExecutionTimeSec.toFixed(2)}s` : 'N/A',
 			success_rate: successRate !== null ? `${successRate.toFixed(1)}%` : 'N/A',
-			avg_similarity_score: avgSimilarityScore,
+			avg_similarity_score: run.avg_similarity_score,
 			actions: getRowActions(String(run.id))
 		};
 	});

@@ -1,33 +1,31 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAppData } from '@/lib/AppDataContext';
+import { useResultOperations } from '@/lib/AppDataContext';
 import JobsManager from '../components/JobsManager';
 import ResultViewModal from '../components/ResultViewModal';
+import { TestResult } from '@/lib/api';
 
 export default function JobsPage() {
-	const { getResultById } = useAppData();
-	const [selectedResultId, setSelectedResultId] = useState<number | null>(null);
+	const { getResultById } = useResultOperations();
 	const [modalOpen, setModalOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
 
-	const selectedResult = selectedResultId !== null ? getResultById(selectedResultId) ?? null : null;
-
-	const handleResultView = (id: number) => {
-		const result = getResultById(id);
-		if (!result) {
-			setError('Result not found');
-			setModalOpen(true);
-		} else {
+	const handleViewResult = async (id: number) => {
+		try {
 			setError(null);
-			setSelectedResultId(id);
+			const result = await getResultById(id);
+			setSelectedResult(result);
 			setModalOpen(true);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : 'Failed to fetch result');
 		}
 	};
 
 	return (
 		<>
-			<JobsManager onResultView={handleResultView} />
+			<JobsManager onResultView={handleViewResult} />
 			<ResultViewModal
 				isOpen={modalOpen}
 				result={selectedResult}

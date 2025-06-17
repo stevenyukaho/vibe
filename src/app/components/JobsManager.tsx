@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   DataTable,
   Table,
@@ -21,7 +21,7 @@ import {
 import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
 import { api, Job, JobStatus } from '@/lib/api';
 import styles from './JobsManager.module.scss';
-import { useAgents, useTests, useAppData } from '@/lib/AppDataContext';
+import { useAgents, useTests } from '@/lib/AppDataContext';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
 
 interface JobsManagerProps {
@@ -31,9 +31,8 @@ interface JobsManagerProps {
 export default function JobsManager({ 
   onResultView
 }: JobsManagerProps) {
-  const { agents } = useAgents();
-  const { tests } = useTests();
-  const { getResultById } = useAppData();
+  const { agents, fetchAgents } = useAgents();
+  const { tests, fetchTests } = useTests();
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -54,6 +53,12 @@ export default function JobsManager({
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [totalItems, setTotalItems] = useState(0);
+
+  useEffect(() => {
+    fetchAgents();
+    fetchTests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchJobs = async (force = false) => {
     if (isLoading && !force) {
@@ -200,81 +205,86 @@ export default function JobsManager({
     { key: 'actions', header: 'Actions' },
   ];
 
-  // Map jobs to table rows
-  const rows = jobs.map(job => {
-    const agent = agents.find(a => a.id === job.agent_id);
-    const test = tests.find(t => t.id === job.test_id);
-    const result = job.result_id ? getResultById(job.result_id) : null;
-    
-    const isPendingOrRunning = job.status === 'pending' || job.status === 'running';
-    
-    return {
-      id: job.id.toString(),
-      agent: agent ? `${agent.name} (v${agent.version})` : `Agent ${job.agent_id}`,
-      test: test ? test.name : `Test ${job.test_id}`,
-      status: (
-        <Tag type={getStatusTagType(job.status)}>
-          {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-        </Tag>
-      ),
-      similarity_score: result,
-      created_at: new Date(job.created_at).toLocaleString(),
-      actions: (
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Button 
-            kind="ghost" 
-            size="sm" 
-            renderIcon={ViewFilled} 
-            onClick={() => handleViewJob(job.id)}
-            iconDescription="View job details"
-            hasIconOnly
-          />
-          <Button 
-            kind="ghost" 
-            size="sm" 
-            renderIcon={PlayFilled} 
-            onClick={() => {
-              setRerunningJob(true);
-              api.createJob(job.agent_id, job.test_id)
-                .then(() => {
-                  fetchJobs();
-                })
-                .catch(err => {
-                  console.error('Error re-running job:', err);
-                  setError(err instanceof Error ? err.message : 'Failed to re-run job');
-                })
-                .finally(() => {
-                  setRerunningJob(false);
-                });
-            }}
-            iconDescription="Re-run this job"
-            disabled={rerunningJob}
-            hasIconOnly
-          />
-          {isPendingOrRunning && (
+  // Memoize expensive row mapping with O(1) lookups
+  const rows = useMemo(() => {
+    const agentMap = new Map(agents.map(agent => [agent.id, agent]));
+    const testMap = new Map(tests.map(test => [test.id, test]));
+
+    return jobs.map(job => {
+      const agent = agentMap.get(job.agent_id);
+      const test = testMap.get(job.test_id);
+      
+      const isPendingOrRunning = job.status === 'pending' || job.status === 'running';
+      
+      return {
+        id: job.id.toString(),
+        agent: agent ? `${agent.name} (v${agent.version})` : `Agent ${job.agent_id}`,
+        test: test ? test.name : `Test ${job.test_id}`,
+        status: (
+          <Tag type={getStatusTagType(job.status)}>
+            {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+          </Tag>
+        ),
+        similarity_score: job.result_id ? { id: job.result_id } : null, // Simplified - just pass result ID
+        created_at: new Date(job.created_at).toLocaleString(),
+        actions: (
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
             <Button 
-              kind="danger" 
+              kind="ghost" 
               size="sm" 
-              renderIcon={StopFilled} 
-              onClick={() => handleCancelJobOpen(job.id)}
-              iconDescription="Cancel this job"
-              disabled={cancelingJob}
+              renderIcon={ViewFilled} 
+              onClick={() => handleViewJob(job.id)}
+              iconDescription="View job details"
               hasIconOnly
             />
-          )}
-          <Button 
-            kind="danger--ghost" 
-            size="sm" 
-            renderIcon={TrashCan} 
-            onClick={() => handleDeleteJobOpen(job.id)}
-            iconDescription="Delete this job"
-            disabled={deletingJob}
-            hasIconOnly
-          />
-        </div>
-      ),
-    };
-  });
+            <Button 
+              kind="ghost" 
+              size="sm" 
+              renderIcon={PlayFilled} 
+              onClick={() => {
+                setRerunningJob(true);
+                api.createJob(job.agent_id, job.test_id)
+                  .then(() => {
+                    fetchJobs();
+                  })
+                  .catch(err => {
+                    console.error('Error re-running job:', err);
+                    setError(err instanceof Error ? err.message : 'Failed to re-run job');
+                  })
+                  .finally(() => {
+                    setRerunningJob(false);
+                  });
+              }}
+              iconDescription="Re-run this job"
+              disabled={rerunningJob}
+              hasIconOnly
+            />
+            {isPendingOrRunning && (
+              <Button 
+                kind="danger" 
+                size="sm" 
+                renderIcon={StopFilled} 
+                onClick={() => handleCancelJobOpen(job.id)}
+                iconDescription="Cancel this job"
+                disabled={cancelingJob}
+                hasIconOnly
+              />
+            )}
+            <Button 
+              kind="danger--ghost" 
+              size="sm" 
+              renderIcon={TrashCan} 
+              onClick={() => handleDeleteJobOpen(job.id)}
+              iconDescription="Delete this job"
+              disabled={deletingJob}
+              hasIconOnly
+            />
+          </div>
+        ),
+      };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, agents, tests, rerunningJob, cancelingJob, deletingJob]);
 
   return (
     <div>

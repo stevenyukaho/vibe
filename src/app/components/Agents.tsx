@@ -4,6 +4,7 @@ import styles from '../page.module.scss';
 import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
 import { useAgents } from '@/lib/AppDataContext';
+import { useEffect } from 'react';
 
 interface AgentsProps {
   onAddClick: () => void;
@@ -17,7 +18,12 @@ export default function Agents({
   onDeleteAgent
 }: AgentsProps) {
   // Get data from context
-  const { agents, isLoading } = useAgents();
+  const { agents, isLoading, fetchAgents } = useAgents();
+
+  useEffect(() => {
+    fetchAgents();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const agentRows = agents.map((agent) => ({
     id: agent.id?.toString() || `agent-${Date.now()}`,

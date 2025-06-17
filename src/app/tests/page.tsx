@@ -1,18 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { useAppData } from '@/lib/AppDataContext';
+import { useTests } from '@/lib/AppDataContext';
 import Tests from '../components/Tests';
 import TestFormModal from '../components/TestFormModal';
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 export default function TestsPage() {
-	const { fetchAllData, getTestById } = useAppData();
+	const { fetchTests, tests } = useTests();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 	const [deleteId, setDeleteId] = useState<number | null>(null);
 	const [deleteName, setDeleteName] = useState('');
+
+	const getTestById = (id: number) => tests.find(test => test.id === id);
 
 	const handleAddClick = () => {
 		setEditingId(null);
@@ -60,7 +62,7 @@ export default function TestsPage() {
 				initialData={initialFormData}
 				onClose={() => setIsModalOpen(false)}
 				onSuccess={() => {
-					fetchAllData();
+					fetchTests();
 					setIsModalOpen(false);
 				}}
 			/>
@@ -72,7 +74,7 @@ export default function TestsPage() {
 				deleteId={deleteId}
 				onClose={() => setIsDeleteModalOpen(false)}
 				onSuccess={() => {
-					fetchAllData();
+					fetchTests();
 					setIsDeleteModalOpen(false);
 				}}
 			/>

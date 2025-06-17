@@ -1,11 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
 import {
     api,
     Agent,
     Test,
-    TestResult,
     LLMConfig,
     LLMRequestOptions,
     LLMResponse
@@ -16,14 +15,12 @@ interface AppDataContextState {
     // Data
     agents: Agent[];
     tests: Test[];
-    results: TestResult[];
     llmConfigs: LLMConfig[];
 
     // Loading states
     loading: {
         agents: boolean;
         tests: boolean;
-        results: boolean;
         llmConfigs: boolean;
     };
 
@@ -31,12 +28,13 @@ interface AppDataContextState {
     errors: {
         agents?: string | null;
         tests?: string | null;
-        results?: string | null;
         llmConfigs?: string | null;
     };
 
     // Actions
-    fetchAllData: () => Promise<void>;
+    fetchAgents: () => Promise<void>;
+    fetchTests: () => Promise<void>;
+    fetchLLMConfigs: () => Promise<void>;
 
     // Agent actions
     createAgent: (agent: Omit<Agent, 'id' | 'created_at'>) => Promise<Agent>;
@@ -58,7 +56,6 @@ interface AppDataContextState {
     // Utility methods
     getAgentById: (id: number) => Agent | undefined;
     getTestById: (id: number) => Test | undefined;
-    getResultById: (id: number) => TestResult | undefined;
     getLLMConfigById: (id: number) => LLMConfig | undefined;
 }
 
@@ -75,30 +72,17 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
     // Data state
     const [agents, setAgents] = useState<Agent[]>([]);
     const [tests, setTests] = useState<Test[]>([]);
-    const [results, setResults] = useState<TestResult[]>([]);
     const [llmConfigs, setLLMConfigs] = useState<LLMConfig[]>([]);
 
     // Loading states
     const [loading, setLoading] = useState<AppDataContextState['loading']>({
         agents: false,
         tests: false,
-        results: false,
         llmConfigs: false
     });
 
     // Error states
     const [errors, setErrors] = useState<AppDataContextState['errors']>({});
-
-    // Fetch all data
-    const fetchAllData = useCallback(async () => {
-        await Promise.all([
-            fetchAgents(),
-            fetchTests(),
-            fetchResults(),
-            fetchLLMConfigs()
-        ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Fetch agents
     const fetchAgents = useCallback(async () => {
@@ -133,24 +117,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
             }));
         } finally {
             setLoading(prev => ({ ...prev, tests: false }));
-        }
-    }, []);
-
-    // Fetch results
-    const fetchResults = useCallback(async () => {
-        setLoading(prev => ({ ...prev, results: true }));
-        try {
-            const data = await api.getResults();
-            setResults(data);
-            setErrors(prev => ({ ...prev, results: null }));
-        } catch (error) {
-            console.error('Error fetching results:', error);
-            setErrors(prev => ({
-                ...prev,
-                results: error instanceof Error ? error.message : 'Failed to fetch results'
-            }));
-        } finally {
-            setLoading(prev => ({ ...prev, results: false }));
         }
     }, []);
 
@@ -365,22 +331,15 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         return await api.callLLMWithFallback(options);
     }, []);
 
-    // Initial data load
-    useEffect(() => {
-        fetchAllData();
-    }, [fetchAllData]);
-
     // Utility methods
     const getAgentById = (id: number) => agents.find(agent => agent.id === id);
     const getTestById = (id: number) => tests.find(test => test.id === id);
-    const getResultById = (id: number) => results.find(result => result.id === id);
     const getLLMConfigById = (id: number) => llmConfigs.find(config => config.id === id);
 
     const contextValue: AppDataContextState = useMemo(() => ({
         // Data
         agents,
         tests,
-        results,
         llmConfigs,
 
         // Loading states
@@ -390,7 +349,9 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         errors,
 
         // Actions
-        fetchAllData,
+        fetchAgents,
+        fetchTests,
+        fetchLLMConfigs,
 
         // Agent actions
         createAgent,
@@ -412,9 +373,9 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
         // Utility methods
         getAgentById,
         getTestById,
-        getResultById,
         getLLMConfigById
-    }), [agents, tests, results, llmConfigs, loading, errors, fetchAllData, createAgent, updateAgent, deleteAgent, createTest, updateTest, deleteTest, createLLMConfig, updateLLMConfig, deleteLLMConfig, callLLM, callLLMWithFallback]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), [agents, tests, llmConfigs, loading, errors]);
 
     return (
         <AppDataContext.Provider value={contextValue}>
@@ -434,11 +395,12 @@ export function useAppData() {
 
 // Specialized hooks for specific data types
 export function useAgents() {
-    const { agents, loading, errors, createAgent, updateAgent, deleteAgent } = useAppData();
+    const { agents, loading, errors, fetchAgents, createAgent, updateAgent, deleteAgent } = useAppData();
     return {
         agents,
         isLoading: loading.agents,
         error: errors.agents,
+        fetchAgents,
         createAgent,
         updateAgent,
         deleteAgent
@@ -446,23 +408,15 @@ export function useAgents() {
 }
 
 export function useTests() {
-    const { tests, loading, errors, createTest, updateTest, deleteTest } = useAppData();
+    const { tests, loading, errors, fetchTests, createTest, updateTest, deleteTest } = useAppData();
     return {
         tests,
         isLoading: loading.tests,
         error: errors.tests,
+        fetchTests,
         createTest,
         updateTest,
         deleteTest
-    };
-}
-
-export function useResults() {
-    const { results, loading, errors } = useAppData();
-    return {
-        results,
-        isLoading: loading.results,
-        error: errors.results
     };
 }
 
@@ -478,5 +432,52 @@ export function useLLMConfigs() {
         callLLM: context.callLLM,
         callLLMWithFallback: context.callLLMWithFallback,
         getLLMConfigById: context.getLLMConfigById
+    };
+}
+
+// Hook for result operations - doesn't use global state for better performance
+export function useResultOperations() {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const getResultById = useCallback(async (id: number) => {
+        try {
+            return await api.getResultById(id);
+        } catch (err) {
+            console.error('Error fetching result:', err);
+            throw err;
+        }
+    }, []);
+
+    const getResults = useCallback(async (filters?: { agent_id?: number; test_id?: number; limit?: number; offset?: number }) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await api.getResultsWithCount(filters);
+            return data;
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch results';
+            setError(errorMessage);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const scoreResult = useCallback(async (resultId: number, llmConfigId?: number) => {
+        try {
+            return await api.scoreResult(resultId, llmConfigId);
+        } catch (err) {
+            console.error('Error scoring result:', err);
+            throw err;
+        }
+    }, []);
+
+    return {
+        loading,
+        error,
+        getResultById,
+        getResults,
+        scoreResult
     };
 }

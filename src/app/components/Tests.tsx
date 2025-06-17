@@ -5,6 +5,7 @@ import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
 import { useTests } from '@/lib/AppDataContext';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 interface TestsProps {
   onAddClick: () => void;
@@ -18,7 +19,12 @@ export default function Tests({
   onDeleteTest
 }: TestsProps) {
   const router = useRouter();
-  const { tests, isLoading } = useTests();
+  const { tests, isLoading, fetchTests } = useTests();
+
+  useEffect(() => {
+    fetchTests();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const testRows = tests.map((test) => ({
     id: test.id?.toString() || `test-${Date.now()}`,

@@ -3,20 +3,15 @@
 import { Grid, Column } from '@carbon/react';
 import { Tag, ProgressIndicator, Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from '@carbon/react';
 import { useAppData } from '../lib/AppDataContext';
-import { api, SuiteRun, Job } from '../lib/api';
+import { useResultOperations } from '../lib/AppDataContext';
+import { api, SuiteRun, Job, TestResult } from '../lib/api';
 import { useEffect, useState } from 'react';
 import styles from './page.module.scss';
 import TileWrapper from './components/TileWrapper';
 import { calculateOverallAverageSimilarityScore, filterScoredResults } from '@/lib/similarityScoreUtils';
 
-interface ResultWithStatus {
+interface ResultWithStatus extends TestResult {
 	status?: string;
-	created_at?: string;
-	agent_id?: number;
-	test_id?: number;
-	execution_time?: number;
-	success?: boolean;
-	intermediate_steps?: string;
 }
 
 interface AgentPerformanceMetrics {
@@ -32,7 +27,9 @@ interface AgentPerformanceMetrics {
 }
 
 export default function Home() {
-	const { agents, tests, results } = useAppData();
+	const { agents, tests } = useAppData();
+	const { getResults } = useResultOperations();
+	const [results, setResults] = useState<ResultWithStatus[]>([]);
 	const [suiteRuns, setSuiteRuns] = useState<SuiteRun[]>([]);
 	const [jobs, setJobs] = useState<Job[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -41,12 +38,14 @@ export default function Home() {
 	useEffect(() => {
 		const fetchDashboardData = async () => {
 			try {
-				const [suiteRunsData, jobsData] = await Promise.all([
+				const [suiteRunsData, jobsData, resultsData] = await Promise.all([
 					api.getSuiteRuns(),
-					api.getJobs()
+					api.getJobs(),
+					getResults()
 				]);
 				setSuiteRuns(suiteRunsData);
 				setJobs(jobsData);
+				setResults(resultsData.data as ResultWithStatus[]);
 			} catch (error) {
 				console.error('Error fetching dashboard data:', error);
 			} finally {
@@ -55,7 +54,7 @@ export default function Home() {
 		};
 
 		fetchDashboardData();
-	}, []);
+	}, [getResults]);
 
 	// Calculate agent performance metrics whenever results or agents change
 	useEffect(() => {
@@ -69,7 +68,7 @@ export default function Home() {
 		// Group results by agent
 		const agentResultMap = new Map<number, ResultWithStatus[]>();
 		
-		results.forEach(result => {
+		results.forEach((result: ResultWithStatus) => {
 			const typedResult = result as ResultWithStatus;
 			const agentId = typedResult.agent_id;
 			if (agentId) {
@@ -151,16 +150,16 @@ export default function Home() {
 	
 	// Success rate calculation
 	const testSuccessRate = results.length > 0 
-		? (results.filter(r => (r as ResultWithStatus).success).length / results.length * 100).toFixed(1) 
+		? (results.filter((r: ResultWithStatus) => r.success).length / results.length * 100).toFixed(1) 
 		: '0.0';
 		
 	// Average similarity score calculation
-	const avgSimilarityScore = calculateOverallAverageSimilarityScore(results);
-	const scoredResults = filterScoredResults(results);
+	const avgSimilarityScore = calculateOverallAverageSimilarityScore(results as TestResult[]);
+	const scoredResults = filterScoredResults(results as TestResult[]);
 		
 	// Recent activity calculation
-	const lastWeekResults = results.filter(r => {
-		const resultDate = new Date((r as ResultWithStatus).created_at || '');
+	const lastWeekResults = results.filter((r: ResultWithStatus) => {
+		const resultDate = new Date(r.created_at || '');
 		const oneWeekAgo = new Date();
 		oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 		return resultDate >= oneWeekAgo;
