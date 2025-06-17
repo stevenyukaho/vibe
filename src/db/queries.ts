@@ -962,3 +962,83 @@ export const deleteLLMConfig = (id: number) => {
 	const statement = db.prepare('DELETE FROM llm_configs WHERE id = ?');
 	return statement.run(id);
 };
+
+export const getAgentsWithCount = (params: { limit?: number; offset?: number } = {}): { data: Agent[]; total: number } => {
+	const { limit, offset } = params;
+	let query = 'SELECT * FROM agents ORDER BY created_at DESC';
+	const queryParams: any[] = [];
+
+	if (limit !== undefined) {
+		query += ' LIMIT ?';
+		queryParams.push(limit);
+	}
+	if (offset !== undefined) {
+		query += ' OFFSET ?';
+		queryParams.push(offset);
+	}
+
+	const data = db.prepare(query).all(...queryParams) as Agent[];
+	const totalResult = db.prepare('SELECT COUNT(*) as count FROM agents').get() as { count: number };
+
+	return { data, total: totalResult.count };
+};
+
+export const getTestsWithCount = (params: { limit?: number; offset?: number } = {}): { data: Test[]; total: number } => {
+	const { limit, offset } = params;
+	let query = 'SELECT * FROM tests ORDER BY created_at DESC';
+	const queryParams: any[] = [];
+
+	if (limit !== undefined) {
+		query += ' LIMIT ?';
+		queryParams.push(limit);
+	}
+	if (offset !== undefined) {
+		query += ' OFFSET ?';
+		queryParams.push(offset);
+	}
+
+	const data = db.prepare(query).all(...queryParams) as Test[];
+	const totalResult = db.prepare('SELECT COUNT(*) as count FROM tests').get() as { count: number };
+
+	return { data, total: totalResult.count };
+};
+
+export const getTestSuitesWithCount = (params: { limit?: number; offset?: number } = {}): { data: TestSuite[]; total: number } => {
+	const { limit, offset } = params;
+	let query = 'SELECT * FROM test_suites ORDER BY created_at DESC';
+	const queryParams: any[] = [];
+
+	if (limit !== undefined) {
+		query += ' LIMIT ?';
+		queryParams.push(limit);
+	}
+	if (offset !== undefined) {
+		query += ' OFFSET ?';
+		queryParams.push(offset);
+	}
+
+	const data = db.prepare(query).all(...queryParams) as TestSuite[];
+	const totalResult = db.prepare('SELECT COUNT(*) as count FROM test_suites').get() as { count: number };
+
+	return { data, total: totalResult.count };
+};
+
+export const getLLMConfigsWithCount = (params: { limit?: number; offset?: number } = {}): { data: LLMConfig[]; total: number } => {
+	const { limit, offset } = params;
+	let query = 'SELECT * FROM llm_configs ORDER BY priority ASC';
+	const queryParams: any[] = [];
+
+	if (limit !== undefined) {
+		query += ' LIMIT ?';
+		queryParams.push(limit);
+	}
+	if (offset !== undefined) {
+		query += ' OFFSET ?';
+		queryParams.push(offset);
+	}
+
+	const data = db.prepare(query).all(...queryParams) as LLMConfig[];
+	const totalResult = db.prepare('SELECT COUNT(*) as count FROM llm_configs').get() as { count: number };
+
+	return { data, total: totalResult.count };
+};
