@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
 	Add,
 	Edit,
@@ -35,12 +35,18 @@ export default function LLMConfigsPage() {
 		error,
 		updateLLMConfig,
 		deleteLLMConfig,
+		fetchLLMConfigs,
 	} = useLLMConfigs();
 
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null);
 	const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+
+	useEffect(() => {
+		fetchLLMConfigs();
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const sortedConfigs = sortBy(llmConfigs, 'priority');
 

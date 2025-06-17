@@ -468,6 +468,7 @@ export function useLLMConfigs() {
 		llmConfigs: context.llmConfigs,
 		loading: context.loading.llmConfigs,
 		error: context.errors.llmConfigs,
+		fetchLLMConfigs: context.fetchLLMConfigs,
 		createLLMConfig: context.createLLMConfig,
 		updateLLMConfig: context.updateLLMConfig,
 		deleteLLMConfig: context.deleteLLMConfig,
