@@ -110,8 +110,14 @@ router.get('/', (async (req: Request, res: Response) => {
 			if (!paginationParams) return; // Error response already sent
 
 			const { data, total } = listSuiteRunsWithCount({ ...filters, ...paginationParams });
+			
+			// Enrich each suite run with calculated fields
+			const enrichedData = await Promise.all(
+				data.map(suiteRun => enrichSuiteRunWithCalculatedFields(suiteRun))
+			);
+			
 			return res.json({
-				data,
+				data: enrichedData,
 				total,
 				limit: paginationParams.limit,
 				offset: paginationParams.offset || 0
@@ -122,8 +128,13 @@ router.get('/', (async (req: Request, res: Response) => {
 		const defaultLimit = paginationConfig.defaultLargeLimit;
 		const { data, total } = listSuiteRunsWithCount({ ...filters, limit: defaultLimit, offset: 0 });
 
+		// Enrich each suite run with calculated fields
+		const enrichedData = await Promise.all(
+			data.map(suiteRun => enrichSuiteRunWithCalculatedFields(suiteRun))
+		);
+
 		return res.json({
-			data,
+			data: enrichedData,
 			total,
 			limit: defaultLimit,
 			offset: 0
