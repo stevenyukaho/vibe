@@ -273,6 +273,35 @@ export const getResults = (filters?: { agent_id?: number; test_id?: number; limi
 	return db.prepare(query).all(...params) as TestResult[];
 };
 
+export const getResultsWithCount = (filters?: { agent_id?: number; test_id?: number; limit?: number; offset?: number }): { data: TestResult[], total: number } => {
+	// First, get the total count without pagination
+	let countQuery = 'SELECT COUNT(*) as count FROM results';
+	const countParams: any[] = [];
+
+	if (filters) {
+		const conditions: string[] = [];
+		if (filters.agent_id) {
+			conditions.push('agent_id = ?');
+			countParams.push(filters.agent_id);
+		}
+		if (filters.test_id) {
+			conditions.push('test_id = ?');
+			countParams.push(filters.test_id);
+		}
+		if (conditions.length > 0) {
+			countQuery += ' WHERE ' + conditions.join(' AND ');
+		}
+	}
+
+	const countResult = db.prepare(countQuery).get(...countParams) as { count: number };
+	const total = countResult.count;
+
+	// Then get the actual data
+	const data = getResults(filters);
+
+	return { data, total };
+};
+
 export const getResultById = (id: number) => {
 	return db.prepare('SELECT * FROM results WHERE id = ?').get(id) as TestResult;
 };
@@ -445,8 +474,62 @@ export async function listJobs(filters: JobFilters & { limit?: number; offset?: 
 	}
 
 	const statement = db.prepare(sql);
-	const rows = statement.all(params);
-	return rows as Job[];
+	return statement.all(params) as Job[];
+}
+
+export async function listJobsWithCount(filters: JobFilters & { limit?: number; offset?: number } = {}): Promise<{ data: Job[], total: number }> {
+	// First, get the total count without pagination
+	let countSql = 'SELECT COUNT(*) as count FROM jobs';
+	const countParams: any = {};
+	const conditions: string[] = [];
+
+	if (filters.status) {
+		conditions.push('status = @status');
+		countParams.status = filters.status;
+	}
+
+	if (filters.agent_id) {
+		conditions.push('agent_id = @agent_id');
+		countParams.agent_id = filters.agent_id;
+	}
+
+	if (filters.test_id) {
+		conditions.push('test_id = @test_id');
+		countParams.test_id = filters.test_id;
+	}
+
+	if (filters.after) {
+		conditions.push('created_at >= @after');
+		countParams.after = filters.after.toISOString();
+	}
+
+	if (filters.before) {
+		conditions.push('created_at <= @before');
+		countParams.before = filters.before.toISOString();
+	}
+
+	if (filters.suite_run_id) {
+		conditions.push('suite_run_id = @suite_run_id');
+		countParams.suite_run_id = filters.suite_run_id;
+	}
+
+	if (filters.job_type) {
+		conditions.push('job_type = @job_type');
+		countParams.job_type = filters.job_type;
+	}
+
+	if (conditions.length > 0) {
+		countSql += ' WHERE ' + conditions.join(' AND ');
+	}
+
+	const countStatement = db.prepare(countSql);
+	const countResult = countStatement.get(countParams) as { count: number };
+	const total = countResult.count;
+
+	// Then get the actual data
+	const data = await listJobs(filters);
+
+	return { data, total };
 }
 
 /**
@@ -762,6 +845,45 @@ export const listSuiteRuns = (filters: SuiteRunFilters & { limit?: number; offse
 	}
 
 	return db.prepare(query).all(...params) as SuiteRun[];
+};
+
+export const listSuiteRunsWithCount = (filters: SuiteRunFilters & { limit?: number; offset?: number } = {}): { data: SuiteRun[], total: number } => {
+	// First, get the total count without pagination
+	let countQuery = 'SELECT COUNT(*) as count FROM suite_runs WHERE 1=1';
+	const countParams: any[] = [];
+
+	if (filters.status) {
+		countQuery += ' AND status = ?';
+		countParams.push(filters.status);
+	}
+
+	if (filters.suite_id) {
+		countQuery += ' AND suite_id = ?';
+		countParams.push(filters.suite_id);
+	}
+
+	if (filters.agent_id) {
+		countQuery += ' AND agent_id = ?';
+		countParams.push(filters.agent_id);
+	}
+
+	if (filters.after) {
+		countQuery += ' AND started_at >= ?';
+		countParams.push(filters.after.toISOString());
+	}
+
+	if (filters.before) {
+		countQuery += ' AND started_at <= ?';
+		countParams.push(filters.before.toISOString());
+	}
+
+	const countResult = db.prepare(countQuery).get(...countParams) as { count: number };
+	const total = countResult.count;
+
+	// Then get the actual data
+	const data = listSuiteRuns(filters);
+
+	return { data, total };
 };
 
 export const getJobsBySuiteRunId = (suiteRunId: number) => {

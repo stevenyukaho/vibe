@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createResult, getResults, getResultById, getTestById } from '../db/queries';
+import { createResult, getResults, getResultsWithCount, getResultById, getTestById } from '../db/queries';
 import type { TestResult } from '../types';
 import { scoringService } from '../services/scoring-service';
 
@@ -16,8 +16,20 @@ router.get('/', (async (req: Request, res: Response) => {
             ...(limit && { limit: Number(limit) }),
             ...(offset && { offset: Number(offset) })
         };
-        const results = await getResults(filters);
-        return res.json(results);
+        
+        // If pagination parameters are provided, return with count
+        if (limit !== undefined || offset !== undefined) {
+            const { data, total } = getResultsWithCount(filters);
+            return res.json({
+                data,
+                total,
+                limit: filters.limit,
+                offset: filters.offset || 0
+            });
+        } else {
+            const results = getResults(filters);
+            return res.json(results);
+        }
     } catch (error) {
         console.error('Error fetching results:', error);
         return res.status(500).json({ error: 'Failed to fetch results' });

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { jobQueue, JobStatus, JobFilters } from '../services/job-queue';
-import { getAgentById, getTestById, getResultById } from '../db/queries';
+import { getAgentById, getTestById, getResultById, listJobsWithCount } from '../db/queries';
 
 const router = Router();
 
@@ -43,8 +43,19 @@ router.get('/', (async (req: Request, res: Response) => {
       filters.offset = parseInt(req.query.offset as string, 10);
     }
     
-    const jobs = await jobQueue.listJobs(filters);
-    return res.json(jobs);
+    // If pagination parameters are provided, return with count
+    if (req.query.limit !== undefined || req.query.offset !== undefined) {
+      const { data, total } = await listJobsWithCount(filters);
+      return res.json({
+        data,
+        total,
+        limit: filters.limit,
+        offset: filters.offset || 0
+      });
+    } else {
+      const jobs = await jobQueue.listJobs(filters);
+      return res.json(jobs);
+    }
   } catch (error) {
     console.error('Error listing jobs:', error);
     return res.status(500).json({ 

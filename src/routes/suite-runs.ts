@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { listSuiteRuns, getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId, getAgentById } from '../db/queries';
+import { listSuiteRuns, getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId, listSuiteRunsWithCount } from '../db/queries';
 import db from '../db/database';
 import { JobStatus } from '../types';
 
@@ -110,29 +110,22 @@ router.get('/', (async (req: Request, res: Response) => {
 			filters.offset = parseInt(req.query.offset as string, 10);
 		}
 
-		const suiteRuns = await listSuiteRuns(filters);
-		
-		// Enrich with agent names and recalculated fields
-		const enriched = await Promise.all(
-			suiteRuns.map(async run => {
-				// Add agent name to the run data
-				const agent = await getAgentById(run.agent_id);
-				const enrichedRun = {
-					...run,
-					agent_name: agent ? agent.name : `Agent #${run.agent_id}`
-				};
-
-				return await enrichSuiteRunWithCalculatedFields(enrichedRun);
-			})
-		);
-		
-		return res.json(enriched);
+		// If pagination parameters are provided, return with count
+		if (req.query.limit !== undefined || req.query.offset !== undefined) {
+			const { data, total } = listSuiteRunsWithCount(filters);
+			return res.json({
+				data,
+				total,
+				limit: filters.limit,
+				offset: filters.offset || 0
+			});
+		} else {
+			const suiteRuns = listSuiteRuns(filters);
+			return res.json(suiteRuns);
+		}
 	} catch (error) {
-		console.error('Error listing suite runs:', error);
-		return res.status(500).json({
-			error: 'Failed to list suite runs',
-			details: error instanceof Error ? error.message : 'Unknown error'
-		});
+		console.error('Error fetching suite runs:', error);
+		return res.status(500).json({ error: 'Failed to fetch suite runs' });
 	}
 }) as any);
 
