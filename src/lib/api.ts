@@ -271,6 +271,17 @@ export const api = {
         return result;
     },
 
+    async getResultById(id: number): Promise<TestResult> {
+        const response = await fetch(`${API_URL}/api/results/${id}`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch result');
+        }
+        
+        return response.json();
+    },
+
     async createResult(result: Omit<TestResult, 'id' | 'created_at'>): Promise<TestResult> {
         const response = await fetch(`${API_URL}/api/results`, {
             method: 'POST',
