@@ -1,13 +1,30 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createTest, getTests, getTestById, updateTest, deleteTest } from '../db/queries';
+import { createTest, getTests, getTestById, updateTest, deleteTest, getTestsWithCount } from '../db/queries';
 import type { Test } from '../types';
+import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
 
 // Get all tests
-router.get('/', (async (_req: Request, res: Response) => {
+router.get('/', (async (req: Request, res: Response) => {
     try {
+        if (hasPaginationParams(req)) {
+            const queryParams = validatePaginationOrError(req, res);
+            if (!queryParams) {
+                return;
+            }
+
+            const { data, total } = getTestsWithCount(queryParams);
+
+            return res.json({
+                data,
+                total,
+                limit: queryParams.limit,
+                offset: queryParams.offset
+            });
+        }
+
         const tests = await getTests();
         return res.json(tests);
     } catch (error) {

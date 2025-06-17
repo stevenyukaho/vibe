@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { listSuiteRuns, getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId, listSuiteRunsWithCount } from '../db/queries';
+import { getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId, listSuiteRunsWithCount } from '../db/queries';
+import { paginationConfig } from '../config';
+import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import db from '../db/database';
 import { JobStatus } from '../types';
 
@@ -102,27 +104,30 @@ router.get('/', (async (req: Request, res: Response) => {
 			filters.after = new Date(req.query.after as string);
 		}
 
-		if (req.query.limit) {
-			filters.limit = parseInt(req.query.limit as string, 10);
-		}
-
-		if (req.query.offset) {
-			filters.offset = parseInt(req.query.offset as string, 10);
-		}
-
 		// If pagination parameters are provided, return with count
-		if (req.query.limit !== undefined || req.query.offset !== undefined) {
-			const { data, total } = listSuiteRunsWithCount(filters);
+		if (hasPaginationParams(req)) {
+			const paginationParams = validatePaginationOrError(req, res);
+			if (!paginationParams) return; // Error response already sent
+
+			const { data, total } = listSuiteRunsWithCount({ ...filters, ...paginationParams });
 			return res.json({
 				data,
 				total,
-				limit: filters.limit,
-				offset: filters.offset || 0
+				limit: paginationParams.limit,
+				offset: paginationParams.offset || 0
 			});
-		} else {
-			const suiteRuns = listSuiteRuns(filters);
-			return res.json(suiteRuns);
 		}
+
+		// Otherwise apply default pagination limit
+		const defaultLimit = paginationConfig.defaultLargeLimit;
+		const { data, total } = listSuiteRunsWithCount({ ...filters, limit: defaultLimit, offset: 0 });
+
+		return res.json({
+			data,
+			total,
+			limit: defaultLimit,
+			offset: 0
+		});
 	} catch (error) {
 		console.error('Error fetching suite runs:', error);
 		return res.status(500).json({ error: 'Failed to fetch suite runs' });

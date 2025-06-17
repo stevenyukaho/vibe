@@ -2,15 +2,31 @@ import express from 'express';
 import type { Request, Response } from 'express';
 import { LLMConfig } from '../types';
 import { llmConfigService, LLMRequestOptions } from '../services/llm-config-service';
-import { createLLMConfig, updateLLMConfig, deleteLLMConfig } from '../db/queries';
+import { createLLMConfig, updateLLMConfig, deleteLLMConfig, getLLMConfigsWithCount } from '../db/queries';
+import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = express.Router();
 
 /**
  * Get all LLM configs ordered by priority
  */
-router.get('/', ((_req: Request, res: Response) => {
+router.get('/', ((req: Request, res: Response) => {
 	try {
+		if (hasPaginationParams(req)) {
+			const queryParams = validatePaginationOrError(req, res);
+			if (!queryParams) {
+				return;
+			}
+
+			const { data, total } = getLLMConfigsWithCount(queryParams);
+			return res.json({
+				data,
+				total,
+				limit: queryParams.limit,
+				offset: queryParams.offset
+			});
+		}
+
 		const configs = llmConfigService.getConfigs();
 		return res.json(configs);
 	} catch (error: any) {

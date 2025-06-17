@@ -1,35 +1,54 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createResult, getResults, getResultsWithCount, getResultById, getTestById } from '../db/queries';
+import { createResult, getResultsWithCount, getResultById, getTestById } from '../db/queries';
 import type { TestResult } from '../types';
 import { scoringService } from '../services/scoring-service';
+import { paginationConfig } from '../config';
+import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
 
 // Get all results with optional filters
 router.get('/', (async (req: Request, res: Response) => {
     try {
-        const { agent_id, test_id, limit, offset } = req.query;
-        const filters = {
-            ...(agent_id && { agent_id: Number(agent_id) }),
-            ...(test_id && { test_id: Number(test_id) }),
-            ...(limit && { limit: Number(limit) }),
-            ...(offset && { offset: Number(offset) })
+        const { agent_id, test_id } = req.query as { agent_id?: string; test_id?: string };
+
+        // Base filters without pagination applied yet
+        const baseFilters: { agent_id?: number; test_id?: number } = {
+            ...(agent_id ? { agent_id: Number(agent_id) } : {}),
+            ...(test_id ? { test_id: Number(test_id) } : {})
         };
-        
-        // If pagination parameters are provided, return with count
-        if (limit !== undefined || offset !== undefined) {
-            const { data, total } = getResultsWithCount(filters);
+
+        // If client supplied pagination, honor it
+        if (hasPaginationParams(req)) {
+            const paginationParams = validatePaginationOrError(req, res);
+            if (!paginationParams) {
+                return;
+            }
+
+            const { data, total } = getResultsWithCount({ ...baseFilters, ...paginationParams });
             return res.json({
                 data,
                 total,
-                limit: filters.limit,
-                offset: filters.offset || 0
+                limit: paginationParams.limit,
+                offset: paginationParams.offset || 0
             });
-        } else {
-            const results = getResults(filters);
-            return res.json(results);
         }
+
+        // Otherwise fall back to default pagination limit for large tables
+        const defaultLimit = paginationConfig.defaultLargeLimit;
+        const { data, total } = getResultsWithCount({
+            ...baseFilters,
+            limit: defaultLimit,
+            offset: 0
+        });
+
+        return res.json({
+            data,
+            total,
+            limit: defaultLimit,
+            offset: 0
+        });
     } catch (error) {
         console.error('Error fetching results:', error);
         return res.status(500).json({ error: 'Failed to fetch results' });

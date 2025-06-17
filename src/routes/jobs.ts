@@ -2,6 +2,8 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { jobQueue, JobStatus, JobFilters } from '../services/job-queue';
 import { getAgentById, getTestById, getResultById, listJobsWithCount } from '../db/queries';
+import { paginationConfig } from '../config';
+import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
 
@@ -11,7 +13,7 @@ const UPDATABLE_JOB_FIELDS = ['status', 'progress', 'partial_result', 'result_id
 // List all jobs with optional filtering
 router.get('/', (async (req: Request, res: Response) => {
   try {
-    const filters: JobFilters & { limit?: number; offset?: number } = {};
+    const filters: JobFilters = {};
     
     // Apply filters from query parameters
     if (req.query.status) {
@@ -34,28 +36,32 @@ router.get('/', (async (req: Request, res: Response) => {
     if (req.query.after) {
       filters.after = new Date(req.query.after as string);
     }
-    
-    if (req.query.limit) {
-      filters.limit = parseInt(req.query.limit as string, 10);
-    }
-    
-    if (req.query.offset) {
-      filters.offset = parseInt(req.query.offset as string, 10);
-    }
-    
+
     // If pagination parameters are provided, return with count
-    if (req.query.limit !== undefined || req.query.offset !== undefined) {
-      const { data, total } = await listJobsWithCount(filters);
+    if (hasPaginationParams(req)) {
+      const paginationParams = validatePaginationOrError(req, res);
+      if (!paginationParams) {
+        return;
+      }
+
+      const { data, total } = await listJobsWithCount({ ...filters, ...paginationParams });
       return res.json({
         data,
         total,
-        limit: filters.limit,
-        offset: filters.offset || 0
+        limit: paginationParams.limit,
+        offset: paginationParams.offset || 0
       });
-    } else {
-      const jobs = await jobQueue.listJobs(filters);
-      return res.json(jobs);
     }
+
+    // Otherwise use default pagination limit for large tables
+    const defaultLimit = paginationConfig.defaultLargeLimit;
+    const { data, total } = await listJobsWithCount({ ...filters, limit: defaultLimit, offset: 0 });
+    return res.json({
+      data,
+      total,
+      limit: defaultLimit,
+      offset: 0
+    });
   } catch (error) {
     console.error('Error listing jobs:', error);
     return res.status(500).json({ 

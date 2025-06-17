@@ -1,13 +1,30 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createAgent, getAgents, getAgentById, updateAgent, deleteAgent } from '../db/queries';
+import { createAgent, getAgents, getAgentById, updateAgent, deleteAgent, getAgentsWithCount } from '../db/queries';
 import type { Agent } from '../types';
+import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
 
 // Get all agents
-router.get('/', (async (_req: Request, res: Response) => {
+router.get('/', (async (req: Request, res: Response) => {
     try {
+        if (hasPaginationParams(req)) {
+            const queryParams = validatePaginationOrError(req, res);
+            if (!queryParams) {
+                return;
+            }
+
+            const { data, total } = getAgentsWithCount(queryParams);
+            
+            return res.json({
+                data,
+                total,
+                limit: queryParams.limit,
+                offset: queryParams.offset
+            });
+        }
+
         const agents = await getAgents();
         return res.json(agents);
     } catch (error) {

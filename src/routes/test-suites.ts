@@ -9,7 +9,8 @@ import {
     addTestToSuite,
     removeTestFromSuite,
     getTestsInSuite,
-    reorderTestsInSuite
+    reorderTestsInSuite,
+    getTestSuitesWithCount
 } from '../db/queries';
 import { suiteProcessingService } from '../services/suite-processing-service';
 import { 
@@ -19,6 +20,8 @@ import {
 	deleteSuiteEntry,
 	reorderSuiteEntries
 } from '../db/queries';
+import type { TestSuite } from '../types';
+import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
 
@@ -26,28 +29,40 @@ const router = Router();
  * GET /api/test-suites
  * Get all test suites with test counts
  */
-router.get('/', (async (_req: Request, res: Response) => {
+router.get('/', (async (req: Request, res: Response) => {
     try {
-        const testSuites = getTestSuites();
-        
-        // Add test count for each suite by counting the nested structure
-        const testSuitesWithCounts = testSuites.map(suite => {
+        if (hasPaginationParams(req)) {
+            const paginationParams = validatePaginationOrError(req, res);
+            if (!paginationParams) {
+                return;
+            }
+
+            const { data, total } = getTestSuitesWithCount(paginationParams);
+            const suitesWithCounts = data.map((suite: TestSuite) => {
+                let testCount = 0;
+                try {
+                    testCount = suiteProcessingService.countLeafTests(suite.id!);
+                } catch (error) {
+                    console.warn(`Error calculating test count for suite ${suite.id}:`, error);
+                }
+                return { ...suite, test_count: testCount };
+            });
+
+            return res.json({ data: suitesWithCounts, total, ...paginationParams });
+        }
+
+        const suites = getTestSuites();
+        const suitesWithCounts = suites.map((suite: TestSuite) => {
             let testCount = 0;
             try {
-                // Use the dedicated counting method that doesn't need agent validation
                 testCount = suiteProcessingService.countLeafTests(suite.id!);
             } catch (error) {
                 console.warn(`Error calculating test count for suite ${suite.id}:`, error);
-                testCount = 0;
             }
-            
-            return {
-                ...suite,
-                test_count: testCount
-            };
+            return { ...suite, test_count: testCount };
         });
-        
-        return res.json(testSuitesWithCounts);
+
+        return res.json(suitesWithCounts);
     } catch (error) {
         console.error('Error fetching test suites:', error);
         return res.status(500).json({ error: 'Failed to fetch test suites' });
