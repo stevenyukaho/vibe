@@ -21,7 +21,7 @@ export default function Results({
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalItems, setTotalItems] = useState(0);
   
   const { agents } = useAgents();
   const { tests } = useTests();
@@ -29,12 +29,12 @@ export default function Results({
   const fetchResults = async () => {
     try {
       setLoading(true);
-      const data = await api.getResults({ 
+      const response = await api.getResultsWithCount({ 
         limit: pageSize, 
         offset: currentPage * pageSize 
       });
-      setResults(data);
-      setHasMore(data.length === pageSize);
+      setResults(response.data);
+      setTotalItems(response.total);
     } catch (err: unknown) {
       console.error('Failed to fetch results:', err);
     } finally {
@@ -82,9 +82,9 @@ export default function Results({
           />
           
           {/* Pagination */}
-          {results.length > 0 && (
+          {totalItems > 0 && (
             <Pagination
-              totalItems={results.length + (hasMore ? 1 : 0)} // Approximate total for "has more" logic
+              totalItems={totalItems}
               pageSize={pageSize}
               pageSizes={[10, 25, 50, 100]}
               page={currentPage + 1} // Carbon uses 1-based indexing

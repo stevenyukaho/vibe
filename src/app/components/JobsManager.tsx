@@ -53,7 +53,7 @@ export default function JobsManager({
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalItems, setTotalItems] = useState(0);
 
   const fetchJobs = async (force = false) => {
     if (isLoading && !force) {
@@ -62,12 +62,12 @@ export default function JobsManager({
     
     try {
       setIsLoading(true);
-      const data = await api.getJobs({ 
+      const response = await api.getJobsWithCount({ 
         limit: pageSize, 
         offset: currentPage * pageSize 
       });
-      setJobs(data);
-      setHasMore(data.length === pageSize);
+      setJobs(response.data);
+      setTotalItems(response.total);
     } catch (err) {
       console.error('Error fetching jobs:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
@@ -351,9 +351,9 @@ export default function JobsManager({
       )}
 
       {/* Pagination */}
-      {jobs.length > 0 && (
+      {totalItems > 0 && (
         <Pagination
-          totalItems={jobs.length + (hasMore ? 1 : 0)} // Approximate total for "has more" logic
+          totalItems={totalItems}
           pageSize={pageSize}
           pageSizes={[10, 25, 50, 100]}
           page={currentPage + 1} // Carbon uses 1-based indexing

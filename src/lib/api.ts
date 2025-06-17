@@ -84,6 +84,13 @@ export interface SuiteEntry {
     agent_id_override?: number;
 }
 
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
+    limit?: number;
+    offset?: number;
+}
+
 export const api = {
     // Agents
     async getAgents(): Promise<Agent[]> {
@@ -230,7 +237,38 @@ export const api = {
             throw new Error(error.error || 'Failed to fetch results');
         }
         
-        return response.json();
+        const result = await response.json();
+
+        return Array.isArray(result) ? result : result.data;
+    },
+
+    async getResultsWithCount(filters?: { agent_id?: number; test_id?: number; limit?: number; offset?: number }): Promise<PaginatedResponse<TestResult>> {
+        const params = new URLSearchParams();
+        if (filters?.agent_id) {
+            params.append('agent_id', filters.agent_id.toString());
+        }
+        if (filters?.test_id) {
+            params.append('test_id', filters.test_id.toString());
+        }
+        if (filters?.limit !== undefined) {
+            params.append('limit', filters.limit.toString());
+        }
+        if (filters?.offset !== undefined) {
+            params.append('offset', filters.offset.toString());
+        }
+        const response = await fetch(`${API_URL}/api/results?${params}`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch results');
+        }
+        
+        const result = await response.json();
+
+        if (Array.isArray(result)) {
+            return { data: result, total: result.length };
+        }
+        return result;
     },
 
     async createResult(result: Omit<TestResult, 'id' | 'created_at'>): Promise<TestResult> {
@@ -322,7 +360,33 @@ export const api = {
             const error = await response.json();
             throw new Error(error.error || 'Failed to fetch suite runs');
         }
-        return response.json();
+        
+        const result = await response.json();
+
+        return Array.isArray(result) ? result : result.data;
+    },
+
+    async getSuiteRunsWithCount(filters?: { limit?: number; offset?: number }): Promise<PaginatedResponse<SuiteRun>> {
+        const params = new URLSearchParams();
+        if (filters?.limit !== undefined) {
+            params.append('limit', filters.limit.toString());
+        }
+        if (filters?.offset !== undefined) {
+            params.append('offset', filters.offset.toString());
+        }
+        
+        const response = await fetch(`${API_URL}/api/suite-runs?${params}`);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch suite runs');
+        }
+        
+        const result = await response.json();
+
+        if (Array.isArray(result)) {
+            return { data: result, total: result.length };
+        }
+        return result;
     },
 
     async getSuiteRunJobs(suite_run_id: number): Promise<Job[]> {
@@ -379,7 +443,33 @@ export const api = {
             throw new Error(error.error || 'Failed to fetch jobs');
         }
         
-        return response.json();
+        const result = await response.json();
+
+        return Array.isArray(result) ? result : result.data;
+    },
+
+    async getJobsWithCount(filters?: { limit?: number; offset?: number }): Promise<PaginatedResponse<Job>> {
+        const params = new URLSearchParams();
+        if (filters?.limit !== undefined) {
+            params.append('limit', filters.limit.toString());
+        }
+        if (filters?.offset !== undefined) {
+            params.append('offset', filters.offset.toString());
+        }
+        
+        const response = await fetch(`${API_URL}/api/jobs?${params}`);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch jobs');
+        }
+        
+        const result = await response.json();
+
+        if (Array.isArray(result)) {
+            return { data: result, total: result.length };
+        }
+        return result;
     },
 
     async createJob(agent_id: number, test_id: number): Promise<Job> {

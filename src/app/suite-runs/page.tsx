@@ -34,7 +34,7 @@ export default function SuiteRunsPage() {
 	const [deletingId, setDeletingId] = useState<number | null>(null);
 	const [currentPage, setCurrentPage] = useState(0);
 	const [pageSize, setPageSize] = useState(50);
-	const [hasMore, setHasMore] = useState(true);
+	const [totalItems, setTotalItems] = useState(0);
 	
 	// Modal state
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -47,12 +47,12 @@ export default function SuiteRunsPage() {
 
 	const fetchRuns = async () => {
 		try {
-			const data = await api.getSuiteRuns({ 
+			const response = await api.getSuiteRunsWithCount({ 
 				limit: pageSize, 
 				offset: currentPage * pageSize 
 			});
-			setRuns(data);
-			setHasMore(data.length === pageSize);
+			setRuns(response.data);
+			setTotalItems(response.total);
 		} catch (err: unknown) {
 			if (err instanceof Error) setError(err.message);
 			else setError(String(err));
@@ -62,30 +62,7 @@ export default function SuiteRunsPage() {
 	};
 
 	useEffect(() => {
-		let mounted = true;
-		async function loadData() {
-			try {
-				const data = await api.getSuiteRuns({ 
-					limit: pageSize, 
-					offset: currentPage * pageSize 
-				});
-				if (mounted) setRuns(data);
-				if (mounted) setHasMore(data.length === pageSize);
-			} catch (err: unknown) {
-				if (mounted) {
-					if (err instanceof Error) setError(err.message);
-					else setError(String(err));
-				}
-			} finally {
-				if (mounted) setLoading(false);
-			}
-		}
-		loadData();
-		const interval = setInterval(loadData, 2000);
-		return () => {
-			mounted = false;
-			clearInterval(interval);
-		};
+		fetchRuns();
 	}, [currentPage, pageSize]);
 
 	const handleViewRun = (id: number) => {
@@ -299,9 +276,9 @@ export default function SuiteRunsPage() {
 					)}
 					
 					{/* Pagination */}
-					{runs.length > 0 && (
+					{totalItems > 0 && (
 						<Pagination
-							totalItems={runs.length + (hasMore ? 1 : 0)} // Approximate total for "has more" logic
+							totalItems={totalItems}
 							pageSize={pageSize}
 							pageSizes={[10, 25, 50, 100]}
 							page={currentPage + 1} // Carbon uses 1-based indexing
