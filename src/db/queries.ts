@@ -805,35 +805,42 @@ export const getSuiteRunById = (id: number): SuiteRun | undefined => {
 };
 
 export const listSuiteRuns = (filters: SuiteRunFilters & { limit?: number; offset?: number } = {}) => {
-	let query = 'SELECT * FROM suite_runs WHERE 1=1';
+	let query = `
+		SELECT 
+			sr.*,
+			a.name as agent_name
+		FROM suite_runs sr
+		LEFT JOIN agents a ON sr.agent_id = a.id
+		WHERE 1=1
+	`;
 	const params: any[] = [];
 
 	if (filters.status) {
-		query += ' AND status = ?';
+		query += ' AND sr.status = ?';
 		params.push(filters.status);
 	}
 
 	if (filters.suite_id) {
-		query += ' AND suite_id = ?';
+		query += ' AND sr.suite_id = ?';
 		params.push(filters.suite_id);
 	}
 
 	if (filters.agent_id) {
-		query += ' AND agent_id = ?';
+		query += ' AND sr.agent_id = ?';
 		params.push(filters.agent_id);
 	}
 
 	if (filters.after) {
-		query += ' AND started_at >= ?';
+		query += ' AND sr.started_at >= ?';
 		params.push(filters.after.toISOString());
 	}
 
 	if (filters.before) {
-		query += ' AND started_at <= ?';
+		query += ' AND sr.started_at <= ?';
 		params.push(filters.before.toISOString());
 	}
 
-	query += ' ORDER BY started_at DESC';
+	query += ' ORDER BY sr.started_at DESC';
 
 	if (filters.limit !== undefined) {
 		query += ' LIMIT ?';
