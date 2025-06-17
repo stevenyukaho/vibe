@@ -15,4 +15,11 @@ export const serverConfig = {
 // Database configuration
 export const dbConfig = {
   path: process.env.DB_PATH || './data/agent-testing.db',
-}; 
+};
+
+// Default pagination settings for large resources
+export const paginationConfig = {
+  // Default maximum number of rows to return when the client does not specify limit/offset
+  // Applies to potentially large tables such as results, jobs and suite-runs
+  defaultLargeLimit: 50,
+};
