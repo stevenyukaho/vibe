@@ -21,7 +21,7 @@ import {
 import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
 import { api, Job, JobStatus } from '@/lib/api';
 import styles from './JobsManager.module.scss';
-import { useAgents, useTests } from '@/lib/AppDataContext';
+import { useAgents, useTests, useAppData } from '@/lib/AppDataContext';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
 
 interface JobsManagerProps {
@@ -33,6 +33,7 @@ export default function JobsManager({
 }: JobsManagerProps) {
 	const { agents, fetchAgents } = useAgents();
 	const { tests, fetchTests } = useTests();
+	const { getResultById, fetchResults } = useAppData();
 
 	const [jobs, setJobs] = useState<Job[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -57,6 +58,7 @@ export default function JobsManager({
 	useEffect(() => {
 		fetchAgents();
 		fetchTests();
+		fetchResults();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -213,6 +215,7 @@ export default function JobsManager({
 		return jobs.map(job => {
 			const agent = agentMap.get(job.agent_id);
 			const test = testMap.get(job.test_id);
+			const result = job.result_id ? getResultById(job.result_id) : null;
 
 			const isPendingOrRunning = job.status === 'pending' || job.status === 'running';
 
@@ -225,7 +228,7 @@ export default function JobsManager({
 						{job.status.charAt(0).toUpperCase() + job.status.slice(1)}
 					</Tag>
 				),
-				similarity_score: job.result_id ? { id: job.result_id } : null, // Simplified - just pass result ID
+				similarity_score: result,
 				created_at: new Date(job.created_at).toLocaleString(),
 				actions: (
 					<div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -284,7 +287,7 @@ export default function JobsManager({
 			};
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [jobs, agents, tests, rerunningJob, cancelingJob, deletingJob]);
+	}, [jobs, agents, tests, getResultById, rerunningJob, cancelingJob, deletingJob]);
 
 	return (
 		<div>
