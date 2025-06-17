@@ -92,6 +92,7 @@ export interface SuiteRun {
 	id?: number;
 	suite_id: number;
 	agent_id: number;
+	agent_name?: string;
 	status: JobStatus;
 	progress?: number;  // 0-100 percentage
 	total_tests: number;
