@@ -194,6 +194,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_suite_runs_status ON suite_runs(status);
   CREATE INDEX IF NOT EXISTS idx_llm_configs_priority ON llm_configs(priority);
   CREATE INDEX IF NOT EXISTS idx_llm_configs_provider ON llm_configs(provider);
+  CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
+  CREATE INDEX IF NOT EXISTS idx_suite_runs_status_suite ON suite_runs(status, suite_id);
 `);
 
 export default db;
