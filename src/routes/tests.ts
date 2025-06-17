@@ -8,103 +8,103 @@ const router = Router();
 
 // Get all tests
 router.get('/', (async (req: Request, res: Response) => {
-    try {
-        if (hasPaginationParams(req)) {
-            const queryParams = validatePaginationOrError(req, res);
-            if (!queryParams) {
-                return;
-            }
+	try {
+		if (hasPaginationParams(req)) {
+			const queryParams = validatePaginationOrError(req, res);
+			if (!queryParams) {
+				return;
+			}
 
-            const { data, total } = getTestsWithCount(queryParams);
+			const { data, total } = getTestsWithCount(queryParams);
 
-            return res.json({
-                data,
-                total,
-                limit: queryParams.limit,
-                offset: queryParams.offset
-            });
-        }
+			return res.json({
+				data,
+				total,
+				limit: queryParams.limit,
+				offset: queryParams.offset
+			});
+		}
 
-        const tests = await getTests();
-        return res.json(tests);
-    } catch (error) {
-        console.error('Error fetching tests:', error);
-        return res.status(500).json({ error: 'Failed to fetch tests' });
-    }
+		const tests = await getTests();
+		return res.json(tests);
+	} catch (error) {
+		console.error('Error fetching tests:', error);
+		return res.status(500).json({ error: 'Failed to fetch tests' });
+	}
 }) as any);
 
 // Get test by ID
 router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
-    try {
-        const test = await getTestById(Number(req.params.id));
-        if (!test) {
-            return res.status(404).json({ error: 'Test not found' });
-        }
-        return res.json(test);
-    } catch (error) {
-        console.error('Error fetching test:', error);
-        return res.status(500).json({ error: 'Failed to fetch test' });
-    }
+	try {
+		const test = await getTestById(Number(req.params.id));
+		if (!test) {
+			return res.status(404).json({ error: 'Test not found' });
+		}
+		return res.json(test);
+	} catch (error) {
+		console.error('Error fetching test:', error);
+		return res.status(500).json({ error: 'Failed to fetch test' });
+	}
 }) as any);
 
 // Create new test
 router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | 'updated_at'>>, res: Response) => {
-    try {
-        const { name, input } = req.body;
-        
-        // Validate required fields
-        if (!name || !input) {
-            return res.status(400).json({ 
-                error: 'Failed to create test', 
-                details: 'Name and input are required fields' 
-            });
-        }
-        
-        const test = await createTest(req.body);
-        return res.status(201).json(test);
-    } catch (error) {
-        console.error('Error creating test:', error);
-        return res.status(500).json({ 
-            error: 'Failed to create test',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
+	try {
+		const { name, input } = req.body;
+
+		// Validate required fields
+		if (!name || !input) {
+			return res.status(400).json({
+				error: 'Failed to create test',
+				details: 'Name and input are required fields'
+			});
+		}
+
+		const test = await createTest(req.body);
+		return res.status(201).json(test);
+	} catch (error) {
+		console.error('Error creating test:', error);
+		return res.status(500).json({
+			error: 'Failed to create test',
+			details: error instanceof Error ? error.message : 'Unknown error'
+		});
+	}
 }) as any);
 
 // Update test
 router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res: Response) => {
-    try {
-        const test = await updateTest(Number(req.params.id), req.body);
-        if (!test) {
-            return res.status(404).json({ error: 'Test not found' });
-        }
-        return res.json(test);
-    } catch (error) {
-        console.error('Error updating test:', error);
-        return res.status(500).json({ error: 'Failed to update test' });
-    }
+	try {
+		const test = await updateTest(Number(req.params.id), req.body);
+		if (!test) {
+			return res.status(404).json({ error: 'Test not found' });
+		}
+		return res.json(test);
+	} catch (error) {
+		console.error('Error updating test:', error);
+		return res.status(500).json({ error: 'Failed to update test' });
+	}
 }) as any);
 
 // Delete test
 router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
-    try {
-        const id = Number(req.params.id);
-        
-        // Check if test exists
-        const existingTest = await getTestById(id);
-        if (!existingTest) {
-            return res.status(404).json({ error: 'Test not found' });
-        }
-        
-        await deleteTest(id);
-        return res.status(204).send();
-    } catch (error) {
-        console.error('Error deleting test:', error);
-        return res.status(500).json({ 
-            error: 'Failed to delete test',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
+	try {
+		const id = Number(req.params.id);
+
+		// Check if test exists
+		const existingTest = await getTestById(id);
+		if (!existingTest) {
+			return res.status(404).json({ error: 'Test not found' });
+		}
+
+		await deleteTest(id);
+		return res.status(204).send();
+	} catch (error) {
+		console.error('Error deleting test:', error);
+		return res.status(500).json({
+			error: 'Failed to delete test',
+			details: error instanceof Error ? error.message : 'Unknown error'
+		});
+	}
 }) as any);
 
 export default router; 

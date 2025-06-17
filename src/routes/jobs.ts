@@ -12,256 +12,256 @@ const UPDATABLE_JOB_FIELDS = ['status', 'progress', 'partial_result', 'result_id
 
 // List all jobs with optional filtering
 router.get('/', (async (req: Request, res: Response) => {
-  try {
-    const filters: JobFilters = {};
-    
-    // Apply filters from query parameters
-    if (req.query.status) {
-      // Convert string to JobStatus enum
-      filters.status = req.query.status as JobStatus;
-    }
-    
-    if (req.query.agent_id) {
-      filters.agent_id = parseInt(req.query.agent_id as string, 10);
-    }
-    
-    if (req.query.test_id) {
-      filters.test_id = parseInt(req.query.test_id as string, 10);
-    }
-    
-    if (req.query.before) {
-      filters.before = new Date(req.query.before as string);
-    }
-    
-    if (req.query.after) {
-      filters.after = new Date(req.query.after as string);
-    }
+	try {
+		const filters: JobFilters = {};
+		
+		// Apply filters from query parameters
+		if (req.query.status) {
+			// Convert string to JobStatus enum
+			filters.status = req.query.status as JobStatus;
+		}
+		
+		if (req.query.agent_id) {
+			filters.agent_id = parseInt(req.query.agent_id as string, 10);
+		}
+		
+		if (req.query.test_id) {
+			filters.test_id = parseInt(req.query.test_id as string, 10);
+		}
+		
+		if (req.query.before) {
+			filters.before = new Date(req.query.before as string);
+		}
+		
+		if (req.query.after) {
+			filters.after = new Date(req.query.after as string);
+		}
 
-    // If pagination parameters are provided, return with count
-    if (hasPaginationParams(req)) {
-      const paginationParams = validatePaginationOrError(req, res);
-      if (!paginationParams) {
-        return;
-      }
+		// If pagination parameters are provided, return with count
+		if (hasPaginationParams(req)) {
+			const paginationParams = validatePaginationOrError(req, res);
+			if (!paginationParams) {
+				return;
+			}
 
-      const { data, total } = await listJobsWithCount({ ...filters, ...paginationParams });
-      return res.json({
-        data,
-        total,
-        limit: paginationParams.limit,
-        offset: paginationParams.offset || 0
-      });
-    }
+			const { data, total } = await listJobsWithCount({ ...filters, ...paginationParams });
+			return res.json({
+				data,
+				total,
+				limit: paginationParams.limit,
+				offset: paginationParams.offset || 0
+			});
+		}
 
-    // Otherwise use default pagination limit for large tables
-    const defaultLimit = paginationConfig.defaultLargeLimit;
-    const { data, total } = await listJobsWithCount({ ...filters, limit: defaultLimit, offset: 0 });
-    return res.json({
-      data,
-      total,
-      limit: defaultLimit,
-      offset: 0
-    });
-  } catch (error) {
-    console.error('Error listing jobs:', error);
-    return res.status(500).json({ 
-      error: 'Failed to list jobs', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+		// Otherwise use default pagination limit for large tables
+		const defaultLimit = paginationConfig.defaultLargeLimit;
+		const { data, total } = await listJobsWithCount({ ...filters, limit: defaultLimit, offset: 0 });
+		return res.json({
+			data,
+			total,
+			limit: defaultLimit,
+			offset: 0
+		});
+	} catch (error) {
+		console.error('Error listing jobs:', error);
+		return res.status(500).json({ 
+			error: 'Failed to list jobs', 
+			details: error instanceof Error ? error.message : 'Unknown error' 
+		});
+	}
 }) as any);
 
 // Get available jobs for polling (used by services)
 router.get('/available/:job_type?', (async (req: Request, res: Response) => {
-  try {
-    const jobType = req.params.job_type;
-    const limit = parseInt(req.query.limit as string || '10', 10);
-    
-    const jobs = await jobQueue.getAvailableJobs(jobType, limit);
-    return res.json(jobs);
-  } catch (error) {
-    console.error('Error getting available jobs:', error);
-    return res.status(500).json({ 
-      error: 'Failed to get available jobs', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+	try {
+		const jobType = req.params.job_type;
+		const limit = parseInt(req.query.limit as string || '10', 10);
+		
+		const jobs = await jobQueue.getAvailableJobs(jobType, limit);
+		return res.json(jobs);
+	} catch (error) {
+		console.error('Error getting available jobs:', error);
+		return res.status(500).json({ 
+			error: 'Failed to get available jobs', 
+			details: error instanceof Error ? error.message : 'Unknown error' 
+		});
+	}
 }) as any);
 
 // Get a job by ID
 router.get('/:id', (async (req: Request, res: Response) => {
-  try {
-    const job = await jobQueue.getJob(req.params.id);
-    
-    if (!job) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-    
-    // Enrich job with related data if needed
-    const enrichedJob: any = { ...job };
-    
-    // If job has a result, include it
-    if (job.result_id) {
-      enrichedJob.result = await getResultById(job.result_id);
-    }
-    
-    return res.json(enrichedJob);
-  } catch (error) {
-    console.error(`Error getting job ${req.params.id}:`, error);
-    return res.status(500).json({ 
-      error: 'Failed to get job', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+	try {
+		const job = await jobQueue.getJob(req.params.id);
+		
+		if (!job) {
+			return res.status(404).json({ error: 'Job not found' });
+		}
+		
+		// Enrich job with related data if needed
+		const enrichedJob: any = { ...job };
+		
+		// If job has a result, include it
+		if (job.result_id) {
+			enrichedJob.result = await getResultById(job.result_id);
+		}
+		
+		return res.json(enrichedJob);
+	} catch (error) {
+		console.error(`Error getting job ${req.params.id}:`, error);
+		return res.status(500).json({ 
+			error: 'Failed to get job', 
+			details: error instanceof Error ? error.message : 'Unknown error' 
+		});
+	}
 }) as any);
 
 // Create a new job to execute a test
 router.post('/', (async (req: Request, res: Response) => {
-  try {
-    const { agent_id, test_id } = req.body;
-    
-    // Validate input
-    if (!agent_id || !test_id) {
-      return res.status(400).json({ error: 'agent_id and test_id are required' });
-    }
-    
-    // Check if agent and test exist
-    const agent = await getAgentById(agent_id);
-    const test = await getTestById(test_id);
-    
-    if (!agent) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-    
-    if (!test) {
-      return res.status(404).json({ error: 'Test not found' });
-    }
-    
-    // Create a new job
-    const jobId = await jobQueue.createJob(agent_id, test_id);
-    
-    // Return the job ID with 202 Accepted status
-    return res.status(202).json({ 
-      job_id: jobId,
-      message: 'Job created and queued for execution'
-    });
-  } catch (error) {
-    console.error('Error creating job:', error);
-    return res.status(500).json({ 
-      error: 'Failed to create job', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+	try {
+		const { agent_id, test_id } = req.body;
+		
+		// Validate input
+		if (!agent_id || !test_id) {
+			return res.status(400).json({ error: 'agent_id and test_id are required' });
+		}
+		
+		// Check if agent and test exist
+		const agent = await getAgentById(agent_id);
+		const test = await getTestById(test_id);
+		
+		if (!agent) {
+			return res.status(404).json({ error: 'Agent not found' });
+		}
+		
+		if (!test) {
+			return res.status(404).json({ error: 'Test not found' });
+		}
+		
+		// Create a new job
+		const jobId = await jobQueue.createJob(agent_id, test_id);
+		
+		// Return the job ID with 202 Accepted status
+		return res.status(202).json({ 
+			job_id: jobId,
+			message: 'Job created and queued for execution'
+		});
+	} catch (error) {
+		console.error('Error creating job:', error);
+		return res.status(500).json({ 
+			error: 'Failed to create job', 
+			details: error instanceof Error ? error.message : 'Unknown error' 
+		});
+	}
 }) as any);
 
 // Cancel a job
 router.post('/:id/cancel', (async (req: Request, res: Response) => {
-  try {
-    const job = await jobQueue.getJob(req.params.id);
-    
-    if (!job) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-    
-    // Only pending or running jobs can be canceled
-    if (job.status !== JobStatus.PENDING && job.status !== JobStatus.RUNNING) {
-      return res.status(400).json({ 
-        error: 'Cannot cancel job', 
-        details: `Job status is ${job.status}` 
-      });
-    }
-    
-    // Update job status to canceled
-    await jobQueue.updateJob(req.params.id, { 
-      status: JobStatus.FAILED,
-      error: 'Job canceled by user'
-    });
-    
-    return res.status(200).json({ message: 'Job canceled successfully' });
-  } catch (error) {
-    console.error(`Error canceling job ${req.params.id}:`, error);
-    return res.status(500).json({ 
-      error: 'Failed to cancel job', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+	try {
+		const job = await jobQueue.getJob(req.params.id);
+		
+		if (!job) {
+			return res.status(404).json({ error: 'Job not found' });
+		}
+		
+		// Only pending or running jobs can be canceled
+		if (job.status !== JobStatus.PENDING && job.status !== JobStatus.RUNNING) {
+			return res.status(400).json({ 
+				error: 'Cannot cancel job', 
+				details: `Job status is ${job.status}` 
+			});
+		}
+		
+		// Update job status to canceled
+		await jobQueue.updateJob(req.params.id, { 
+			status: JobStatus.FAILED,
+			error: 'Job canceled by user'
+		});
+		
+		return res.status(200).json({ message: 'Job canceled successfully' });
+	} catch (error) {
+		console.error(`Error canceling job ${req.params.id}:`, error);
+		return res.status(500).json({ 
+			error: 'Failed to cancel job', 
+			details: error instanceof Error ? error.message : 'Unknown error' 
+		});
+	}
 }) as any);
 
 // Delete a job completely
 router.delete('/:id', (async (req: Request, res: Response) => {
-  try {
-    const deleted = await jobQueue.deleteJob(req.params.id);
-    
-    if (!deleted) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-    
-    return res.status(200).json({ message: 'Job deleted successfully' });
-  } catch (error) {
-    console.error(`Error deleting job ${req.params.id}:`, error);
-    return res.status(500).json({ 
-      error: 'Failed to delete job', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+	try {
+		const deleted = await jobQueue.deleteJob(req.params.id);
+		
+		if (!deleted) {
+			return res.status(404).json({ error: 'Job not found' });
+		}
+		
+		return res.status(200).json({ message: 'Job deleted successfully' });
+	} catch (error) {
+		console.error(`Error deleting job ${req.params.id}:`, error);
+		return res.status(500).json({ 
+			error: 'Failed to delete job', 
+			details: error instanceof Error ? error.message : 'Unknown error' 
+		});
+	}
 }) as any);
 
 // Claim a job for execution (used by services)
 router.post('/:id/claim', (async (req: Request, res: Response) => {
-  try {
-    const { service_id } = req.body;
-    
-    if (!service_id) {
-      return res.status(400).json({ error: 'service_id is required' });
-    }
-    
-    const claimed = await jobQueue.claimJob(req.params.id, service_id);
-    
-    if (!claimed) {
-      return res.status(409).json({ error: 'Job could not be claimed (may be already running or completed)' });
-    }
-    
-    return res.status(200).json({ 
-      message: 'Job claimed successfully',
-      job_id: req.params.id 
-    });
-  } catch (error) {
-    console.error(`Error claiming job ${req.params.id}:`, error);
-    return res.status(500).json({ 
-      error: 'Failed to claim job', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+	try {
+		const { service_id } = req.body;
+		
+		if (!service_id) {
+			return res.status(400).json({ error: 'service_id is required' });
+		}
+		
+		const claimed = await jobQueue.claimJob(req.params.id, service_id);
+		
+		if (!claimed) {
+			return res.status(409).json({ error: 'Job could not be claimed (may be already running or completed)' });
+		}
+		
+		return res.status(200).json({ 
+			message: 'Job claimed successfully',
+			job_id: req.params.id 
+		});
+	} catch (error) {
+		console.error(`Error claiming job ${req.params.id}:`, error);
+		return res.status(500).json({ 
+			error: 'Failed to claim job', 
+			details: error instanceof Error ? error.message : 'Unknown error' 
+		});
+	}
 }) as any);
 
 // Update job status and progress (used by services during execution)
 router.put('/:id', (async (req: Request, res: Response) => {
-  try {
-    const updates = req.body;
-    
-    // Only allow whitelisted fields to be updated
-    const updateFields: any = {};
-    
-    for (const field of UPDATABLE_JOB_FIELDS) {
-      if (updates[field] !== undefined) {
-        updateFields[field] = updates[field];
-      }
-    }
-    
-    if (Object.keys(updateFields).length === 0) {
-      return res.status(400).json({ error: 'No valid fields to update' });
-    }
-    
-    await jobQueue.updateJob(req.params.id, updateFields);
-    
-    return res.status(200).json({ message: 'Job updated successfully' });
-  } catch (error) {
-    console.error(`Error updating job ${req.params.id}:`, error);
-    return res.status(500).json({ 
-      error: 'Failed to update job', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+	try {
+		const updates = req.body;
+		
+		// Only allow whitelisted fields to be updated
+		const updateFields: any = {};
+		
+		for (const field of UPDATABLE_JOB_FIELDS) {
+			if (updates[field] !== undefined) {
+				updateFields[field] = updates[field];
+			}
+		}
+		
+		if (Object.keys(updateFields).length === 0) {
+			return res.status(400).json({ error: 'No valid fields to update' });
+		}
+		
+		await jobQueue.updateJob(req.params.id, updateFields);
+		
+		return res.status(200).json({ message: 'Job updated successfully' });
+	} catch (error) {
+		console.error(`Error updating job ${req.params.id}:`, error);
+		return res.status(500).json({ 
+			error: 'Failed to update job', 
+			details: error instanceof Error ? error.message : 'Unknown error' 
+		});
+	}
 }) as any);
 
 export default router;
