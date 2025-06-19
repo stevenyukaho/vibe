@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Form,
   Select,
@@ -21,14 +21,24 @@ export default function TestExecutor({
   onJobCreated 
 }: TestExecutorProps) {
   // Get data from context
-  const { agents } = useAgents();
-  const { tests } = useTests();
+  const { agents, fetchAgents } = useAgents();
+  const { tests, fetchTests } = useTests();
 
   const [selectedAgentId, setSelectedAgentId] = useState<number | undefined>();
   const [selectedTestId, setSelectedTestId] = useState<number | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (agents.length === 0) {
+      fetchAgents();
+    }
+    if (tests.length === 0) {
+      fetchTests();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAgentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedAgentId(Number(event.target.value));
