@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api, SuiteRun, Job } from '../../../lib/api';
+import { api, SuiteRun, Job, TestResult } from '../../../lib/api';
 import { useAppData } from '@/lib/AppDataContext';
+import { useResultOperations } from '@/lib/AppDataContext';
 import {
 	DataTable,
 	Table,
@@ -38,21 +39,21 @@ export default function SuiteRunDetailPage() {
 	const [previousStatus, setPreviousStatus] = useState<string | null>(null);
 	
 	// Result modal state
-	const [selectedResultId, setSelectedResultId] = useState<number | null>(null);
+	const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
 	const [resultError, setResultError] = useState<string | null>(null);
 
-	const { getTestById, getResultById, getAgentById, fetchAllData } = useAppData();
+	const { getTestById, getResultById: getResultByIdFromCache, getAgentById, fetchAllData } = useAppData();
+	const { getResultById } = useResultOperations();
 	
-	const handleResultView = (id: number) => {
-		const result = getResultById(id);
-		if (!result) {
-			setResultError('Result not found');
-			setModalOpen(true);
-		} else {
+	const handleResultView = async (id: number) => {
+		try {
 			setResultError(null);
-			setSelectedResultId(id);
+			const result = await getResultById(id);
+			setSelectedResult(result);
 			setModalOpen(true);
+		} catch (err) {
+			setResultError(err instanceof Error ? err.message : 'Failed to fetch result');
 		}
 	};
 
@@ -125,7 +126,7 @@ export default function SuiteRunDetailPage() {
 		const testName = getTestById(job.test_id)?.name || `#${job.test_id}`;
 		const agent = getAgentById(job.agent_id);
 		const agentName = agent ? `${agent.name} (v${agent.version})` : `Agent #${job.agent_id}`;
-		const result = job.result_id ? getResultById(job.result_id) : null;
+		const result = job.result_id ? getResultByIdFromCache(job.result_id) : null;
 		
 		return {
 			id: String(job.id),
@@ -157,8 +158,6 @@ export default function SuiteRunDetailPage() {
 			default: return 'gray';
 		}
 	};
-
-	const selectedResult = selectedResultId !== null ? getResultById(selectedResultId) ?? null : null;
 
 	return (
 		<Grid>
