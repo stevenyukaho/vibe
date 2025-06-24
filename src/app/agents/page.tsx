@@ -81,6 +81,11 @@ export default function AgentsPage() {
 							? settings.headers
 							: JSON.stringify(settings.headers);
 					}
+					if (settings.token_mapping !== undefined) {
+						data['agent-token-mapping'] = typeof settings.token_mapping === 'string'
+							? settings.token_mapping
+							: JSON.stringify(settings.token_mapping);
+					}
 				}
 			} catch {
 				// If settings are invalid, ignore and use defaults
