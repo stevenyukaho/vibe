@@ -70,6 +70,8 @@ export interface SuiteRun {
 	failed_tests: number;
 	average_execution_time?: number;
 	total_execution_time?: number;
+	total_input_tokens?: number;
+	total_output_tokens?: number;
 	started_at: string;
 	completed_at?: string;
 	avg_similarity_score?: number;
