@@ -161,7 +161,8 @@ export class JobPollerService {
 				headers: settings.headers,
 				api_key: settings.api_key,
 				request_template: settings.request_template,
-				response_mapping: settings.response_mapping
+				response_mapping: settings.response_mapping,
+				token_mapping: settings.token_mapping
 			};
 
 			await this.updateJobStatus(job.id, 'running', 30);
@@ -178,6 +179,12 @@ export class JobPollerService {
 				success: result.success,
 				execution_time: result.execution_time,
 				intermediate_steps: result.intermediate_steps,
+				input_tokens: result.metrics.input_tokens,
+				output_tokens: result.metrics.output_tokens,
+				token_mapping_metadata: JSON.stringify({
+					extraction_method: result.metrics.input_tokens || result.metrics.output_tokens ? 'external_api' : 'none',
+					agent_type: 'external_api'
+				}),
 				metrics: result.metrics
 			});
 
