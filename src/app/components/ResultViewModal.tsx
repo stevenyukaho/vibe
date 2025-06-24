@@ -118,6 +118,26 @@ export default function ResultViewModal({
 									</span>
 								</div>
 							)}
+							{/* Token usage section */}
+							{((result.input_tokens && result.input_tokens > 0) || (result.output_tokens && result.output_tokens > 0)) && (
+								<div className="metadata-item">
+									<strong>Token usage:</strong>{' '}
+									<span className="token-details">
+										{result.input_tokens && result.input_tokens > 0 && (
+											<>Input: {result.input_tokens.toLocaleString()}</>
+										)}
+										{result.input_tokens && result.input_tokens > 0 && result.output_tokens && result.output_tokens > 0 && (
+											<> | </>
+										)}
+										{result.output_tokens && result.output_tokens > 0 && (
+											<>Output: {result.output_tokens.toLocaleString()}</>
+										)}
+										{result.input_tokens && result.output_tokens && (
+											<> | <strong>Total: {(result.input_tokens + result.output_tokens).toLocaleString()}</strong></>
+										)}
+									</span>
+								</div>
+							)}
 						</div>
 						
 						{/* Similarity score section */}
