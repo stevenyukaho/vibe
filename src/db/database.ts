@@ -122,6 +122,14 @@ if (!suiteRunsInfo.some(col => col.name === 'total_execution_time')) {
   db.exec("ALTER TABLE suite_runs ADD COLUMN total_execution_time REAL DEFAULT 0");
 }
 
+// Migration: add token usage columns to suite_runs table if missing
+if (!suiteRunsInfo.some(col => col.name === 'total_input_tokens')) {
+  db.exec("ALTER TABLE suite_runs ADD COLUMN total_input_tokens INTEGER DEFAULT 0");
+}
+if (!suiteRunsInfo.some(col => col.name === 'total_output_tokens')) {
+  db.exec("ALTER TABLE suite_runs ADD COLUMN total_output_tokens INTEGER DEFAULT 0");
+}
+
 // Migration: add job polling columns to jobs table if missing
 const jobsInfo = db.prepare("PRAGMA table_info('jobs')").all() as Array<{ name: string }>;
 if (!jobsInfo.some(col => col.name === 'job_type')) {
@@ -175,6 +183,17 @@ if (!resultsInfo.some(col => col.name === 'similarity_scoring_error')) {
 }
 if (!resultsInfo.some(col => col.name === 'similarity_scoring_metadata')) {
   db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_metadata TEXT");
+}
+
+// Migration: add token usage columns to results table if missing
+if (!resultsInfo.some(col => col.name === 'input_tokens')) {
+  db.exec("ALTER TABLE results ADD COLUMN input_tokens INTEGER");
+}
+if (!resultsInfo.some(col => col.name === 'output_tokens')) {
+  db.exec("ALTER TABLE results ADD COLUMN output_tokens INTEGER");
+}
+if (!resultsInfo.some(col => col.name === 'token_mapping_metadata')) {
+  db.exec("ALTER TABLE results ADD COLUMN token_mapping_metadata TEXT");
 }
 
 // Create indexes for better performance
