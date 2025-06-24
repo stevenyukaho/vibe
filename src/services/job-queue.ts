@@ -458,6 +458,9 @@ export class JobQueueService {
 			status = JobStatus.RUNNING;
 		}
 		
+		// Get token usage for the suite run
+		const tokenUsage = dbQueries.getSuiteRunTokenUsage(suite_run_id);
+		
 		// Update suite run
 		await dbQueries.updateSuiteRun(suite_run_id, {
 			status,
@@ -466,7 +469,9 @@ export class JobQueueService {
 			successful_tests: successfulJobs.length,
 			failed_tests: completedJobs.length - successfulJobs.length,
 			average_execution_time: averageExecutionTime,
-			total_execution_time: totalExecutionTime
+			total_execution_time: totalExecutionTime,
+			total_input_tokens: tokenUsage.total_input_tokens,
+			total_output_tokens: tokenUsage.total_output_tokens
 		});
 	}
 }
