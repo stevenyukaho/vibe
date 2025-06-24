@@ -53,15 +53,37 @@ export default function Results({
 		const agentMap = new Map(agents.map(agent => [agent.id, agent]));
 		const testMap = new Map(tests.map(test => [test.id, test]));
 
-		return results.map((result) => ({
-			id: result.id?.toString() || `result-${Date.now()}`,
-			agent_name: agentMap.get(result.agent_id)?.name || 'Unknown',
-			test_name: testMap.get(result.test_id)?.name || 'Unknown',
-			success: result.success,
-			execution_time: result.execution_time ? result.execution_time.toFixed(3) : '0.000',
-			similarity_score: result,
-			created_at: new Date(result.created_at!).toLocaleString(),
-		}));
+		return results.map((result) => {
+			const inputTokens = result.input_tokens || 0;
+			const outputTokens = result.output_tokens || 0;
+			const totalTokens = inputTokens + outputTokens;
+
+			let tokenDisplay = '';
+			if (totalTokens > 0) {
+				if (inputTokens > 0 && outputTokens > 0) {
+					tokenDisplay = `${inputTokens.toLocaleString()} + ${outputTokens.toLocaleString()} = ${totalTokens.toLocaleString()}`;
+				} else if (inputTokens > 0) {
+					tokenDisplay = `${inputTokens.toLocaleString()} input`;
+				} else if (outputTokens > 0) {
+					tokenDisplay = `${outputTokens.toLocaleString()} output`;
+				} else {
+					tokenDisplay = totalTokens.toLocaleString();
+				}
+			} else {
+				tokenDisplay = '-';
+			}
+
+			return {
+				id: result.id?.toString() || `result-${Date.now()}`,
+				agent_name: agentMap.get(result.agent_id)?.name || 'Unknown',
+				test_name: testMap.get(result.test_id)?.name || 'Unknown',
+				success: result.success,
+				execution_time: result.execution_time ? (result.execution_time / 1000).toFixed(3) : '0.000',
+				token_usage: tokenDisplay,
+				similarity_score: result,
+				created_at: new Date(result.created_at!).toLocaleString(),
+			};
+		});
 	}, [results, agents, tests]);
 
 	const resultHeaders = [
@@ -69,6 +91,7 @@ export default function Results({
 		{ key: 'test_name', header: 'Test' },
 		{ key: 'success', header: 'Success' },
 		{ key: 'execution_time', header: 'Time (s)' },
+		{ key: 'token_usage', header: 'Tokens' },
 		{ key: 'similarity_score', header: 'Similarity score' },
 		{ key: 'created_at', header: 'Created at' },
 		{ key: 'actions', header: 'Actions' },
