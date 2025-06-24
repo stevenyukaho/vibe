@@ -60,7 +60,30 @@ export default function SuiteRunsPage() {
 
 	useEffect(() => {
 		fetchRuns();
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentPage, pageSize]);
+
+	// Periodically refresh runs until all are completed and have similarity scores
+	useEffect(() => {
+		const interval = setInterval(() => {
+			// Only refetch while there is at least one run in running state
+			// or a completed run that is missing avg_similarity_score
+			if (runs.some(r => r.status === 'running' ||
+				(
+					r.status === 'completed'
+					&& (
+						r.avg_similarity_score === null
+						|| r.avg_similarity_score === undefined
+					)
+				))
+			) {
+				fetchRuns();
+			}
+		}, 5000);
+
+		return () => clearInterval(interval);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [runs]);
 
 	const handleViewRun = (id: number) => {
 		router.push(`/suite-runs/${id}`);
@@ -132,6 +155,7 @@ export default function SuiteRunsPage() {
 		{ key: 'total_execution_time', header: 'Total execution time' },
 		{ key: 'success_rate', header: 'Success rate' },
 		{ key: 'avg_similarity_score', header: 'Avg similarity score' },
+		{ key: 'token_usage', header: 'Token usage' },
 		{ key: 'actions', header: 'Actions' }
 	];
 
@@ -182,6 +206,24 @@ export default function SuiteRunsPage() {
 			? (successfulTests / run.total_tests) * 100
 			: null;
 
+		// Calculate Token Usage
+		const inputTokens = run.total_input_tokens || 0;
+		const outputTokens = run.total_output_tokens || 0;
+		const totalTokens = inputTokens + outputTokens;
+		
+		let tokenUsageDisplay = '';
+		if (totalTokens > 0) {
+			if (inputTokens > 0 && outputTokens > 0) {
+				tokenUsageDisplay = `${inputTokens.toLocaleString()} + ${outputTokens.toLocaleString()} = ${totalTokens.toLocaleString()}`;
+			} else if (inputTokens > 0) {
+				tokenUsageDisplay = `${inputTokens.toLocaleString()} input`;
+			} else if (outputTokens > 0) {
+				tokenUsageDisplay = `${outputTokens.toLocaleString()} output`;
+			}
+		} else {
+			tokenUsageDisplay = '-';
+		}
+
 		return {
 			id: String(run.id),
 			agent_name: run.agent_name, // Add agent_name to the row data
@@ -190,6 +232,7 @@ export default function SuiteRunsPage() {
 			total_execution_time: totalExecutionTimeSec > 0 ? `${totalExecutionTimeSec.toFixed(2)}s` : 'N/A',
 			success_rate: successRate !== null ? `${successRate.toFixed(1)}%` : 'N/A',
 			avg_similarity_score: run.avg_similarity_score,
+			token_usage: tokenUsageDisplay,
 			actions: getRowActions(String(run.id))
 		};
 	});
