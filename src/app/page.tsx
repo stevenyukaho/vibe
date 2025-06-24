@@ -67,7 +67,7 @@ export default function Home() {
 
 		// Group results by agent
 		const agentResultMap = new Map<number, ResultWithStatus[]>();
-		
+
 		results.forEach((result: ResultWithStatus) => {
 			const typedResult = result as ResultWithStatus;
 			const agentId = typedResult.agent_id;
@@ -81,35 +81,35 @@ export default function Home() {
 
 		// Calculate metrics for each agent
 		const metrics: AgentPerformanceMetrics[] = [];
-		
+
 		agentResultMap.forEach((agentResults, agentId) => {
 			const agent = agents.find(a => a.id === agentId);
 			if (!agent) return;
-			
+
 			const totalTests = agentResults.length;
 			const successfulTests = agentResults.filter(r => r.success).length;
 			const successRate = totalTests > 0 ? ((successfulTests / totalTests) * 100).toFixed(1) : '0.0';
-			
+
 			// Calculate average execution time
 			const executionTimes = agentResults
 				.filter(r => r.execution_time !== undefined)
 				.map(r => r.execution_time as number);
-				
+
 			const avgExecutionTime = executionTimes.length > 0
 				? ((executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length) / 1000).toFixed(3)
 				: 'N/A';
-				
+
 			// Extract token usage metrics
 			let tokenUsage: number | undefined;
 			let modelCalls: number | undefined;
 			let toolCalls: number | undefined;
-			
+
 			// Aggregate token usage from database fields
 			agentResults.forEach(result => {
 				if (result.input_tokens || result.output_tokens) {
 					const inputTokens = result.input_tokens || 0;
 					const outputTokens = result.output_tokens || 0;
-					
+
 					tokenUsage = (tokenUsage || 0) + inputTokens + outputTokens;
 				}
 
@@ -127,7 +127,7 @@ export default function Home() {
 					}
 				}
 			});
-				
+
 			metrics.push({
 				agentId,
 				agentName: `${agent.name} (v${agent.version})`,
@@ -140,10 +140,10 @@ export default function Home() {
 				toolCalls
 			});
 		});
-		
+
 		// Sort by success rate (descending)
 		metrics.sort((a, b) => parseFloat(b.successRate) - parseFloat(a.successRate));
-		
+
 		setAgentMetrics(metrics);
 	};
 
@@ -152,18 +152,18 @@ export default function Home() {
 	const pendingJobs = jobs.filter(job => job.status === 'pending').length;
 	const completedJobs = jobs.filter(job => job.status === 'completed').length;
 	const failedJobs = jobs.filter(job => job.status === 'failed').length;
-	
+
 	const recentSuiteRuns = suiteRuns.slice(0, 5);
-	
+
 	// Success rate calculation
-	const testSuccessRate = results.length > 0 
-		? (results.filter((r: ResultWithStatus) => r.success).length / results.length * 100).toFixed(1) 
+	const testSuccessRate = results.length > 0
+		? (results.filter((r: ResultWithStatus) => r.success).length / results.length * 100).toFixed(1)
 		: '0.0';
-		
+
 	// Average similarity score calculation
 	const avgSimilarityScore = calculateOverallAverageSimilarityScore(results as TestResult[]);
 	const scoredResults = filterScoredResults(results as TestResult[]);
-		
+
 	// Recent activity calculation
 	const lastWeekResults = results.filter((r: ResultWithStatus) => {
 		const resultDate = new Date(r.created_at || '');
@@ -171,7 +171,7 @@ export default function Home() {
 		oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 		return resultDate >= oneWeekAgo;
 	});
-	
+
 	// Total token usage calculation
 	const totalTokenUsage = results.reduce((total, result) => {
 		const inputTokens = result.input_tokens || 0;
@@ -183,7 +183,7 @@ export default function Home() {
 	return (
 		<div>
 			<h1>Dashboard</h1>
-			
+
 			<Grid fullWidth narrow className={styles.content}>
 				{/* Summary Metrics */}
 				<Column sm={4} md={4} lg={4}>
@@ -225,7 +225,7 @@ export default function Home() {
 						</div>
 					</TileWrapper>
 				</Column>
-				
+
 				{/* Job Status Overview */}
 				<Column sm={4} md={8} lg={8}>
 					<TileWrapper title="Active Jobs">
@@ -237,7 +237,7 @@ export default function Home() {
 						</div>
 					</TileWrapper>
 				</Column>
-				
+
 				{/* Recent Test Runs */}
 				<Column sm={4} md={8} lg={8}>
 					<TileWrapper title="Recent suite runs">
@@ -247,13 +247,13 @@ export default function Home() {
 							<div>
 								{recentSuiteRuns.map(run => (
 									<div key={run.id} style={{ marginBottom: '10px' }}>
-										<Tag type={run.status === 'completed' ? 'green' : 
-												run.status === 'running' ? 'blue' : 
+										<Tag type={run.status === 'completed' ? 'green' :
+											run.status === 'running' ? 'blue' :
 												run.status === 'failed' ? 'red' : 'gray'}>
 											{run.status}
 										</Tag>
 										<span style={{ marginLeft: '10px' }}>
-											Suite #{run.suite_id} with Agent #{run.agent_id} - 
+											Suite #{run.suite_id} with Agent #{run.agent_id} -
 											{run.successful_tests}/{run.total_tests} tests passed
 										</span>
 									</div>
@@ -264,14 +264,14 @@ export default function Home() {
 						)}
 					</TileWrapper>
 				</Column>
-				
+
 				{/* Recent Activity */}
 				<Column sm={4} md={8} lg={8}>
 					<TileWrapper title="Recent Activity">
 						<p>Tests run in the last 7 days: {lastWeekResults.length}</p>
 					</TileWrapper>
 				</Column>
-				
+
 				{/* Agent Performance */}
 				<Column sm={4} md={8} lg={16}>
 					<TileWrapper title="Agent Performance">
@@ -301,8 +301,8 @@ export default function Home() {
 										<TableRow key={metric.agentId}>
 											<TableCell>{metric.agentName}</TableCell>
 											<TableCell>
-												<Tag type={parseFloat(metric.successRate) > 75 ? 'green' : 
-													parseFloat(metric.successRate) > 50 ? 'blue' : 
+												<Tag type={parseFloat(metric.successRate) > 75 ? 'green' :
+													parseFloat(metric.successRate) > 50 ? 'blue' :
 													parseFloat(metric.successRate) > 25 ? 'purple' : 'red'}>
 													{metric.successRate}%
 												</Tag>
