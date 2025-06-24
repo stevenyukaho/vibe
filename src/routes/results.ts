@@ -5,6 +5,7 @@ import type { TestResult } from '../types';
 import { scoringService } from '../services/scoring-service';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
+import { extractTokenUsage, validateTokenUsage } from '../lib/tokenUsageExtractor';
 
 const router = Router();
 
@@ -72,16 +73,56 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 // Create new result
 router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_at'>>, res: Response) => {
 	try {
-		const result = await createResult(req.body);
+		let processedBody = { ...req.body };
+		
+		// If token data isn't provided but we have intermediate steps, try to extract it
+		if (
+			!processedBody.input_tokens
+			&& !processedBody.output_tokens
+			&& processedBody.intermediate_steps
+		) {
+			try {
+				const { tokens, metadata } = extractTokenUsage(null, undefined, processedBody.intermediate_steps);
+				const validatedTokens = validateTokenUsage(tokens);
+				
+				if (validatedTokens.input_tokens !== undefined || validatedTokens.output_tokens !== undefined) {
+					processedBody.input_tokens = validatedTokens.input_tokens;
+					processedBody.output_tokens = validatedTokens.output_tokens;
+					processedBody.token_mapping_metadata = JSON.stringify({
+						...metadata,
+						processed_during_result_creation: true,
+						timestamp: new Date().toISOString()
+					});
+				}
+			} catch (error) {
+				console.warn('Failed to extract token usage from intermediate steps:', error);
+			}
+		} else if (processedBody.input_tokens !== undefined || processedBody.output_tokens !== undefined) {
+			const tokens = {
+				input_tokens: processedBody.input_tokens,
+				output_tokens: processedBody.output_tokens
+			};
+			const validatedTokens = validateTokenUsage(tokens);
+			processedBody.input_tokens = validatedTokens.input_tokens;
+			processedBody.output_tokens = validatedTokens.output_tokens;
+		}
+		
+		const result = await createResult(processedBody);
+
+		const formattedResult = {
+			...result,
+			input_tokens: result.input_tokens ?? undefined,
+			output_tokens: result.output_tokens ?? undefined
+		};
 
 		const test = await getTestById(result.test_id);
 		if (test?.expected_output) {
-			scoringService.scoreTestResult(result, test).catch(error => {
+			scoringService.scoreTestResult(formattedResult, test).catch(error => {
 				console.error(`Failed to score result ${result.id}:`, error);
 			});
 		}
 
-		return res.status(201).json(result);
+		return res.status(201).json(formattedResult);
 	} catch (error) {
 		console.error('Error creating result:', error);
 		return res.status(500).json({ error: 'Failed to create result' });
