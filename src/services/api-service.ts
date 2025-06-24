@@ -6,6 +6,7 @@ import {
 	ResponseMapping
 } from '../types';
 import { DEFAULT_TIMEOUT } from '../config';
+import { extractTokenUsage } from './token-extractor';
 
 /**
  * Service for executing tests via external APIs.
@@ -107,6 +108,18 @@ export class ApiService {
 				intermediateSteps
 			);
 
+			// Extract token usage from response
+			const { tokens, metadata } = extractTokenUsage(response.data, request.token_mapping);
+
+			// Add token extraction step if we found tokens
+			if (tokens.input_tokens !== undefined || tokens.output_tokens !== undefined) {
+				steps.push({
+					timestamp: new Date().toISOString(),
+					action: 'Token usage extracted',
+					output: `Input: ${tokens.input_tokens || 0}, Output: ${tokens.output_tokens || 0}, Method: ${metadata.extraction_method}`
+				});
+			}
+
 			// Return formatted response
 			return {
 				test_id: request.test_id,
@@ -115,7 +128,9 @@ export class ApiService {
 				execution_time: executionTime,
 				intermediate_steps: steps,
 				metrics: {
-					execution_time: executionTime
+					execution_time: executionTime,
+					input_tokens: tokens.input_tokens,
+					output_tokens: tokens.output_tokens
 				}
 			};
 		} catch (error: any) {
@@ -139,7 +154,9 @@ export class ApiService {
 				execution_time: executionTime,
 				intermediate_steps: errorSteps,
 				metrics: {
-					execution_time: executionTime
+					execution_time: executionTime,
+					input_tokens: undefined,
+					output_tokens: undefined
 				}
 			};
 		}
