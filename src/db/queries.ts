@@ -189,6 +189,39 @@ export const createResult = (result: TestResult) => {
 		executionTime = result.execution_time;
 	}
 
+	// Handle token usage fields
+	let inputTokens = null;
+	let outputTokens = null;
+	let tokenMappingMetadata = '';
+
+	if (
+		result.input_tokens !== undefined
+		&& typeof result.input_tokens === 'number'
+		&& result.input_tokens >= 0
+	) {
+		inputTokens = Math.floor(result.input_tokens);
+	}
+
+	if (
+		result.output_tokens !== undefined
+		&& typeof result.output_tokens === 'number'
+		&& result.output_tokens >= 0
+	) {
+		outputTokens = Math.floor(result.output_tokens);
+	}
+
+	if (result.token_mapping_metadata !== undefined) {
+		if (typeof result.token_mapping_metadata === 'string') {
+			tokenMappingMetadata = result.token_mapping_metadata;
+		} else {
+			try {
+				tokenMappingMetadata = JSON.stringify(result.token_mapping_metadata);
+			} catch (e) {
+				console.warn('Invalid token_mapping_metadata: must be a string or JSON-serializable');
+			}
+		}
+	}
+
 	// Create a clean object with only the fields we want to insert
 	const cleanResult = {
 		agent_id: result.agent_id,
@@ -196,17 +229,20 @@ export const createResult = (result: TestResult) => {
 		output: result.output,
 		intermediate_steps: serializedIntermediateSteps,
 		success: result.success ? 1 : 0, // SQLite expects 1/0 for booleans
-		execution_time: executionTime
+		execution_time: executionTime,
+		input_tokens: inputTokens,
+		output_tokens: outputTokens,
+		token_mapping_metadata: tokenMappingMetadata
 	};
 
 	const statement = db.prepare(`
 		INSERT INTO results (
 			agent_id, test_id, output, intermediate_steps,
-			success, execution_time
+			success, execution_time, input_tokens, output_tokens, token_mapping_metadata
 		)
 		VALUES (
 			@agent_id, @test_id, @output, @intermediate_steps,
-			@success, @execution_time
+			@success, @execution_time, @input_tokens, @output_tokens, @token_mapping_metadata
 		)
 		RETURNING *
 	`);
@@ -220,6 +256,9 @@ export const createResult = (result: TestResult) => {
 			intermediate_steps: string;
 			success: number;
 			execution_time: number;
+			input_tokens: number | null;
+			output_tokens: number | null;
+			token_mapping_metadata: string;
 			created_at: string;
 		};
 		// Convert the boolean back from SQLite's number representation
@@ -231,6 +270,9 @@ export const createResult = (result: TestResult) => {
 			intermediate_steps: dbResult.intermediate_steps,
 			success: Boolean(dbResult.success),
 			execution_time: dbResult.execution_time,
+			input_tokens: dbResult.input_tokens,
+			output_tokens: dbResult.output_tokens,
+			token_mapping_metadata: dbResult.token_mapping_metadata,
 			created_at: dbResult.created_at
 		};
 	} catch (error) {
@@ -895,6 +937,23 @@ export const listSuiteRunsWithCount = (filters: SuiteRunFilters & { limit?: numb
 
 export const getJobsBySuiteRunId = (suiteRunId: number) => {
 	return db.prepare('SELECT * FROM jobs WHERE suite_run_id = ?').all(suiteRunId) as Job[];
+};
+
+/**
+ * Get aggregated token usage for a suite run
+ */
+export const getSuiteRunTokenUsage = (suiteRunId: number): { total_input_tokens: number; total_output_tokens: number } => {
+	const stmt = db.prepare(`
+		SELECT 
+			COALESCE(SUM(r.input_tokens), 0) as total_input_tokens,
+			COALESCE(SUM(r.output_tokens), 0) as total_output_tokens
+		FROM jobs j
+		LEFT JOIN results r ON j.result_id = r.id
+		WHERE j.suite_run_id = ? AND j.status = 'completed'
+	`);
+	
+	const result = stmt.get(suiteRunId) as { total_input_tokens: number; total_output_tokens: number };
+	return result || { total_input_tokens: 0, total_output_tokens: 0 };
 };
 
 export const deleteSuiteRun = (id: number) => {
