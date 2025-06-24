@@ -42,6 +42,9 @@ export interface TestResult {
 	similarity_scoring_status?: 'pending' | 'running' | 'completed' | 'failed';  // Scoring job status
 	similarity_scoring_error?: string;  // Error message if scoring failed
 	similarity_scoring_metadata?: string;  // JSON metadata about the scoring process
+	input_tokens?: number;  // Number of input tokens used
+	output_tokens?: number;  // Number of output tokens generated
+	token_mapping_metadata?: string;  // JSON metadata about token extraction process
 }
 
 export interface Job {
@@ -102,6 +105,8 @@ export interface SuiteRun {
 	average_execution_time?: number;  // Time in milliseconds
 	total_execution_time?: number;  // Time in milliseconds
 	avg_similarity_score?: number; // average similarity score for the run
+	total_input_tokens?: number;  // Total input tokens for all tests in suite
+	total_output_tokens?: number;  // Total output tokens for all tests in suite
 	started_at?: string;
 	completed_at?: string;
 }
