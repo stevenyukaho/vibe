@@ -96,22 +96,29 @@ export default function Home() {
 				.map(r => r.execution_time as number);
 				
 			const avgExecutionTime = executionTimes.length > 0
-				? (executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length).toFixed(0)
+				? ((executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length) / 1000).toFixed(3)
 				: 'N/A';
 				
-			// Extract token usage metrics if available (from intermediate_steps)
+			// Extract token usage metrics
 			let tokenUsage: number | undefined;
 			let modelCalls: number | undefined;
 			let toolCalls: number | undefined;
 			
-			// Try to extract metrics from intermediate steps if available
+			// Aggregate token usage from database fields
 			agentResults.forEach(result => {
+				if (result.input_tokens || result.output_tokens) {
+					const inputTokens = result.input_tokens || 0;
+					const outputTokens = result.output_tokens || 0;
+					
+					tokenUsage = (tokenUsage || 0) + inputTokens + outputTokens;
+				}
+
+				// Still try to extract model and tool calls from intermediate steps for now
 				if (result.intermediate_steps) {
 					try {
 						const stepsData = JSON.parse(result.intermediate_steps);
 						// This is a simplification - actual format would need to be checked
 						if (stepsData.metrics) {
-							tokenUsage = (tokenUsage || 0) + (stepsData.metrics.token_usage || 0);
 							modelCalls = (modelCalls || 0) + (stepsData.metrics.model_calls || 0);
 							toolCalls = (toolCalls || 0) + (stepsData.metrics.tool_calls || 0);
 						}
@@ -127,7 +134,7 @@ export default function Home() {
 				totalTests,
 				successfulTests,
 				successRate,
-				avgExecutionTime: avgExecutionTime !== 'N/A' ? `${avgExecutionTime}ms` : avgExecutionTime,
+				avgExecutionTime: avgExecutionTime !== 'N/A' ? `${avgExecutionTime}s` : avgExecutionTime,
 				tokenUsage,
 				modelCalls,
 				toolCalls
@@ -164,6 +171,14 @@ export default function Home() {
 		oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 		return resultDate >= oneWeekAgo;
 	});
+	
+	// Total token usage calculation
+	const totalTokenUsage = results.reduce((total, result) => {
+		const inputTokens = result.input_tokens || 0;
+		const outputTokens = result.output_tokens || 0;
+
+		return total + inputTokens + outputTokens;
+	}, 0);
 
 	return (
 		<div>
@@ -201,6 +216,13 @@ export default function Home() {
 								Based on {scoredResults.length} scored results
 							</div>
 						)}
+					</TileWrapper>
+				</Column>
+				<Column sm={4} md={4} lg={4}>
+					<TileWrapper title="Total tokens used">
+						<div className={styles.metricValue}>
+							{totalTokenUsage > 0 ? totalTokenUsage.toLocaleString() : '0'}
+						</div>
 					</TileWrapper>
 				</Column>
 				
@@ -288,7 +310,7 @@ export default function Home() {
 											<TableCell>{metric.successfulTests}/{metric.totalTests}</TableCell>
 											<TableCell>{metric.avgExecutionTime}</TableCell>
 											{agentMetrics.some(m => m.tokenUsage !== undefined) && (
-												<TableCell>{metric.tokenUsage || 'N/A'}</TableCell>
+												<TableCell>{metric.tokenUsage ? metric.tokenUsage.toLocaleString() : 'N/A'}</TableCell>
 											)}
 											{agentMetrics.some(m => m.modelCalls !== undefined) && (
 												<TableCell>{metric.modelCalls || 'N/A'}</TableCell>
