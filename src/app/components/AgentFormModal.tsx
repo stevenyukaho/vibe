@@ -252,6 +252,26 @@ export default function AgentFormModal({
 					}
 				}
 
+				// Add token mapping if provided
+				if (formData['agent-token-mapping'] !== undefined) {
+					if (formData['agent-token-mapping']) {
+						try {
+							JSON.parse(formData['agent-token-mapping']);
+							settings = {
+								...settings,
+								token_mapping: formData['agent-token-mapping']
+							};
+						} catch (error) {
+							console.error('Invalid token mapping JSON:', error);
+							setError('Invalid JSON in token mapping');
+							setIsSaving(false);
+							return;
+						}
+					} else {
+						delete settings['token_mapping'];
+					}
+				}
+
 				// Add headers if provided
 				if (formData['agent-headers'] !== undefined) {
 					try {
@@ -575,6 +595,15 @@ export default function AgentFormModal({
 								helperText="Specify how to extract output and determine success"
 							/>
 							<TextArea
+								id="agent-token-mapping"
+								labelText="Token mapping (Optional)"
+								placeholder='JSON mapping to extract token usage, e.g.: {"input_tokens": "usage.prompt_tokens", "output_tokens": "usage.completion_tokens"}'
+								rows={3}
+								value={formData['agent-token-mapping'] || ''}
+								onChange={handleInputChange}
+								helperText="Leave empty for auto-detection (works with OpenAI, Claude, Gemini, etc.) or specify custom mapping"
+							/>
+							<TextArea
 								id="agent-headers"
 								labelText="Headers (Optional)"
 								placeholder='Enter custom headers as JSON, e.g.: {"Content-Type": "application/json", "X-Custom-Header": "value"}'
@@ -742,6 +771,54 @@ export default function AgentFormModal({
 								<h6 className={styles.exampleHeading}>Example for Ollama:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ output: "response" }, null, 2)}
+								</CodeSnippet>
+
+								<h5 className={styles.subSectionHeading}>Token mapping</h5>
+								<p className={styles.helpText}>Token mapping is <strong>optional</strong> for External API agents. If not provided, the system will automatically detect token usage for most popular platforms!</p>
+								<ul className={styles.helpList}>
+									<li className={styles.listItem}><strong>Auto-detection works for:</strong> OpenAI, Anthropic/Claude, Google Gemini, Mistral AI, Cohere, Ollama, and LangChain</li>
+									<li className={styles.listItem}>Only specify if using a custom API or if auto-detection fails</li>
+									<li className={styles.listItem}>Use dot notation to access nested properties</li>
+									<li className={styles.listItem}>Supports both separate input/output tokens and total tokens only</li>
+								</ul>
+								
+								<h6 className={styles.exampleHeading}>Example for OpenAI (auto-detected):</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										"input_tokens": "usage.prompt_tokens",
+										"output_tokens": "usage.completion_tokens"
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Anthropic/Claude (auto-detected):</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										"input_tokens": "usage.input_tokens",
+										"output_tokens": "usage.output_tokens"
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Google Gemini (auto-detected):</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										"input_tokens": "usageMetadata.promptTokenCount",
+										"output_tokens": "usageMetadata.candidatesTokenCount"
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for Ollama (auto-detected):</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										"input_tokens": "prompt_eval_count",
+										"output_tokens": "eval_count"
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Example for custom API with total tokens only:</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({ 
+										"total_tokens": "metadata.tokens_used"
+									}, null, 2)}
 								</CodeSnippet>
 
 								<h5 className={styles.subSectionHeading}>Headers</h5>
