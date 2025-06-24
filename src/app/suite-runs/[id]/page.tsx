@@ -43,7 +43,7 @@ export default function SuiteRunDetailPage() {
 	const [modalOpen, setModalOpen] = useState(false);
 	const [resultError, setResultError] = useState<string | null>(null);
 
-	const { getTestById, getResultById: getResultByIdFromCache, getAgentById, fetchAllData } = useAppData();
+	const { getTestById, getResultById: getResultByIdFromCache, getAgentById, fetchAllData, fetchResults } = useAppData();
 	const { getResultById } = useResultOperations();
 	
 	const handleResultView = async (id: number) => {
@@ -70,6 +70,10 @@ export default function SuiteRunDetailPage() {
 					api.getSuiteRun(runId),
 					api.getSuiteRunJobs(runId)
 				]);
+
+				// Update cached results separately (no need to await here for UI but we will to keep order)
+				await fetchResults();
+				
 				if (!mounted) return;
 				
 				// Check if status changed to "completed" and refresh all data
@@ -118,6 +122,7 @@ export default function SuiteRunDetailPage() {
 		{ key: 'agent', header: 'Agent' },
 		{ key: 'status', header: 'Status' },
 		{ key: 'progress', header: 'Progress' },
+		{ key: 'token_usage', header: 'Tokens' },
 		{ key: 'similarity_score', header: 'Similarity score' },
 		{ key: 'actions', header: 'Actions' }
 	];
@@ -128,12 +133,29 @@ export default function SuiteRunDetailPage() {
 		const agentName = agent ? `${agent.name} (v${agent.version})` : `Agent #${job.agent_id}`;
 		const result = job.result_id ? getResultByIdFromCache(job.result_id) : null;
 		
+		// Calculate token usage display
+		let tokenDisplay = '-';
+		if (result && (result.input_tokens || result.output_tokens)) {
+			const inputTokens = result.input_tokens || 0;
+			const outputTokens = result.output_tokens || 0;
+			const totalTokens = inputTokens + outputTokens;
+			
+			if (totalTokens > 0) {
+				if (inputTokens > 0 && outputTokens > 0) {
+					tokenDisplay = `${inputTokens} + ${outputTokens} = ${totalTokens}`;
+				} else {
+					tokenDisplay = totalTokens.toString();
+				}
+			}
+		}
+		
 		return {
 			id: String(job.id),
 			test: testName,
 			agent: agentName,
 			status: { value: job.status, error: job.error },
 			progress: job.progress,
+			token_usage: tokenDisplay,
 			similarity_score: result,
 			actions: job.result_id ? (
 				<Button
@@ -190,6 +212,23 @@ export default function SuiteRunDetailPage() {
 										label="Progress"
 										helperText={`${suiteRun.completed_tests}/${suiteRun.total_tests} tests completed`}
 									/>
+								</div>
+							</div>
+						)}
+						{/* Token usage summary */}
+						{(suiteRun.total_input_tokens || suiteRun.total_output_tokens) && (
+							<div>
+								<p style={{ marginBottom: '0.5rem' }}>Token Usage:</p>
+								<div style={{ display: 'flex', gap: '1rem' }}>
+									{suiteRun.total_input_tokens && (
+										<span>Input: {suiteRun.total_input_tokens.toLocaleString()}</span>
+									)}
+									{suiteRun.total_output_tokens && (
+										<span>Output: {suiteRun.total_output_tokens.toLocaleString()}</span>
+									)}
+									{(suiteRun.total_input_tokens && suiteRun.total_output_tokens) && (
+										<strong>Total: {(suiteRun.total_input_tokens + suiteRun.total_output_tokens).toLocaleString()}</strong>
+									)}
 								</div>
 							</div>
 						)}
