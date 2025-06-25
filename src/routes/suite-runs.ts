@@ -53,18 +53,15 @@ async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
 
 	// Calculate average similarity score (server-side to avoid heavy client work)
 	try {
-		const startTime = suiteRun.started_at;
-		const endTime = suiteRun.completed_at || new Date().toISOString();
 		const stmt = db.prepare(`
-			SELECT AVG(similarity_score) as avg_score
-			FROM results
-			WHERE agent_id = ?
-				AND created_at >= ?
-				AND created_at <= ?
-				AND similarity_score IS NOT NULL
-				AND similarity_scoring_status = 'completed'
+			SELECT AVG(r.similarity_score) as avg_score
+			FROM jobs j
+			JOIN results r ON j.result_id = r.id
+			WHERE j.suite_run_id = ?
+				AND r.similarity_score IS NOT NULL
+				AND r.similarity_scoring_status = 'completed'
 		`);
-		const row = stmt.get(suiteRun.agent_id, startTime, endTime) as { avg_score: number | null };
+		const row = stmt.get(suiteRun.id) as { avg_score: number | null };
 		if (row && row.avg_score !== null) {
 			suiteRun.avg_similarity_score = row.avg_score;
 		}
