@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api, SuiteRun, Job, TestResult } from '../../../lib/api';
 import { useAppData } from '@/lib/AppDataContext';
@@ -37,6 +37,7 @@ export default function SuiteRunDetailPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [previousStatus, setPreviousStatus] = useState<string | null>(null);
+	const [freshResults, setFreshResults] = useState<Map<number, TestResult>>(new Map());
 	
 	// Result modal state
 	const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
@@ -45,6 +46,25 @@ export default function SuiteRunDetailPage() {
 
 	const { getTestById, getResultById: getResultByIdFromCache, getAgentById, fetchAllData, fetchResults } = useAppData();
 	const { getResultById } = useResultOperations();
+	
+	// Fetch fresh results for all jobs with result_ids
+	const fetchFreshResults = useCallback(async (jobsData: Job[]) => {
+		const resultPromises = jobsData
+			.filter(job => job.result_id)
+			.map(async (job) => {
+				try {
+					const result = await getResultById(job.result_id!);
+					return [job.result_id!, result] as [number, TestResult];
+				} catch (err) {
+					console.error(`Failed to fetch result ${job.result_id}:`, err);
+					return null;
+				}
+			});
+		
+		const results = await Promise.all(resultPromises);
+		const resultMap = new Map(results.filter(Boolean) as [number, TestResult][]);
+		setFreshResults(resultMap);
+	}, [getResultById]);
 	
 	const handleResultView = async (id: number) => {
 		try {
@@ -73,6 +93,9 @@ export default function SuiteRunDetailPage() {
 
 				// Update cached results separately (no need to await here for UI but we will to keep order)
 				await fetchResults();
+				
+				// Fetch fresh results for jobs with result_ids to ensure we have latest similarity scores
+				await fetchFreshResults(jobsData);
 				
 				if (!mounted) return;
 				
@@ -131,7 +154,8 @@ export default function SuiteRunDetailPage() {
 		const testName = getTestById(job.test_id)?.name || `#${job.test_id}`;
 		const agent = getAgentById(job.agent_id);
 		const agentName = agent ? `${agent.name} (v${agent.version})` : `Agent #${job.agent_id}`;
-		const result = job.result_id ? getResultByIdFromCache(job.result_id) : null;
+		// Use fresh results if available, otherwise fall back to cache
+		const result = job.result_id ? (freshResults.get(job.result_id) || getResultByIdFromCache(job.result_id)) : null;
 		
 		// Calculate token usage display
 		let tokenDisplay = '-';
