@@ -342,19 +342,13 @@ export default function SuiteRunDetailPage() {
 							</div>
 						)}
 						{/* Token usage summary */}
-						{(suiteRun.total_input_tokens || suiteRun.total_output_tokens) && (
+						{((suiteRun.total_input_tokens || 0) + (suiteRun.total_output_tokens || 0)) > 0 && (
 							<div>
 								<p style={{ marginBottom: '0.5rem' }}>Token Usage:</p>
 								<div style={{ display: 'flex', gap: '1rem' }}>
-									{suiteRun.total_input_tokens && (
-										<span>Input: {suiteRun.total_input_tokens.toLocaleString()}</span>
-									)}
-									{suiteRun.total_output_tokens && (
-										<span>Output: {suiteRun.total_output_tokens.toLocaleString()}</span>
-									)}
-									{(suiteRun.total_input_tokens && suiteRun.total_output_tokens) && (
-										<strong>Total: {(suiteRun.total_input_tokens + suiteRun.total_output_tokens).toLocaleString()}</strong>
-									)}
+									<span>Input: {(suiteRun.total_input_tokens || 0).toLocaleString()}</span>
+									<span>Output: {(suiteRun.total_output_tokens || 0).toLocaleString()}</span>
+									<strong>Total: {((suiteRun.total_input_tokens || 0) + (suiteRun.total_output_tokens || 0)).toLocaleString()}</strong>
 								</div>
 							</div>
 						)}
