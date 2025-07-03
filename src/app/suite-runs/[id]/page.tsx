@@ -46,25 +46,109 @@ export default function SuiteRunDetailPage() {
 
 	const { getTestById, getResultById: getResultByIdFromCache, getAgentById, fetchAllData, fetchResults } = useAppData();
 	const { getResultById } = useResultOperations();
-	
-	// Fetch fresh results for all jobs with result_ids
-	const fetchFreshResults = useCallback(async (jobsData: Job[]) => {
-		const resultPromises = jobsData
-			.filter(job => job.result_id)
-			.map(async (job) => {
-				try {
-					const result = await getResultById(job.result_id!);
-					return [job.result_id!, result] as [number, TestResult];
-				} catch (err) {
-					console.error(`Failed to fetch result ${job.result_id}:`, err);
-					return null;
+
+	const shouldPollData = useCallback((suiteRunData?: SuiteRun, jobsData?: Job[]) => {
+		if (!suiteRunData || !jobsData) {
+			return true;
+		}
+		
+		if (suiteRunData.status === 'running') {
+			return true;
+		}
+		
+		if (suiteRunData.status === 'completed') {
+			const activeScoringJobs = jobsData.filter(job => {
+				if (!job.result_id) {
+					return false;
 				}
+				const result = freshResults.get(job.result_id);
+				if (!result) {
+					return true;
+				}
+				
+				const scoringStatus = result.similarity_scoring_status;
+				// Only poll if scoring is actively in progress, not if it was never started (null)
+				return scoringStatus === 'pending' || scoringStatus === 'running';
 			});
+			
+			return activeScoringJobs.length > 0;
+		}
+		
+		return false;
+	}, [freshResults]);
+
+	// Smart conditional fetching for individual results
+	const shouldFetchFreshResults = useCallback((suiteRunData: SuiteRun, jobsData: Job[]) => {
+		if (freshResults.size === 0) {
+			return true;
+		}
+		
+		if (suiteRunData.status === 'running') {
+			const newlyCompletedJobs = jobsData.filter(job => 
+				job.result_id && !freshResults.has(job.result_id)
+			);
+			return newlyCompletedJobs.length > 0;
+		}
+		
+		if (suiteRunData.status === 'completed') {
+			const jobsWithActiveSimilarityScoring = jobsData.filter(job => {
+				if (!job.result_id) {
+					return false;
+				}
+				const result = freshResults.get(job.result_id);
+				if (!result) {
+					return true;
+				}
+				
+				const scoringStatus = result.similarity_scoring_status;
+				// Only fetch if scoring is actively in progress, not if it was never started (null)
+				return scoringStatus === 'pending' || scoringStatus === 'running';
+			});
+			
+			return jobsWithActiveSimilarityScoring.length > 0;
+		}
+		
+		return false;
+	}, [freshResults]);
+
+	const fetchFreshResultsConditionally = useCallback(async (suiteRunData: SuiteRun, jobsData: Job[]) => {
+		const jobsToFetch = jobsData.filter(job => {
+			if (!job.result_id) {
+				return false;
+			}
+			
+			const existingResult = freshResults.get(job.result_id);
+			if (!existingResult) {
+				return true;
+			}
+			
+			if (suiteRunData.status === 'running') {
+				return !freshResults.has(job.result_id);
+			}
+			
+			const scoringStatus = existingResult.similarity_scoring_status;
+			return scoringStatus === 'pending' || scoringStatus === 'running';
+		});
+		
+		if (jobsToFetch.length === 0) {
+			return;
+		}
+		
+		const resultPromises = jobsToFetch.map(async (job) => {
+			try {
+				const result = await getResultById(job.result_id!);
+				return [job.result_id!, result] as [number, TestResult];
+			} catch (err) {
+				console.error(`Failed to fetch result ${job.result_id}:`, err);
+				return null;
+			}
+		});
 		
 		const results = await Promise.all(resultPromises);
-		const resultMap = new Map(results.filter(Boolean) as [number, TestResult][]);
-		setFreshResults(resultMap);
-	}, [getResultById]);
+		const newResults = results.filter(Boolean) as [number, TestResult][];
+		
+		setFreshResults(prev => new Map([...prev, ...newResults]));
+	}, [freshResults, getResultById]);
 	
 	const handleResultView = async (id: number) => {
 		try {
@@ -83,7 +167,10 @@ export default function SuiteRunDetailPage() {
 			setLoading(false);
 			return;
 		}
+		
 		let mounted = true;
+		let interval: NodeJS.Timeout | null = null;
+		
 		async function fetchData() {
 			try {
 				const [runData, jobsData] = await Promise.all([
@@ -91,11 +178,11 @@ export default function SuiteRunDetailPage() {
 					api.getSuiteRunJobs(runId)
 				]);
 
-				// Update cached results separately (no need to await here for UI but we will to keep order)
 				await fetchResults();
 				
-				// Fetch fresh results for jobs with result_ids to ensure we have latest similarity scores
-				await fetchFreshResults(jobsData);
+				if (shouldFetchFreshResults(runData, jobsData)) {
+					await fetchFreshResultsConditionally(runData, jobsData);
+				}
 				
 				if (!mounted) return;
 				
@@ -118,17 +205,32 @@ export default function SuiteRunDetailPage() {
 				setPreviousStatus(runData.status);
 				setSuiteRun(runData);
 				setJobs(jobsData);
+				
+				// Setup next interval based on whether we still need polling
+				if (mounted && shouldPollData(runData, jobsData)) {
+					interval = setTimeout(fetchData, 2000);
+				}
 			} catch (err: unknown) {
 				if (err instanceof Error) setError(err.message);
 				else setError(String(err));
+				
+				// On error, continue polling to retry
+				if (mounted) {
+					interval = setTimeout(fetchData, 2000);
+				}
 			} finally {
 				if (mounted) setLoading(false);
 			}
 		}
+		
+		// Initial fetch
 		fetchData();
-		const interval = setInterval(fetchData, 2000);
-		return () => { mounted = false; clearInterval(interval); };
-	}, [runId, previousStatus, fetchAllData]);
+		
+		return () => { 
+			mounted = false; 
+			if (interval) clearTimeout(interval);
+		};
+	}, [runId, previousStatus, fetchAllData, fetchResults, shouldPollData, shouldFetchFreshResults, fetchFreshResultsConditionally]);
 
 	if (loading) {
 		return <InlineLoading description="Loading suite run details..." />;
