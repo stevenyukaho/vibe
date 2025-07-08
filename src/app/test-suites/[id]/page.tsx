@@ -36,9 +36,11 @@ import {
 	Add, 
 	ArrowRight, 
 	ArrowLeft,
-	Edit
+	Edit,
+	TrashCan
 } from '@carbon/icons-react';
 import TestSuiteFormModal from '../../components/TestSuiteFormModal';
+import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import styles from '../TestSuites.module.scss';
 
 interface PageProps {
@@ -73,6 +75,8 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [editFormData, setEditFormData] = useState({ name: '', description: '', tags: '' });
+
+	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
 	const router = useRouter();
 
@@ -137,6 +141,14 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 		} catch (err) {
 			console.error('Error refreshing suite data:', err);
 		}
+	};
+
+	const openDeleteModal = () => {
+		setIsDeleteModalOpen(true);
+	};
+
+	const handleDeleteSuccess = async () => {
+		router.push('/test-suites');
 	};
 
 	if (loading) {
@@ -294,6 +306,14 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 								onClick={openEditModal}
 							>
 								<Edit size={20} />
+							</IconButton>
+							<IconButton
+								kind="ghost"
+								size="md"
+								label="Delete suite"
+								onClick={openDeleteModal}
+							>
+								<TrashCan size={20} />
 							</IconButton>
 							<Button
 								kind="primary"
@@ -607,6 +627,16 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 				formData={editFormData}
 				onClose={() => setIsEditModalOpen(false)}
 				onSuccess={handleEditSuccess}
+			/>
+
+			{/* Delete Confirmation Modal */}
+			<DeleteConfirmationModal
+				isOpen={isDeleteModalOpen}
+				deleteType="test-suite"
+				deleteName={suite.name}
+				deleteId={suite.id}
+				onClose={() => setIsDeleteModalOpen(false)}
+				onSuccess={handleDeleteSuccess}
 			/>
 		</Grid>
 	);
