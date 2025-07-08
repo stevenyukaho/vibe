@@ -5,12 +5,6 @@ import { useRouter } from 'next/navigation';
 import { api, TestSuite } from '../../lib/api';
 import {
 	Button,
-	Modal,
-	TextInput,
-	TextArea,
-	Form,
-	Stack,
-	ClickableTile,
 	Tag,
 	Pagination,
 	Grid,
@@ -18,10 +12,14 @@ import {
 	Breadcrumb,
 	BreadcrumbItem,
 	DataTableSkeleton,
-	InlineNotification
+	InlineNotification,
+	Tile,
+	IconButton
 } from '@carbon/react';
-import { Add, Folder, Calendar, Tag as TagIcon } from '@carbon/icons-react';
+import { Add, Folder, Calendar, Tag as TagIcon, Edit, TrashCan } from '@carbon/icons-react';
 import EmptyState from '../components/EmptyState';
+import TestSuiteFormModal from '../components/TestSuiteFormModal';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 import styles from './TestSuites.module.scss';
 
 export default function TestSuitesPage() {
@@ -30,60 +28,69 @@ export default function TestSuitesPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [editingId, setEditingId] = useState<number | null>(null);
 	const [formData, setFormData] = useState({ name: '', description: '', tags: '' });
-	const [isSaving, setIsSaving] = useState(false);
-	const [formError, setFormError] = useState<string | null>(null);
+	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+	const [deleteId, setDeleteId] = useState<number | null>(null);
+	const [deleteName, setDeleteName] = useState('');
 
 	// Pagination state
 	const [page, setPage] = useState(1);
 	const [pageSize, setPageSize] = useState(10);
 
-	useEffect(() => {
-		async function fetchSuites() {
-			try {
-				const data = await api.getTestSuites();
-				setSuites(data);
-			} catch (err: unknown) {
-				if (err instanceof Error) {
-					setError(err.message);
-				} else {
-					setError(String(err));
-				}
-			} finally {
-				setLoading(false);
+	const fetchSuites = async () => {
+		try {
+			const data = await api.getTestSuites();
+			setSuites(data);
+		} catch (err: unknown) {
+			if (err instanceof Error) {
+				setError(err.message);
+			} else {
+				setError(String(err));
 			}
+		} finally {
+			setLoading(false);
 		}
+	};
+
+	useEffect(() => {
 		fetchSuites();
 	}, []);
 
-	// Open the modal to add a new suite
+
+	// Open modal for creating new suite
 	const openModal = () => {
+		setEditingId(null);
 		setFormData({ name: '', description: '', tags: '' });
-		setFormError(null);
 		setIsModalOpen(true);
 	};
 
-	// Submit handler for the modal form
-	const handleSubmit = async () => {
-		if (!formData.name.trim()) {
-			setFormError('Name is required');
-			return;
-		}
-		setIsSaving(true);
-		try {
-			await api.createTestSuite({
-				name: formData.name,
-				description: formData.description,
-				tags: formData.tags
-			});
-			const data = await api.getTestSuites();
-			setSuites(data);
-			setIsModalOpen(false);
-		} catch (err: unknown) {
-			setFormError(err instanceof Error ? err.message : String(err));
-		} finally {
-			setIsSaving(false);
-		}
+	// Open modal for editing existing suite
+	const openEditModal = (suite: TestSuite) => {
+		setEditingId(suite.id);
+		setFormData({
+			name: suite.name,
+			description: suite.description || '',
+			tags: suite.tags || ''
+		});
+		setIsModalOpen(true);
+	};
+
+	// Handle modal success (create or update)
+	const handleModalSuccess = async () => {
+		await fetchSuites();
+	};
+
+	// Open delete confirmation modal
+	const openDeleteModal = (suite: TestSuite) => {
+		setDeleteId(suite.id);
+		setDeleteName(suite.name);
+		setIsDeleteModalOpen(true);
+	};
+
+	// Handle successful deletion
+	const handleDeleteSuccess = async () => {
+		await fetchSuites();
 	};
 
 	// Handle navigation to test suite details
@@ -158,12 +165,33 @@ export default function TestSuitesPage() {
 					<Grid className={styles.tilesGrid}>
 						{paginatedSuites.map((suite) => (
 							<Column sm={4} md={4} lg={4} key={suite.id}>
-								<ClickableTile
-									className={styles.suiteTile}
-									onClick={() => handleSuiteClick(suite.id as number)}
-								>
-									<div className={styles.tileContent}>
-										<h4><Folder size={20} /> {suite.name}</h4>
+								<Tile className={styles.suiteTile}>
+									<div 
+										className={styles.tileContent}
+										onClick={() => handleSuiteClick(suite.id as number)}
+										style={{ cursor: 'pointer' }}
+									>
+										<div className={styles.tileHeader}>
+											<h4><Folder size={20} /> {suite.name}</h4>
+											<div className={styles.tileActions} onClick={(e) => e.stopPropagation()}>
+												<IconButton
+													kind="ghost"
+													size="sm"
+													label="Edit suite"
+													onClick={() => openEditModal(suite)}
+												>
+													<Edit size={16} />
+												</IconButton>
+												<IconButton
+													kind="ghost"
+													size="sm"
+													label="Delete suite"
+													onClick={() => openDeleteModal(suite)}
+												>
+													<TrashCan size={16} />
+												</IconButton>
+											</div>
+										</div>
 										{suite.description && (
 											<p className={styles.description}>{suite.description}</p>
 										)}
@@ -188,7 +216,7 @@ export default function TestSuitesPage() {
 											)}
 										</div>
 									</div>
-								</ClickableTile>
+								</Tile>
 							</Column>
 						))}
 					</Grid>
@@ -216,52 +244,23 @@ export default function TestSuitesPage() {
 				/>
 			)}
 
-			{/* Modal for adding a new suite */}
-			<Modal
-				open={isModalOpen}
-				modalHeading="Add New Test Suite"
-				primaryButtonText={isSaving ? 'Saving...' : 'Save'}
-				secondaryButtonText="Cancel"
-				onRequestClose={() => setIsModalOpen(false)}
-				onRequestSubmit={handleSubmit}
-				primaryButtonDisabled={isSaving}
-			>
-				{formError && <InlineNotification kind="error" title="Error" subtitle={formError} hideCloseButton />}
-				<Form>
-					<Stack gap={7}>
-						<TextInput
-							id="suite-name"
-							labelText="Suite Name"
-							value={formData.name}
-							onChange={(e) => setFormData(fd => ({ ...fd, name: e.target.value }))}
-							placeholder="Enter a name for your test suite"
-						/>
-						<TextArea
-							id="suite-description"
-							labelText="Description"
-							value={formData.description}
-							onChange={(e) => setFormData(fd => ({ ...fd, description: e.target.value }))}
-							placeholder="Provide a brief description of this test suite"
-							rows={3}
-						/>
-						<TextInput
-							id="suite-tags"
-							labelText="Tags"
-							value={formData.tags}
-							onChange={(e) => setFormData(fd => ({ ...fd, tags: e.target.value }))}
-							placeholder="Enter comma-separated tags (e.g., api, benchmark, regression)"
-							helperText="Separate tags with commas"
-						/>
-						{formData.tags && (
-							<div className={styles.previewTags}>
-								{getTags(formData.tags).map((tag, index) => (
-									<Tag key={index} type="blue" size="sm">{tag}</Tag>
-								))}
-							</div>
-						)}
-					</Stack>
-				</Form>
-			</Modal>
+			{/* Test suite form modal */}
+			<TestSuiteFormModal
+				isOpen={isModalOpen}
+				editingId={editingId}
+				formData={formData}
+				onClose={() => setIsModalOpen(false)}
+				onSuccess={handleModalSuccess}
+			/>
+
+			<DeleteConfirmationModal
+				isOpen={isDeleteModalOpen}
+				deleteType="test-suite"
+				deleteName={deleteName}
+				deleteId={deleteId}
+				onClose={() => setIsDeleteModalOpen(false)}
+				onSuccess={handleDeleteSuccess}
+			/>
 		</div>
 	);
 }
