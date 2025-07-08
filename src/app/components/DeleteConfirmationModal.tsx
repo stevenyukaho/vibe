@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 
 interface DeleteConfirmationModalProps {
 	isOpen: boolean;
-	deleteType: 'agent' | 'test' | null;
+	deleteType: 'agent' | 'test' | 'test-suite' | null;
 	deleteName: string;
 	deleteId: number | null;
 	onClose: () => void;
@@ -33,6 +33,8 @@ export default function DeleteConfirmationModal({
 				await api.deleteAgent(deleteId);
 			} else if (deleteType === 'test') {
 				await api.deleteTest(deleteId);
+			} else if (deleteType === 'test-suite') {
+				await api.deleteTestSuite(deleteId);
 			}
 
 			onSuccess();
@@ -45,10 +47,31 @@ export default function DeleteConfirmationModal({
 		}
 	};
 
+	const getDisplayName = () => {
+		switch (deleteType) {
+			case 'agent': return 'Agent';
+			case 'test': return 'Test';
+			case 'test-suite': return 'Test suite';
+			default: return 'Item';
+		}
+	};
+
+	const getWarningMessage = () => {
+		if (deleteType === 'test-suite') {
+			return (
+				<>
+					<p>Are you sure you want to delete the test suite &quot;{deleteName}&quot;?</p>
+					<p><strong>Warning:</strong> This will also permanently delete all associated suite runs and their results. This action cannot be undone.</p>
+				</>
+			);
+		}
+		return <p>Are you sure you want to delete the {getDisplayName().toLowerCase()} &quot;{deleteName}&quot;?</p>;
+	};
+
 	return (
 		<Modal
 			open={isOpen}
-			modalHeading={`Delete ${deleteType === 'agent' ? 'Agent' : 'Test'}`}
+			modalHeading={`Delete ${getDisplayName()}`}
 			primaryButtonText={deleting ? 'Deleting...' : 'Delete'}
 			secondaryButtonText="Cancel"
 			onRequestClose={onClose}
@@ -67,7 +90,7 @@ export default function DeleteConfirmationModal({
 					{error}
 				</div>
 			)}
-			<p>Are you sure you want to delete the {deleteType === 'agent' ? 'agent' : 'test'} &quot;{deleteName}&quot;?</p>
+			{getWarningMessage()}
 		</Modal>
 	);
 }
