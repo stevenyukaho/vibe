@@ -133,7 +133,7 @@ export default function TestSuitesPage() {
 		<div className={styles.container}>
 			<Breadcrumb noTrailingSlash>
 				<BreadcrumbItem href="/">Home</BreadcrumbItem>
-				<BreadcrumbItem isCurrentPage>Test Suites</BreadcrumbItem>
+				<BreadcrumbItem isCurrentPage>Test suites</BreadcrumbItem>
 			</Breadcrumb>
 
 			<div className={styles.header}>
