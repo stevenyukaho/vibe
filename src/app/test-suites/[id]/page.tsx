@@ -28,17 +28,17 @@ import {
 	TabPanel,
 	TabPanels,
 	Tabs,
-	Tag,
-	Tile,
-	Tooltip
+	Tile
 } from '@carbon/react';
 import { 
 	ChevronLeft, 
 	Rocket, 
 	Add, 
 	ArrowRight, 
-	ArrowLeft 
+	ArrowLeft,
+	Edit
 } from '@carbon/icons-react';
+import TestSuiteFormModal from '../../components/TestSuiteFormModal';
 import styles from '../TestSuites.module.scss';
 
 interface PageProps {
@@ -70,6 +70,9 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	
 	// Track agent selections for available items
 	const [availableItemAgents, setAvailableItemAgents] = useState<Record<string, number | null>>({});
+
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+	const [editFormData, setEditFormData] = useState({ name: '', description: '', tags: '' });
 
 	const router = useRouter();
 
@@ -110,6 +113,31 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 
 		fetchData();
 	}, [suiteId]);
+
+	const openEditModal = () => {
+		if (!suite) {
+			return;
+		}
+
+		setEditFormData({
+			name: suite.name,
+			description: suite.description || '',
+			tags: suite.tags || ''
+		});
+		setIsEditModalOpen(true);
+	};
+
+	const handleEditSuccess = async () => {
+		try {
+			const allSuitesData = await api.getTestSuites();
+			const found = allSuitesData.find((s) => s.id === suiteId);
+			if (found) {
+				setSuite(found);
+			}
+		} catch (err) {
+			console.error('Error refreshing suite data:', err);
+		}
+	};
 
 	if (loading) {
 		return <InlineLoading description="Loading suite details..." />;
@@ -258,14 +286,24 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 				<Stack gap={7}>
 					<div className={styles.header}>
 						<h1>{suite.name}</h1>
-						<Button
-							kind="primary"
-							onClick={handleRunSuite}
-							disabled={!selectedAgentId || isRunning || entries.length === 0}
-							renderIcon={Rocket}
-						>
-							{isRunning ? 'Running...' : 'Run Suite'}
-						</Button>
+						<div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+							<IconButton
+								kind="ghost"
+								size="md"
+								label="Edit suite"
+								onClick={openEditModal}
+							>
+								<Edit size={20} />
+							</IconButton>
+							<Button
+								kind="primary"
+								onClick={handleRunSuite}
+								disabled={!selectedAgentId || isRunning || entries.length === 0}
+								renderIcon={Rocket}
+							>
+								{isRunning ? 'Running...' : 'Run Suite'}
+							</Button>
+						</div>
 					</div>
 
 					<div className={styles.backButton}>
@@ -327,150 +365,151 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 										<Tab>Suites ({availableSuites.length})</Tab>
 									</TabList>
 									<TabPanels>
-										<TabPanel style={{ padding: 0 }}>
+										<TabPanel>
 											<div className={styles.scrollableTable}>
-												{filteredItems.length > 0 ? (
-													<TableContainer>
-														<Table size="sm">
-															<TableHead>
-																<TableRow>
-																	<TableHeader>Name</TableHeader>
-																	<TableHeader>Agent Override</TableHeader>
-																	<TableHeader>Action</TableHeader>
-																</TableRow>
-															</TableHead>
-															<TableBody>
-																{filteredItems.map((item) => {
-																	const itemKey = `${item.type}-${item.id}`;
-																	return (
-																		<TableRow key={itemKey}>
-																			<TableCell>
-																				<div>
-																					<div className={styles.entryName}>{item.name}</div>
-																					{item.description && (
-																						<div className={styles.itemDescription}>
-																							{item.description}
-																						</div>
-																					)}
-																				</div>
-																			</TableCell>
-																			<TableCell>
-																				<Select
-																					id={`agent-${itemKey}`}
-																					labelText=""
+												<TableContainer>
+													<Table size="sm">
+														<TableHead>
+															<TableRow>
+																<TableHeader>Name</TableHeader>
+																<TableHeader>Agent Override</TableHeader>
+																<TableHeader>Actions</TableHeader>
+															</TableRow>
+														</TableHead>
+														<TableBody>
+															{filteredItems.map((item) => {
+																const itemKey = `${item.type}-${item.id}`;
+																return (
+																	<TableRow key={itemKey}>
+																		<TableCell>
+																			<div>
+																				<div className={styles.entryName}>{item.name}</div>
+																				{item.description && (
+																					<div className={styles.itemDescription}>
+																						{item.description}
+																					</div>
+																				)}
+																			</div>
+																		</TableCell>
+																		<TableCell>
+																			<Select
+																				id={`agent-${itemKey}`}
+																				labelText=""
+																				size="sm"
+																				className={styles.agentOverrideSelect}
+																				value={availableItemAgents[itemKey] ? String(availableItemAgents[itemKey]) : 'default'}
+																				onChange={(e) => {
+																					const value = e.target.value === 'default' ? null : parseInt(e.target.value);
+																					setAvailableItemAgents(prev => ({
+																						...prev,
+																						[itemKey]: value
+																					}));
+																				}}
+																			>
+																				{agentSelectOptions.map(option => (
+																					<SelectItem 
+																						key={option.id} 
+																						value={option.id} 
+																						text={option.label} 
+																					/>
+																				))}
+																			</Select>
+																		</TableCell>
+																		<TableCell>
+																			
+																				<IconButton 
+																					kind="ghost" 
 																					size="sm"
-																					value={availableItemAgents[itemKey] ? String(availableItemAgents[itemKey]) : 'default'}
-																					onChange={(e) => {
-																						const agentId = e.target.value !== 'default' 
-																							? parseInt(e.target.value, 10) 
-																							: null;
-																						setAvailableItemAgents(prev => ({ 
-																							...prev, 
-																							[itemKey]: agentId 
-																						}));
-																					}}
-																					className={styles.agentOverrideSelect}
+																					onClick={() => handleAddEntry(item)}
+																					label="Add to suite"
+																					align='left'
 																				>
-																					{agentSelectOptions.map(item => (
-																						<SelectItem key={item.id} value={item.id} text={item.label} />
-																					))}
-																				</Select>
-																			</TableCell>
-																			<TableCell>
-																				<Tooltip content="Add to suite">
-																					<IconButton
-																						kind="ghost"
-																						size="sm"
-																						label="Add to suite"
-																						onClick={() => handleAddEntry(item)}
-																					>
-																						<ArrowRight size={16} />
-																					</IconButton>
-																				</Tooltip>
-																			</TableCell>
-																		</TableRow>
-																	);
-																})}
-															</TableBody>
-														</Table>
-													</TableContainer>
-												) : (
+																					<ArrowRight size={16} />
+																				</IconButton>
+																		</TableCell>
+																	</TableRow>
+																);
+															})}
+														</TableBody>
+													</Table>
+												</TableContainer>
+												{filteredItems.length === 0 && (
 													<div className={styles.emptyState}>
-														{searchTerm ? 'No items match your search' : `No available ${activeTab === 0 ? 'tests' : 'suites'}`}
+														<p>No {activeTab === 0 ? 'tests' : 'suites'} available to add.</p>
 													</div>
 												)}
 											</div>
 										</TabPanel>
-										<TabPanel style={{ padding: 0 }}>
+										<TabPanel>
 											<div className={styles.scrollableTable}>
-												{filteredItems.length > 0 ? (
-													<TableContainer>
-														<Table size="sm">
-															<TableHead>
-																<TableRow>
-																	<TableHeader>Name</TableHeader>
-																	<TableHeader>Agent Override</TableHeader>
-																	<TableHeader>Action</TableHeader>
-																</TableRow>
-															</TableHead>
-															<TableBody>
-																{filteredItems.map((item) => {
-																	const itemKey = `${item.type}-${item.id}`;
-																	return (
-																		<TableRow key={itemKey}>
-																			<TableCell>
-																				<div>
-																					<div className={styles.entryName}>{item.name}</div>
-																					{item.description && (
-																						<div className={styles.itemDescription}>
-																							{item.description}
-																						</div>
-																					)}
-																				</div>
-																			</TableCell>
-																			<TableCell>
-																				<Select
-																					id={`agent-${itemKey}`}
-																					labelText=""
-																					size="sm"
-																					value={availableItemAgents[itemKey] ? String(availableItemAgents[itemKey]) : 'default'}
-																					onChange={(e) => {
-																						const agentId = e.target.value !== 'default' 
-																							? parseInt(e.target.value, 10) 
-																							: null;
-																						setAvailableItemAgents(prev => ({ 
-																							...prev, 
-																							[itemKey]: agentId 
-																						}));
-																					}}
-																					className={styles.agentOverrideSelect}
-																				>
-																					{agentSelectOptions.map(item => (
-																						<SelectItem key={item.id} value={item.id} text={item.label} />
-																					))}
-																				</Select>
-																			</TableCell>
-																			<TableCell>
-																				<Tooltip content="Add to suite">
-																					<IconButton
-																						kind="ghost"
-																						size="sm"
-																						label="Add to suite"
-																						onClick={() => handleAddEntry(item)}
-																					>
-																						<ArrowRight size={16} />
-																					</IconButton>
-																				</Tooltip>
-																			</TableCell>
-																		</TableRow>
-																	);
-																})}
-															</TableBody>
-														</Table>
-													</TableContainer>
-												) : (
+												<TableContainer>
+													<Table size="sm">
+														<TableHead>
+															<TableRow>
+																<TableHeader>Name</TableHeader>
+																<TableHeader>Agent Override</TableHeader>
+																<TableHeader>Actions</TableHeader>
+															</TableRow>
+														</TableHead>
+														<TableBody>
+															{filteredItems.map((item) => {
+																const itemKey = `${item.type}-${item.id}`;
+																return (
+																	<TableRow key={itemKey}>
+																		<TableCell>
+																			<div>
+																				<div className={styles.entryName}>{item.name}</div>
+																				{item.description && (
+																					<div className={styles.itemDescription}>
+																						{item.description}
+																					</div>
+																				)}
+																			</div>
+																		</TableCell>
+																		<TableCell>
+																			<Select
+																				id={`agent-${itemKey}`}
+																				labelText=""
+																				size="sm"
+																				className={styles.agentOverrideSelect}
+																				value={availableItemAgents[itemKey] ? String(availableItemAgents[itemKey]) : 'default'}
+																				onChange={(e) => {
+																					const value = e.target.value === 'default' ? null : parseInt(e.target.value);
+																					setAvailableItemAgents(prev => ({
+																						...prev,
+																						[itemKey]: value
+																					}));
+																				}}
+																			>
+																				{agentSelectOptions.map(option => (
+																					<SelectItem 
+																						key={option.id} 
+																						value={option.id} 
+																						text={option.label} 
+																					/>
+																				))}
+																			</Select>
+																		</TableCell>
+																		<TableCell>
+																			<IconButton 
+																				kind="ghost" 
+																				size="sm"
+																				onClick={() => handleAddEntry(item)}
+																				label="Add to suite"
+																				align='left'
+																			>
+																				<ArrowRight size={16} />
+																			</IconButton>
+																		</TableCell>
+																	</TableRow>
+																);
+															})}
+														</TableBody>
+													</Table>
+												</TableContainer>
+												{filteredItems.length === 0 && (
 													<div className={styles.emptyState}>
-														{searchTerm ? 'No items match your search' : `No available ${activeTab === 0 ? 'tests' : 'suites'}`}
+														<p>No {activeTab === 0 ? 'tests' : 'suites'} available to add.</p>
 													</div>
 												)}
 											</div>
@@ -509,23 +548,18 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 													{entries.map((entry) => (
 														<TableRow key={entry.id}>
 															<TableCell>
-																<Tooltip content="Remove from suite">
-																	<IconButton
-																		kind="ghost"
-																		size="sm"
-																		label="Remove from suite"
-																		onClick={() => handleDeleteEntry(entry.id)}
-																	>
-																		<ArrowLeft size={16} />
-																	</IconButton>
-																</Tooltip>
+																<IconButton 
+																	kind="ghost" 
+																	size="sm"
+																	onClick={() => handleDeleteEntry(entry.id)}
+																	label="Remove from suite"
+																	align='right'
+																>
+																	<ArrowLeft size={16} />
+																</IconButton>
 															</TableCell>
 															<TableCell>
-																{entry.test_id ? (
-																	<Tag type="blue" size="sm">Test</Tag>
-																) : (
-																	<Tag type="green" size="sm">Suite</Tag>
-																)}
+																{entry.test_id ? 'Test' : 'Suite'}
 															</TableCell>
 															<TableCell>
 																<div className={styles.entryName}>
@@ -537,17 +571,19 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 																	id={`entry-agent-${entry.id}`}
 																	labelText=""
 																	size="sm"
+																	className={styles.entryAgentSelect}
 																	value={entry.agent_id_override ? String(entry.agent_id_override) : 'default'}
 																	onChange={(e) => {
-																		const agentId = e.target.value !== 'default' 
-																			? parseInt(e.target.value, 10) 
-																			: null;
-																		handleUpdateEntryAgent(entry.id, agentId);
+																		const value = e.target.value === 'default' ? null : parseInt(e.target.value);
+																		handleUpdateEntryAgent(entry.id, value);
 																	}}
-																	className={styles.entryAgentSelect}
 																>
-																	{agentSelectOptions.map(item => (
-																		<SelectItem key={item.id} value={item.id} text={item.label} />
+																	{agentSelectOptions.map(option => (
+																		<SelectItem 
+																			key={option.id} 
+																			value={option.id} 
+																			text={option.label} 
+																		/>
 																	))}
 																</Select>
 															</TableCell>
@@ -563,6 +599,15 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 					</Grid>
 				</Stack>
 			</Column>
+
+			{/* Edit Modal */}
+			<TestSuiteFormModal
+				isOpen={isEditModalOpen}
+				editingId={suite.id}
+				formData={editFormData}
+				onClose={() => setIsEditModalOpen(false)}
+				onSuccess={handleEditSuccess}
+			/>
 		</Grid>
 	);
 }
