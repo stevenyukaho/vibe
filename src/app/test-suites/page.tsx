@@ -137,9 +137,9 @@ export default function TestSuitesPage() {
 			</Breadcrumb>
 
 			<div className={styles.header}>
-				<h1>Test Suites</h1>
+				<h1>Test suites</h1>
 				<Button renderIcon={Add} onClick={openModal}>
-					Add Suite
+					Add suite
 				</Button>
 			</div>
 
@@ -209,7 +209,7 @@ export default function TestSuitesPage() {
 				</>
 			) : (
 				<EmptyState
-					title="Test Suites"
+					title="Test suites"
 					description="Create your first test suite to group tests together."
 					icon={Folder}
 					onAddClick={openModal}
