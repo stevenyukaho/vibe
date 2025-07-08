@@ -30,6 +30,10 @@
 
   &:hover {
     transform: translateY(-4px);
+    
+    .tileActions {
+      opacity: 1;
+    }
   }
 }
 
@@ -44,6 +48,36 @@
     gap: 0.5rem;
     margin-bottom: 0.5rem;
     font-weight: 600;
+  }
+}
+
+.tileHeader {
+  display: flex;
+  margin-bottom: 0.5rem;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  h4 {
+    margin-bottom: 0;
+    flex: 1;
+  }
+}
+
+.tileActions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 1rem;
+
+  button {
+    color: $text-secondary;
+    
+    &:hover {
+      color: $text-primary;
+      background-color: $layer-hover-01;
+    }
   }
 }
 
@@ -69,7 +103,15 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: #666;
+  color: $text-secondary;
+}
+
+.tileTestCount {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: $text-secondary;
 }
 
 .tagContainer {
