@@ -61,7 +61,7 @@ export default function Agents({
 				/>
 			) : (
 				<EmptyState
-					title="Agent Configurations"
+					title="Agent configurations"
 					description="Create your first AI agent configuration with custom prompts and settings."
 					icon={DataTableIcon}
 					onAddClick={onAddClick}
