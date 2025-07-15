@@ -6,10 +6,12 @@ import {
 	Button,
 	InlineNotification,
 } from '@carbon/react';
-import { Restart } from '@carbon/icons-react';
-import { TestResult, api } from '@/lib/api';
-import { useState } from 'react';
+import { Restart, Edit } from '@carbon/icons-react';
+import { TestResult, api, Test } from '@/lib/api';
+import { useState, useEffect } from 'react';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
+import TestFormModal from './TestFormModal';
+import { useTests } from '@/lib/AppDataContext';
 import './ResultViewModal.scss';
 
 interface ResultViewModalProps {
@@ -28,6 +30,36 @@ export default function ResultViewModal({
 	const [rescoring, setRescoring] = useState(false);
 	const [rescoreError, setRescoreError] = useState<string | null>(null);
 	const [rescoreSuccess, setRescoreSuccess] = useState(false);
+	const [isEditTestModalOpen, setIsEditTestModalOpen] = useState(false);
+	const [testData, setTestData] = useState<Test | null>(null);
+	const [loadingTest, setLoadingTest] = useState(false);
+	const [testError, setTestError] = useState<string | null>(null);
+	const { fetchTests } = useTests();
+
+	// Fetch test data when result changes
+	useEffect(() => {
+		const fetchTestData = async () => {
+			if (!result?.test_id) {
+				setTestData(null);
+				return;
+			}
+			
+			setLoadingTest(true);
+			setTestError(null);
+			try {
+				const test = await api.getTestById(result.test_id);
+				setTestData(test);
+			} catch (err) {
+				setTestError(err instanceof Error ? err.message : 'Failed to load test data');
+			} finally {
+				setLoadingTest(false);
+			}
+		};
+
+		if (isOpen && result?.test_id) {
+			fetchTestData();
+		}
+	}, [isOpen, result?.test_id]);
 
 	const handleRescore = async () => {
 		if (!result?.id) return;
@@ -48,124 +80,182 @@ export default function ResultViewModal({
 		}
 	};
 
+	const handleEditTest = () => {
+		if (!testData || loadingTest) return;
+		setIsEditTestModalOpen(true);
+	};
+
+	const handleEditTestSuccess = () => {
+		setIsEditTestModalOpen(false);
+		// Refresh the test data after successful edit
+		if (result?.test_id) {
+			api.getTestById(result.test_id).then(setTestData).catch(console.error);
+		}
+		// Refresh the tests in the context for other components
+		fetchTests();
+	};
+
+	// Prepare initial form data for TestFormModal
+	const initialFormData: Record<string, string> = testData
+		? {
+				'test-name': testData.name || '',
+				'test-description': testData.description || '',
+				'test-input': testData.input || '',
+				'test-expected-output': testData.expected_output || '',
+			}
+		: {};
+
 	const canScore = result && result.similarity_scoring_status !== undefined;
 
 	return (
-		<Modal
-			open={isOpen}
-			modalHeading="Test Result Details"
-			primaryButtonText="Close"
-			onRequestClose={onClose}
-			onRequestSubmit={onClose}
-			size="lg"
-			className="result-view-modal"
-		>
-			<Stack gap={5}>
-				{error && (
-					<div className="error-message">
-						{error}
-					</div>
-				)}
-				
-				{rescoreSuccess && (
-					<InlineNotification
-						kind="success"
-						title="Scoring initiated"
-						subtitle="The similarity score will be updated shortly."
-						hideCloseButton
-					/>
-				)}
-				
-				{rescoreError && (
-					<InlineNotification
-						kind="error"
-						title="Failed to initiate scoring"
-						subtitle={rescoreError}
-						hideCloseButton
-					/>
-				)}
-				
-				{result && (
-					<>
-						<div>
-							<h4 className="section-heading">Output</h4>
-							<CodeSnippet type="multi" feedback="Copied to clipboard" wrapText>
-								{result.output}
-							</CodeSnippet>
+		<>
+			<Modal
+				open={isOpen}
+				modalHeading="Test Result Details"
+				primaryButtonText="Close"
+				onRequestClose={onClose}
+				onRequestSubmit={onClose}
+				size="lg"
+				className="result-view-modal"
+			>
+				<Stack gap={5}>
+					{error && (
+						<div className="error-message">
+							{error}
 						</div>
-						{result.intermediate_steps && (
+					)}
+					
+					{rescoreSuccess && (
+						<InlineNotification
+							kind="success"
+							title="Scoring initiated"
+							subtitle="The similarity score will be updated shortly."
+							hideCloseButton
+						/>
+					)}
+					
+					{rescoreError && (
+						<InlineNotification
+							kind="error"
+							title="Failed to initiate scoring"
+							subtitle={rescoreError}
+							hideCloseButton
+						/>
+					)}
+
+					{testError && (
+						<InlineNotification
+							kind="error"
+							title="Failed to load test data"
+							subtitle={testError}
+							hideCloseButton
+						/>
+					)}
+					
+					{result && (
+						<>
+							{/* Edit Test Button */}
+							<div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+								<Button
+									kind="tertiary"
+									size="sm"
+									renderIcon={Edit}
+									onClick={handleEditTest}
+									disabled={loadingTest || !testData}
+								>
+									{loadingTest ? 'Loading...' : 'Edit Test'}
+								</Button>
+							</div>
+
 							<div>
-								<h4 className="section-heading section-heading--with-top-margin">
-									Intermediate steps
-								</h4>
-								<CodeSnippet type="multi" feedback="Copied to clipboard" wrapText maxCollapsedNumberOfRows={20}>
-									{result.intermediate_steps}
+								<h4 className="section-heading">Output</h4>
+								<CodeSnippet type="multi" feedback="Copied to clipboard" wrapText>
+									{result.output}
 								</CodeSnippet>
 							</div>
-						)}
-						<div className="metadata-section">
-							<div className="metadata-item">
-								<strong>Success:</strong>{' '}
-								<Tag type={result.success ? 'green' : 'red'}>
-									{result.success ? 'Success' : 'Failed'}
-								</Tag>
-							</div>
-							{result.execution_time && (
-								<div className="metadata-item">
-									<strong>Execution Time:</strong>{' '}
-									<span className="execution-time">
-										{result.execution_time.toFixed(3)}s
-									</span>
+							{result.intermediate_steps && (
+								<div>
+									<h4 className="section-heading section-heading--with-top-margin">
+										Intermediate steps
+									</h4>
+									<CodeSnippet type="multi" feedback="Copied to clipboard" wrapText maxCollapsedNumberOfRows={20}>
+										{result.intermediate_steps}
+									</CodeSnippet>
 								</div>
 							)}
-							{/* Token usage section */}
-							{((result.input_tokens && result.input_tokens > 0) || (result.output_tokens && result.output_tokens > 0)) && (
+							<div className="metadata-section">
 								<div className="metadata-item">
-									<strong>Token usage:</strong>{' '}
-									<span className="token-details">
-										{result.input_tokens && result.input_tokens > 0 && (
-											<>Input: {result.input_tokens.toLocaleString()}</>
-										)}
-										{result.input_tokens && result.input_tokens > 0 && result.output_tokens && result.output_tokens > 0 && (
-											<> | </>
-										)}
-										{result.output_tokens && result.output_tokens > 0 && (
-											<>Output: {result.output_tokens.toLocaleString()}</>
-										)}
-										{result.input_tokens && result.output_tokens && (
-											<> | <strong>Total: {(result.input_tokens + result.output_tokens).toLocaleString()}</strong></>
-										)}
-									</span>
+									<strong>Success:</strong>{' '}
+									<Tag type={result.success ? 'green' : 'red'}>
+										{result.success ? 'Success' : 'Failed'}
+									</Tag>
 								</div>
-							)}
-						</div>
-						
-						{/* Similarity score section */}
-						{canScore && (
-							<div className="similarity-score-section">
-								<div className="similarity-score-header">
-									<h4>Similarity score</h4>
-									<Button
-										kind="ghost"
-										size="sm"
-										renderIcon={Restart}
-										onClick={handleRescore}
-										disabled={rescoring}
-									>
-										{rescoring ? 'Scoring...' : 'Re-score'}
-									</Button>
-								</div>
-								<SimilarityScoreDisplay result={result} size="md" />
-								{result.similarity_scoring_error && (
-									<div className="similarity-error">
-										<strong>Error:</strong> {result.similarity_scoring_error}
+								{result.execution_time && (
+									<div className="metadata-item">
+										<strong>Execution Time:</strong>{' '}
+										<span className="execution-time">
+											{result.execution_time.toFixed(3)}s
+										</span>
+									</div>
+								)}
+								{/* Token usage section */}
+								{((result.input_tokens && result.input_tokens > 0) || (result.output_tokens && result.output_tokens > 0)) && (
+									<div className="metadata-item">
+										<strong>Token usage:</strong>{' '}
+										<span className="token-details">
+											{result.input_tokens && result.input_tokens > 0 && (
+												<>Input: {result.input_tokens.toLocaleString()}</>
+											)}
+											{result.input_tokens && result.input_tokens > 0 && result.output_tokens && result.output_tokens > 0 && (
+												<> | </>
+											)}
+											{result.output_tokens && result.output_tokens > 0 && (
+												<>Output: {result.output_tokens.toLocaleString()}</>
+											)}
+											{result.input_tokens && result.output_tokens && (
+												<> | <strong>Total: {(result.input_tokens + result.output_tokens).toLocaleString()}</strong></>
+											)}
+										</span>
 									</div>
 								)}
 							</div>
-						)}
-					</>
-				)}
-			</Stack>
-		</Modal>
+							
+							{/* Similarity score section */}
+							{canScore && (
+								<div className="similarity-score-section">
+									<div className="similarity-score-header">
+										<h4>Similarity score</h4>
+										<Button
+											kind="ghost"
+											size="sm"
+											renderIcon={Restart}
+											onClick={handleRescore}
+											disabled={rescoring}
+										>
+											{rescoring ? 'Scoring...' : 'Re-score'}
+										</Button>
+									</div>
+									<SimilarityScoreDisplay result={result} size="md" />
+									{result.similarity_scoring_error && (
+										<div className="similarity-error">
+											<strong>Error:</strong> {result.similarity_scoring_error}
+										</div>
+									)}
+								</div>
+							)}
+						</>
+					)}
+				</Stack>
+			</Modal>
+
+			{/* Edit Test Modal */}
+			<TestFormModal
+				isOpen={isEditTestModalOpen}
+				editingId={testData?.id || null}
+				initialData={initialFormData}
+				onClose={() => setIsEditTestModalOpen(false)}
+				onSuccess={handleEditTestSuccess}
+			/>
+		</>
 	);
 }

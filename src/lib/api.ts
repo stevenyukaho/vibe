@@ -186,6 +186,17 @@ export const api = {
 		return response.json();
 	},
 
+	async getTestById(id: number): Promise<Test> {
+		const response = await fetch(`${API_URL}/api/tests/${id}`);
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch test');
+		}
+
+		return response.json();
+	},
+
 	async updateTest(id: number, test: Partial<Test>): Promise<Test> {
 		const response = await fetch(`${API_URL}/api/tests/${id}`, {
 			method: 'PUT',
