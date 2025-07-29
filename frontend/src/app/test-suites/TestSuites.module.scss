@@ -1,0 +1,225 @@
+@use "@carbon/react/scss/colors" as *;
+@use "@carbon/react/scss/theme" as *;
+
+.container {
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+
+.notification {
+  margin-bottom: 1rem;
+}
+
+.tilesGrid {
+  margin-bottom: 2rem;
+  row-gap: 1.5rem;
+}
+
+.suiteTile {
+  height: 100%;
+  width: 100%;
+  margin-bottom: 1rem;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    
+    .tileActions {
+      opacity: 1;
+    }
+  }
+}
+
+.tileContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
+  h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+}
+
+.tileHeader {
+  display: flex;
+  margin-bottom: 0.5rem;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  h4 {
+    margin-bottom: 0;
+    flex: 1;
+  }
+}
+
+.tileActions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 1rem;
+
+  button {
+    color: $text-secondary;
+    
+    &:hover {
+      color: $text-primary;
+      background-color: $layer-hover-01;
+    }
+  }
+}
+
+.description {
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  color: $text-secondary;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+}
+
+.tileFooter {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tileDate {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: $text-secondary;
+}
+
+.tileTestCount {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: $text-secondary;
+}
+
+.tagContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  
+  svg {
+    margin-right: 0.25rem;
+    color: $text-secondary;
+  }
+}
+
+.pagination {
+  margin-top: 1.5rem;
+}
+
+.previewTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+// Detail page styles
+.backButton {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: -1rem;
+  margin-top: -1rem;
+}
+
+.runConfigTile {
+  h3 {
+    margin-bottom: 1rem;
+  }
+}
+
+.agentSelect {
+  margin-top: 1rem;
+  max-width: 300px;
+}
+
+.dualPanelGrid {
+  min-height: 500px;
+}
+
+.panelTile {
+  height: 100%;
+  padding: 1rem;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.searchContainer {
+  margin-bottom: 1rem;
+}
+
+.scrollableTable {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.itemDescription {
+  font-size: 0.875rem;
+  color: $text-helper;
+}
+
+.agentOverrideSelect {
+  min-width: 150px;
+}
+
+.entryAgentSelect {
+  min-width: 180px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 2rem;
+  color: $text-helper;
+}
+
+.emptyStateWithIcon {
+  text-align: center;
+  padding: 3rem;
+  color: $text-helper;
+
+  svg {
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  p:last-child {
+    font-size: 0.875rem;
+  }
+}
+
+.scrollableEntries {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.entryName {
+  font-weight: bold;
+}

@@ -1,0 +1,96 @@
+import { useState } from 'react';
+import { Modal } from '@carbon/react';
+import { api } from '@/lib/api';
+
+interface DeleteConfirmationModalProps {
+	isOpen: boolean;
+	deleteType: 'agent' | 'test' | 'test-suite' | null;
+	deleteName: string;
+	deleteId: number | null;
+	onClose: () => void;
+	onSuccess: () => void;
+}
+
+export default function DeleteConfirmationModal({
+	isOpen,
+	deleteType,
+	deleteName,
+	deleteId,
+	onClose,
+	onSuccess
+}: DeleteConfirmationModalProps) {
+	const [deleting, setDeleting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const handleDelete = async () => {
+		if (!deleteId || !deleteType) return;
+
+		setDeleting(true);
+		setError(null);
+
+		try {
+			if (deleteType === 'agent') {
+				await api.deleteAgent(deleteId);
+			} else if (deleteType === 'test') {
+				await api.deleteTest(deleteId);
+			} else if (deleteType === 'test-suite') {
+				await api.deleteTestSuite(deleteId);
+			}
+
+			onSuccess();
+			onClose();
+		} catch (error) {
+			console.error(`Error deleting ${deleteType}:`, error);
+			setError(error instanceof Error ? error.message : `Failed to delete ${deleteType}`);
+		} finally {
+			setDeleting(false);
+		}
+	};
+
+	const getDisplayName = () => {
+		switch (deleteType) {
+			case 'agent': return 'Agent';
+			case 'test': return 'Test';
+			case 'test-suite': return 'Test suite';
+			default: return 'Item';
+		}
+	};
+
+	const getWarningMessage = () => {
+		if (deleteType === 'test-suite') {
+			return (
+				<>
+					<p>Are you sure you want to delete the test suite &quot;{deleteName}&quot;?</p>
+					<p><strong>Warning:</strong> This will also permanently delete all associated suite runs and their results. This action cannot be undone.</p>
+				</>
+			);
+		}
+		return <p>Are you sure you want to delete the {getDisplayName().toLowerCase()} &quot;{deleteName}&quot;?</p>;
+	};
+
+	return (
+		<Modal
+			open={isOpen}
+			modalHeading={`Delete ${getDisplayName()}`}
+			primaryButtonText={deleting ? 'Deleting...' : 'Delete'}
+			secondaryButtonText="Cancel"
+			onRequestClose={onClose}
+			onRequestSubmit={handleDelete}
+			primaryButtonDisabled={deleting}
+			danger
+		>
+			{error && (
+				<div style={{
+					marginBottom: '1rem',
+					padding: '0.5rem',
+					backgroundColor: '#fff1f1',
+					color: '#da1e28',
+					borderLeft: '3px solid #da1e28'
+				}}>
+					{error}
+				</div>
+			)}
+			{getWarningMessage()}
+		</Modal>
+	);
+}

@@ -1,0 +1,10 @@
+'use client';
+
+import React from 'react';
+import { useAppData } from '@/lib/AppDataContext';
+import TestExecutor from '../components/TestExecutor';
+
+export default function RunPage() {
+	const { fetchAllData } = useAppData();
+	return <TestExecutor onJobCreated={() => fetchAllData()} />;
+}

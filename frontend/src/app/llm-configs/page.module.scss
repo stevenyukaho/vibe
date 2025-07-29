@@ -1,0 +1,59 @@
+@use "@carbon/react/scss/spacing" as *;
+@use "@carbon/react/scss/type" as *;
+@use "@carbon/react/scss/colors" as *;
+@use "@carbon/react/scss/theme" as *;
+
+.container {
+	padding: $spacing-05;
+}
+
+.header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: $spacing-06;
+
+	h1 {
+		@include type-style("heading-04");
+		margin: 0;
+	}
+}
+
+.notification {
+	margin-bottom: $spacing-05;
+}
+
+.actionButtons {
+	display: flex;
+	gap: $spacing-03;
+}
+
+.testModalContent {
+	margin-top: $spacing-05;
+}
+
+.responseBox {
+	margin-top: $spacing-06;
+	border: 1px solid $border-subtle;
+	border-radius: 4px;
+	padding: $spacing-05;
+	background-color: $layer-01;
+}
+
+.responseText {
+	white-space: pre-wrap;
+	margin: $spacing-03 0;
+	max-height: 300px;
+	overflow-y: auto;
+	padding: $spacing-03;
+	background-color: $layer-02;
+	border-radius: 4px;
+	width: 100%;
+}
+
+.metaInfo {
+	display: flex;
+	justify-content: space-between;
+	color: $text-secondary;
+	margin-top: $spacing-03;
+}
