@@ -1,0 +1,284 @@
+# External API Agent Service
+
+This service provides a gateway to execute tests against external AI agent APIs.
+
+## Overview
+
+The External API Agent Service is designed to connect to any external agent API, format requests according to specified templates, and map responses back into a standardized format for the AI Agent Testing Suite.
+
+## Setup
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Create a `.env` file in the root directory with:
+
+   ```
+   PORT=5003
+   HOST=localhost
+   ```
+
+3. Build the service:
+
+   ```bash
+   npm run build
+   ```
+
+4. Start the service:
+
+   ```bash
+   npm start
+   ```
+
+For development, use:
+
+```bash
+npm run dev
+```
+
+## API Endpoints
+
+### Health Check
+
+```
+GET /health
+```
+
+Returns status 200 with `{ status: "ok" }` if the service is running.
+
+### Execute Test
+
+```
+POST /execute-test
+```
+
+Request body:
+
+```json
+{
+  "test_input": "The user's input to test",
+  "test_id": 123,
+  "api_endpoint": "https://api.example.com/chat",
+  "api_key": "optional-api-key",
+  "request_template": "{\"messages\": [{\"role\": \"user\", \"content\": \"{{input}}\"}]}",
+  "response_mapping": "{\"output\": \"choices.0.message.content\", \"intermediate_steps\": \"usage\"}",
+  "headers": {
+    "custom-header": "value"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "test_id": 123,
+  "output": "Response from the API",
+  "success": true,
+  "execution_time": 1234,
+  "intermediate_steps": [
+    {
+      "timestamp": "2025-04-01T00:00:00.000Z",
+      "action": "API Call Initiated",
+      "output": "Calling https://api.example.com/chat"
+    },
+    {
+      "timestamp": "2025-04-01T00:00:01.000Z",
+      "action": "API Response Received",
+      "output": "Response received from external API"
+    }
+  ],
+  "metrics": {
+    "execution_time": 1234
+  }
+}
+```
+
+## Request Template
+
+The `request_template` field allows you to specify how to format the test input for the external API. Use `{{input}}` as a placeholder for the test input:
+
+```json
+{
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "{{input}}"}
+  ],
+  "temperature": 0.7
+}
+```
+
+## Response Mapping
+
+The `response_mapping` field specifies how to extract data from the API response:
+
+```json
+{
+  "output": "choices.0.message.content",
+  "intermediate_steps": "usage",
+  "success_criteria": {
+    "type": "contains",
+    "value": "correct answer"
+  }
+}
+```
+
+- `output`: Path to the main output text
+- `intermediate_steps`: Path to additional data for intermediate steps
+- `success_criteria`: Optional criteria to determine success
+
+Success criteria types:
+
+- `contains`: Check if output contains a value
+- `exact_match`: Check if output exactly matches a value
+- `json_match`: Check if a specific field in the response matches a value
+
+## Error Handling
+
+The service returns a standardized error format:
+
+```json
+{
+  "error": "Failed to execute test",
+  "details": "Specific error message"
+}
+```
+
+## Advanced Configuration
+
+### Timeout Settings
+
+The service has a default timeout of 30 seconds for API calls. You can configure this in the `.env` file:
+
+```
+DEFAULT_TIMEOUT=60000
+```
+
+### Authentication
+
+The service supports various authentication methods:
+
+1. **API Key in Authorization Header**:
+
+   ```json
+   {
+     "api_key": "your-api-key"
+   }
+   ```
+
+   This will be sent as `Authorization: Bearer your-api-key`
+
+2. **Custom Headers**:
+
+   ```json
+   {
+     "headers": {
+       "X-API-Key": "your-api-key",
+       "Custom-Auth": "custom-value"
+     }
+   }
+   ```
+
+### Advanced Response Mapping
+
+#### Nested JSON Paths
+
+You can use dot notation to access nested properties:
+
+```json
+{
+  "output": "data.results.0.text",
+  "intermediate_steps": "data.metadata.steps"
+}
+```
+
+#### Array Mapping
+
+For array responses, you can map specific elements:
+
+```json
+{
+  "output": "responses[0].text",
+  "intermediate_steps": "responses[0].steps"
+}
+```
+
+#### Success Criteria with JSON Path
+
+For complex success validation:
+
+```json
+{
+  "success_criteria": {
+    "type": "json_match",
+    "path": "data.status",
+    "operator": "===",
+    "value": "completed"
+  }
+}
+```
+
+## Example Configurations
+
+### OpenAI API
+
+```json
+{
+  "api_endpoint": "https://api.openai.com/v1/chat/completions",
+  "api_key": "sk-...",
+  "request_template": "{\"model\": \"gpt-4o\", \"messages\": [{\"role\": \"user\", \"content\": \"{{input}}\"}], \"temperature\": 0.7}",
+  "response_mapping": "{\"output\": \"choices.0.message.content\", \"intermediate_steps\": \"usage\", \"success_criteria\": {\"type\": \"contains\", \"value\": \"answer\"}}",
+  "headers": {
+    "Content-Type": "application/json"
+  }
+}
+```
+
+### Anthropic Claude API
+
+```json
+{
+  "api_endpoint": "https://api.anthropic.com/v1/messages",
+  "api_key": "sk-ant-...",
+  "request_template": "{\"model\": \"claude-3.7-sonnet\", \"max_tokens\": 1024, \"messages\": [{\"role\": \"user\", \"content\": \"{{input}}\"}]}",
+  "response_mapping": "{\"output\": \"content.0.text\", \"intermediate_steps\": \"usage\", \"success_criteria\": {\"type\": \"contains\", \"value\": \"answer\"}}",
+  "headers": {
+    "Content-Type": "application/json"
+  }
+}
+```
+
+### Custom API with Intermediate Steps
+
+```json
+{
+  "api_endpoint": "https://api.example.com/agent",
+  "request_template": "{\"query\": \"{{input}}\", \"include_steps\": true}",
+  "response_mapping": "{\"output\": \"final_response\", \"intermediate_steps\": \"reasoning_steps\", \"success_criteria\": {\"type\": \"json_match\", \"path\": \"status\", \"operator\": \"===\", \"value\": \"success\"}}"
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Timeout Errors**: Increase the `DEFAULT_TIMEOUT` value in your environment configuration.
+
+2. **Authentication Failures**: Verify your API key and ensure it's being sent correctly in the headers.
+
+3. **Response Mapping Errors**: Check that your JSON paths match the actual structure of the API response.
+
+4. **Template Formatting Issues**: Ensure your request template is valid JSON with proper escaping.
+
+### Debugging
+
+Enable debug logging by setting the following in your `.env` file:
+
+```env
+DEBUG=true
+```
+
+This will log detailed information about request formatting, API calls, and response processing.
