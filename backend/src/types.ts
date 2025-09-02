@@ -19,6 +19,7 @@ export interface Agent {
 	created_at?: string;
 }
 
+// Legacy Test interface (kept for migration compatibility)
 export interface Test {
 	id?: number;
 	name: string;
@@ -29,6 +30,7 @@ export interface Test {
 	updated_at?: string;
 }
 
+// Legacy TestResult interface (kept for migration compatibility)
 export interface TestResult {
 	id?: number;
 	agent_id: number;
@@ -47,14 +49,59 @@ export interface TestResult {
 	token_mapping_metadata?: string;  // JSON metadata about token extraction process
 }
 
+// New Conversation interfaces
+export interface Conversation {
+	id?: number;
+	name: string;
+	description?: string;
+	tags?: string; // JSON array for flexible categorization
+	expected_outcome?: string; // High-level success criteria
+	created_at?: string;
+	updated_at?: string;
+}
+
+export interface ConversationMessage {
+	id?: number;
+	conversation_id: number;
+	sequence: number;
+	role: 'user' | 'system';
+	content: string;
+	metadata?: string; // JSON for message-specific config
+	created_at?: string;
+}
+
+export interface ExecutionSession {
+	id?: number;
+	conversation_id: number;
+	agent_id: number;
+	status: 'pending' | 'running' | 'completed' | 'failed';
+	started_at?: string;
+	completed_at?: string;
+	success?: boolean;
+	error_message?: string;
+	metadata?: string; // JSON for session-level metrics (similarity scores, token usage, etc)
+}
+
+export interface SessionMessage {
+	id?: number;
+	session_id: number;
+	sequence: number;
+	role: 'user' | 'assistant' | 'system' | 'tool';
+	content: string;
+	timestamp?: string;
+	metadata?: string; // JSON for timing, tokens, confidence, etc.
+}
+
 export interface Job {
 	id: string;  // UUID
 	agent_id: number;
-	test_id: number;
+	test_id?: number; // Legacy field (kept for compatibility)
+	conversation_id?: number; // New field for conversation testing
 	status: JobStatus;
 	progress?: number;  // 0-100 percentage
 	partial_result?: string;
-	result_id?: number;
+	result_id?: number; // Legacy field (kept for compatibility)
+	session_id?: number; // New field for execution sessions
 	error?: string;
 	created_at?: string;
 	updated_at?: string;
@@ -67,7 +114,8 @@ export interface Job {
 export interface JobFilters {
 	status?: JobStatus;
 	agent_id?: number;
-	test_id?: number;
+	test_id?: number; // Legacy field
+	conversation_id?: number;
 	before?: Date;
 	after?: Date;
 	suite_run_id?: number;
@@ -103,7 +151,6 @@ export interface SuiteRun {
 	successful_tests: number;
 	failed_tests: number;
 	average_execution_time?: number;  // Time in milliseconds
-	total_execution_time?: number;  // Time in milliseconds
 	avg_similarity_score?: number; // average similarity score for the run
 	total_input_tokens?: number;  // Total input tokens for all tests in suite
 	total_output_tokens?: number;  // Total output tokens for all tests in suite
@@ -134,7 +181,8 @@ export interface SuiteEntry {
 	id: number;
 	parent_suite_id: number;
 	sequence: number;
-	test_id?: number;
+	test_id?: number; // Legacy field
+	conversation_id?: number;
 	child_suite_id?: number;
 	agent_id_override?: number;
 }
