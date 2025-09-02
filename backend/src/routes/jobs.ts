@@ -1,9 +1,20 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { jobQueue, JobStatus, JobFilters } from '../services/job-queue';
-import { getAgentById, getTestById, getResultById, listJobsWithCount } from '../db/queries';
+import { 
+	getAgentById, 
+	listJobsWithCount, 
+	getConversationById, 
+	getExecutionSessionById, 
+	getSessionMessages,
+	getConversationMessages 
+} from '../db/queries';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
+import { 
+	sessionToLegacyResult,
+	isSingleTurnConversation
+} from '../adapters/legacy-adapter';
 
 const router = Router();
 
@@ -100,9 +111,30 @@ router.get('/:id', (async (req: Request, res: Response) => {
 		// Enrich job with related data if needed
 		const enrichedJob: any = { ...job };
 		
-		// If job has a result, include it
-		if (job.result_id) {
-			enrichedJob.result = await getResultById(job.result_id);
+		// If job has a session result, include it (new system)
+		if (job.session_id) {
+			try {
+				const session = await getExecutionSessionById(job.session_id);
+				if (session) {
+					const sessionMessages = await getSessionMessages(job.session_id);
+					enrichedJob.result = sessionToLegacyResult(session, sessionMessages);
+				}
+			} catch (error) {
+				console.warn(`Failed to enrich job ${job.id} with session ${job.session_id}:`, error);
+			}
+		}
+		// Fallback to legacy result_id if session_id not available (legacy compatibility) TODO deprecate this
+		else if (job.result_id) {
+			try {
+				// This is for backwards compatibility with old jobs that still have result_id
+				const session = await getExecutionSessionById(job.result_id); // Assuming result_id maps to session_id
+				if (session) {
+					const sessionMessages = await getSessionMessages(job.result_id);
+					enrichedJob.result = sessionToLegacyResult(session, sessionMessages);
+				}
+			} catch (error) {
+				console.warn(`Failed to enrich job ${job.id} with legacy result ${job.result_id}:`, error);
+			}
 		}
 		
 		return res.json(enrichedJob);
@@ -115,7 +147,7 @@ router.get('/:id', (async (req: Request, res: Response) => {
 	}
 }) as any);
 
-// Create a new job to execute a test
+// Create a new job to execute a test (via conversation)
 router.post('/', (async (req: Request, res: Response) => {
 	try {
 		const { agent_id, test_id } = req.body;
@@ -125,20 +157,26 @@ router.post('/', (async (req: Request, res: Response) => {
 			return res.status(400).json({ error: 'agent_id and test_id are required' });
 		}
 		
-		// Check if agent and test exist
+		// Check if agent and conversation exist (test_id maps to conversation_id) TODO deprecate this
 		const agent = await getAgentById(agent_id);
-		const test = await getTestById(test_id);
+		const conversation = await getConversationById(test_id); // test_id maps to conversation_id
 		
 		if (!agent) {
 			return res.status(404).json({ error: 'Agent not found' });
 		}
 		
-		if (!test) {
+		if (!conversation) {
 			return res.status(404).json({ error: 'Test not found' });
 		}
+
+		// Verify this is a single-turn conversation (valid as a "test") TODO deprecate this
+		const messages = await getConversationMessages(test_id);
+		if (!isSingleTurnConversation(conversation, messages)) {
+			return res.status(400).json({ error: 'Cannot execute multi-turn conversation as legacy test' });
+		}
 		
-		// Create a new job
-		const jobId = await jobQueue.createJob(agent_id, test_id);
+		// Create a new conversation job (legacy tests are now single-turn conversations) TODO deprecate this
+		const jobId = await jobQueue.createConversationJob(agent_id, test_id);
 		
 		// Return the job ID with 202 Accepted status
 		return res.status(202).json({ 
