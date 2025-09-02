@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { getAgentById, getTestById } from '../db/queries';
+import { getAgentById, getConversationById, getConversationMessages } from '../db/queries';
 import { jobQueue } from '../services/job-queue';
+import { isSingleTurnConversation } from '../adapters/legacy-adapter';
 
 const router = Router();
 
@@ -10,7 +11,12 @@ interface ExecuteTestRequest {
   test_id: number;
 }
 
-// Execute a test with a specific agent
+interface ExecuteConversationRequest {
+  agent_id: number;
+  conversation_id: number;
+}
+
+// Execute a test with a specific agent (maps to conversation execution)
 router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response) => {
   try {
     const { agent_id, test_id } = req.body;
@@ -20,20 +26,26 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
       return res.status(400).json({ error: 'agent_id and test_id are required' });
     }
 
-    // Get agent and test from database
+    // Get agent and conversation (test_id maps to conversation_id)
     const agent = await getAgentById(agent_id);
-    const test = await getTestById(test_id);
+    const conversation = await getConversationById(test_id); // test_id maps to conversation_id
 
-    // Check if agent and test exist
+    // Check if agent and conversation exist
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
-    if (!test) {
+    if (!conversation) {
       return res.status(404).json({ error: 'Test not found' });
     }
 
-    // Create a job to execute the test instead of executing directly
-    const jobId = await jobQueue.createJob(agent_id, test_id);
+    // Verify this is a single-turn conversation (valid as a "test")
+    const messages = await getConversationMessages(test_id);
+    if (!isSingleTurnConversation(conversation, messages)) {
+      return res.status(400).json({ error: 'Cannot execute multi-turn conversation as legacy test' });
+    }
+
+    // Create a conversation job (legacy tests are now single-turn conversations)
+    const jobId = await jobQueue.createConversationJob(agent_id, test_id);
 
     // Return the job ID with 202 Accepted status
     return res.status(202).json({ 
@@ -43,6 +55,41 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
   } catch (error: any) {
     console.error('Error executing test:', error);
     return res.status(500).json({ error: 'Failed to execute test', details: error instanceof Error ? error.message : 'Unknown error' });
+  }
+}) as any);
+
+// Execute a conversation with a specific agent
+router.post('/conversation', (async (req: Request<{}, {}, ExecuteConversationRequest>, res: Response) => {
+  try {
+    const { agent_id, conversation_id } = req.body;
+
+    // Validate input
+    if (!agent_id || !conversation_id) {
+      return res.status(400).json({ error: 'agent_id and conversation_id are required' });
+    }
+
+    // Get agent and conversation from database
+    const agent = await getAgentById(agent_id);
+    const conversation = await getConversationById(conversation_id);
+
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found' });
+    }
+
+    // Create a job to execute the conversation
+    const jobId = await jobQueue.createConversationJob(agent_id, conversation_id);
+
+    // Return the job ID with 202 Accepted status
+    return res.status(202).json({ 
+      job_id: jobId,
+      message: 'Conversation execution job created and queued for execution'
+    });
+  } catch (error: any) {
+    console.error('Error executing conversation:', error);
+    return res.status(500).json({ error: 'Failed to execute conversation', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 }) as any);
 
