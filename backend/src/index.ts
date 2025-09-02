@@ -9,6 +9,9 @@ import testSuiteRoutes from './routes/test-suites';
 import executeSuiteRoutes from './routes/execute-suite';
 import suiteRunsRoutes from './routes/suite-runs';
 import llmConfigRoutes from './routes/llm-configs';
+import conversationRoutes from './routes/conversations';
+import sessionRoutes from './routes/sessions';
+import sessionMessageRoutes from './routes/session-messages';
 import { serverConfig } from './config';
 
 const app = express();
@@ -28,6 +31,9 @@ app.use('/api/test-suites', testSuiteRoutes);
 app.use('/api/execute-suite', executeSuiteRoutes);
 app.use('/api/suite-runs', suiteRunsRoutes);
 app.use('/api/llm-configs', llmConfigRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/session-messages', sessionMessageRoutes);
 
 // Health check endpoint
 app.get('/api/health', (_req: Request, res: Response) => {
