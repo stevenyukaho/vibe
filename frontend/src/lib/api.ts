@@ -1,4 +1,4 @@
-import { Agent, Test, TestResult } from '../../../backend/src/exports';
+import type { Agent, Test, TestResult } from '../../../backend/src/exports';
 
 // Re-export types for use in components
 export type { Agent, Test, TestResult };
@@ -119,7 +119,6 @@ export interface SuiteRun {
 	successful_tests: number;
 	failed_tests: number;
 	average_execution_time?: number;
-	total_execution_time?: number;
 	total_input_tokens?: number;
 	total_output_tokens?: number;
 	started_at: string;
@@ -401,14 +400,6 @@ export const api = {
 		return response.json();
 	},
 
-	async getTestsInSuite(suite_id: number): Promise<Test[]> {
-		const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/tests`);
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || 'Failed to fetch tests in suite');
-		}
-		return response.json();
-	},
 
 	async executeSuite(suite_id: number, agent_id: number): Promise<{ suite_run_id: number }> {
 		const response = await fetch(`${API_URL}/api/execute-suite`, {
@@ -561,7 +552,7 @@ export const api = {
 		return response.json();
 	},
 
-	async getJobStatus(id: number): Promise<Job> {
+	async getJobStatus(id: string): Promise<Job> {
 		const response = await fetch(`${API_URL}/api/jobs/${id}`);
 
 		if (!response.ok) {
@@ -572,7 +563,7 @@ export const api = {
 		return response.json();
 	},
 
-	async cancelJob(id: number): Promise<void> {
+	async cancelJob(id: string): Promise<void> {
 		const response = await fetch(`${API_URL}/api/jobs/${id}/cancel`, {
 			method: 'POST',
 		});
@@ -589,7 +580,7 @@ export const api = {
 		}
 	},
 
-	async deleteJob(id: number): Promise<void> {
+	async deleteJob(id: string): Promise<void> {
 		const response = await fetch(`${API_URL}/api/jobs/${id}`, {
 			method: 'DELETE',
 		});
@@ -652,16 +643,6 @@ export const api = {
 		if (!response.ok) {
 			const error = await response.json();
 			throw new Error(error.error || 'Failed to add test to suite');
-		}
-	},
-
-	async removeTestFromSuite(suite_id: number, test_id: number): Promise<void> {
-		const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/tests/${test_id}`, {
-			method: 'DELETE',
-		});
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || 'Failed to remove test from suite');
 		}
 	},
 
