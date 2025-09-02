@@ -6,20 +6,20 @@ import {
 	getTestSuiteById,
 	updateTestSuite,
 	deleteTestSuite,
-	addTestToSuite,
-	removeTestFromSuite,
-	getTestsInSuite,
-	reorderTestsInSuite,
-	getTestSuitesWithCount
-} from '../db/queries';
-import { suiteProcessingService } from '../services/suite-processing-service';
-import {
+	getTestSuitesWithCount,
 	getEntriesInSuite,
 	addSuiteEntry,
 	updateSuiteEntryOrder,
 	deleteSuiteEntry,
-	reorderSuiteEntries
+	reorderSuiteEntries,
+	getConversationById,
+	getConversationMessages
 } from '../db/queries';
+import { suiteProcessingService } from '../services/suite-processing-service';
+import { 
+	conversationToLegacyTest, 
+	isSingleTurnConversation 
+} from '../adapters/legacy-adapter';
 import type { TestSuite } from '../types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
@@ -181,8 +181,42 @@ router.get('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =>
 			return res.status(404).json({ error: 'Test suite not found' });
 		}
 
-		const tests = getTestsInSuite(id);
-		return res.json(tests);
+		// Get entries from new suite_entries table
+		const entries = getEntriesInSuite(id);
+		
+		// Transform conversation entries to legacy test format
+		const tests = await Promise.all(
+			entries
+				.filter(entry => entry.conversation_id) // Only conversation entries (not nested suites)
+				.map(async (entry) => {
+					try {
+						const conversation = await getConversationById(entry.conversation_id!);
+						if (!conversation) return null;
+						
+						const messages = await getConversationMessages(entry.conversation_id!);
+						
+						// Only include single-turn conversations as "tests"
+						if (isSingleTurnConversation(conversation, messages)) {
+							const legacyTest = conversationToLegacyTest(conversation, messages);
+							return {
+								...legacyTest,
+								sequence: entry.sequence
+							};
+						}
+						return null;
+					} catch (error) {
+						console.warn(`Error processing entry ${entry.id}:`, error);
+						return null;
+					}
+				})
+		);
+
+		// Filter out null values and sort by sequence
+		const validTests = tests
+			.filter(test => test !== null)
+			.sort((a, b) => (a?.sequence || 0) - (b?.sequence || 0));
+		
+		return res.json(validTests);
 	} catch (error) {
 		console.error(`Error fetching tests for suite ${req.params.id}:`, error);
 		return res.status(500).json({ error: 'Failed to fetch tests for suite' });
@@ -211,8 +245,26 @@ router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =
 			return res.status(404).json({ error: 'Test suite not found' });
 		}
 
-		const testId = parseInt(test_id);
-		const result = addTestToSuite(suiteId, testId, sequence);
+		const conversationId = parseInt(test_id); // test_id maps to conversation_id
+		
+		// Verify the conversation exists and is single-turn (valid as a "test")
+		const conversation = await getConversationById(conversationId);
+		if (!conversation) {
+			return res.status(404).json({ error: 'Test not found' });
+		}
+
+		const messages = await getConversationMessages(conversationId);
+		if (!isSingleTurnConversation(conversation, messages)) {
+			return res.status(400).json({ error: 'Cannot add multi-turn conversation as test to suite' });
+		}
+
+		// Add entry to suite_entries table using conversation_id
+		const result = addSuiteEntry({
+			parent_suite_id: suiteId,
+			conversation_id: conversationId,
+			sequence: sequence || null
+		});
+		
 		return res.status(201).json(result);
 	} catch (error) {
 		console.error(`Error adding test to suite ${req.params.id}:`, error);
@@ -227,9 +279,9 @@ router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =
 router.delete('/:id/tests/:testId', (async (req: Request<{ id: string, testId: string }>, res: Response) => {
 	try {
 		const suiteId = parseInt(req.params.id);
-		const testId = parseInt(req.params.testId);
+		const conversationId = parseInt(req.params.testId); // testId maps to conversation_id
 
-		if (isNaN(suiteId) || isNaN(testId)) {
+		if (isNaN(suiteId) || isNaN(conversationId)) {
 			return res.status(400).json({ error: 'Invalid suite ID or test ID' });
 		}
 
@@ -239,7 +291,15 @@ router.delete('/:id/tests/:testId', (async (req: Request<{ id: string, testId: s
 			return res.status(404).json({ error: 'Test suite not found' });
 		}
 
-		removeTestFromSuite(suiteId, testId);
+		// Find and delete the suite entry for this conversation
+		const entries = getEntriesInSuite(suiteId);
+		const entryToDelete = entries.find(entry => entry.conversation_id === conversationId);
+		
+		if (!entryToDelete) {
+			return res.status(404).json({ error: 'Test not found in suite' });
+		}
+
+		deleteSuiteEntry(entryToDelete.id);
 		return res.status(204).send();
 	} catch (error) {
 		console.error(`Error removing test ${req.params.testId} from suite ${req.params.id}:`, error);
@@ -269,7 +329,23 @@ router.put('/:id/tests/reorder', (async (req: Request<{ id: string }>, res: Resp
 			return res.status(404).json({ error: 'Test suite not found' });
 		}
 
-		reorderTestsInSuite(suiteId, test_orders);
+		// Map test_id to conversation_id and find corresponding suite entries
+		const entries = getEntriesInSuite(suiteId);
+		const entryOrders = test_orders.map(order => {
+			const conversationId = order.test_id; // test_id maps to conversation_id
+			const entry = entries.find(e => e.conversation_id === conversationId);
+			
+			if (!entry) {
+				throw new Error(`Test ${conversationId} not found in suite ${suiteId}`);
+			}
+			
+			return {
+				entry_id: entry.id,
+				sequence: order.sequence
+			};
+		});
+
+		reorderSuiteEntries(suiteId, entryOrders);
 		return res.status(200).json({ success: true });
 	} catch (error) {
 		console.error(`Error reordering tests in suite ${req.params.id}:`, error);
