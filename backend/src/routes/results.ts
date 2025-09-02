@@ -1,23 +1,35 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createResult, getResultsWithCount, getResultById, getTestById } from '../db/queries';
+import { 
+	getExecutionSessionsWithCount,
+	getExecutionSessionById,
+	getSessionMessages,
+	getConversationById,
+	createExecutionSession,
+	addSessionMessage
+} from '../db/queries';
 import type { TestResult } from '../types';
 import { scoringService } from '../services/scoring-service';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { extractTokenUsage, validateTokenUsage } from '../lib/tokenUsageExtractor';
+import { 
+	sessionToLegacyResult, 
+	legacyResultToSession,
+	conversationToLegacyTest
+} from '../adapters/legacy-adapter';
 
 const router = Router();
 
-// Get all results with optional filters
+// Get all results (from execution sessions)
 router.get('/', (async (req: Request, res: Response) => {
 	try {
 		const { agent_id, test_id } = req.query as { agent_id?: string; test_id?: string };
 
-		// Base filters without pagination applied yet
-		const baseFilters: { agent_id?: number; test_id?: number } = {
+		// Map legacy filters to session filters
+		const baseFilters: { agent_id?: number; conversation_id?: number } = {
 			...(agent_id ? { agent_id: Number(agent_id) } : {}),
-			...(test_id ? { test_id: Number(test_id) } : {})
+			...(test_id ? { conversation_id: Number(test_id) } : {}) // Map test_id to conversation_id TODO deprecate this
 		};
 
 		// If client supplied pagination, honor it
@@ -27,9 +39,18 @@ router.get('/', (async (req: Request, res: Response) => {
 				return;
 			}
 
-			const { data, total } = getResultsWithCount({ ...baseFilters, ...paginationParams });
+			const { data, total } = getExecutionSessionsWithCount({ ...baseFilters, ...paginationParams });
+			
+			// Transform sessions to legacy results format
+			const legacyResults = await Promise.all(
+				data.map(async (session) => {
+					const sessionMessages = await getSessionMessages(session.id!);
+					return sessionToLegacyResult(session, sessionMessages);
+				})
+			);
+
 			return res.json({
-				data,
+				data: legacyResults,
 				total,
 				limit: paginationParams.limit,
 				offset: paginationParams.offset || 0
@@ -38,14 +59,22 @@ router.get('/', (async (req: Request, res: Response) => {
 
 		// Otherwise fall back to default pagination limit for large tables
 		const defaultLimit = paginationConfig.defaultLargeLimit;
-		const { data, total } = getResultsWithCount({
+		const { data, total } = getExecutionSessionsWithCount({
 			...baseFilters,
 			limit: defaultLimit,
 			offset: 0
 		});
 
+		// Transform sessions to legacy results format
+		const legacyResults = await Promise.all(
+			data.map(async (session) => {
+				const sessionMessages = await getSessionMessages(session.id!);
+				return sessionToLegacyResult(session, sessionMessages);
+			})
+		);
+
 		return res.json({
-			data,
+			data: legacyResults,
 			total,
 			limit: defaultLimit,
 			offset: 0
@@ -56,21 +85,27 @@ router.get('/', (async (req: Request, res: Response) => {
 	}
 }) as any);
 
-// Get result by ID
+// Get result by ID (from execution session)
 router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const result = await getResultById(Number(req.params.id));
-		if (!result) {
+		const sessionId = Number(req.params.id);
+		const session = await getExecutionSessionById(sessionId);
+		
+		if (!session) {
 			return res.status(404).json({ error: 'Result not found' });
 		}
-		return res.json(result);
+
+		const sessionMessages = await getSessionMessages(sessionId);
+		const legacyResult = sessionToLegacyResult(session, sessionMessages);
+		
+		return res.json(legacyResult);
 	} catch (error) {
 		console.error('Error fetching result:', error);
 		return res.status(500).json({ error: 'Failed to fetch result' });
 	}
 }) as any);
 
-// Create new result
+// Create new result (as execution session)
 router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_at'>>, res: Response) => {
 	try {
 		let processedBody = { ...req.body };
@@ -106,19 +141,42 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 			processedBody.input_tokens = validatedTokens.input_tokens;
 			processedBody.output_tokens = validatedTokens.output_tokens;
 		}
-		
-		const result = await createResult(processedBody);
+
+		// Get conversation for the test input
+		const conversation = await getConversationById(processedBody.test_id); // test_id maps to conversation_id
+		if (!conversation) {
+			return res.status(404).json({ error: 'Test not found' });
+		}
+
+		const legacyTest = conversationToLegacyTest(conversation, []);
+		const { session, messages } = legacyResultToSession(processedBody, legacyTest.input);
+
+		const createdSession = await createExecutionSession(session);
+
+		// Add session messages
+		const createdMessages = [];
+		for (const message of messages) {
+			const createdMessage = await addSessionMessage({
+				session_id: createdSession.id!,
+				...message
+			});
+			createdMessages.push(createdMessage);
+		}
+
+		// Transform back to legacy result format for response
+		const legacyResult = sessionToLegacyResult(createdSession, createdMessages);
 
 		const formattedResult = {
-			...result,
-			input_tokens: result.input_tokens ?? undefined,
-			output_tokens: result.output_tokens ?? undefined
+			...legacyResult,
+			input_tokens: legacyResult.input_tokens ?? undefined,
+			output_tokens: legacyResult.output_tokens ?? undefined
 		};
 
-		const test = await getTestById(result.test_id);
-		if (test?.expected_output) {
-			scoringService.scoreTestResult(formattedResult, test).catch(error => {
-				console.error(`Failed to score result ${result.id}:`, error);
+		// Trigger scoring if there's an expected output
+		if (conversation.expected_outcome) {
+			const testForScoring = conversationToLegacyTest(conversation, []);
+			scoringService.scoreTestResult(formattedResult, testForScoring).catch(error => {
+				console.error(`Failed to score result ${legacyResult.id}:`, error);
 			});
 		}
 
@@ -131,34 +189,39 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 
 router.post('/:id/score', (async (req: Request<{ id: string }, {}, { llm_config_id?: number }>, res: Response) => {
 	try {
-		const resultId = Number(req.params.id);
-		if (isNaN(resultId)) {
+		const sessionId = Number(req.params.id);
+		if (isNaN(sessionId)) {
 			return res.status(400).json({ error: 'Invalid result ID' });
 		}
 
-		const result = await getResultById(resultId);
-		if (!result) {
+		const session = await getExecutionSessionById(sessionId);
+		if (!session) {
 			return res.status(404).json({ error: 'Result not found' });
 		}
 
-		const test = await getTestById(result.test_id);
-		if (!test) {
+		const conversation = await getConversationById(session.conversation_id);
+		if (!conversation) {
 			return res.status(404).json({ error: 'Associated test not found' });
 		}
 
-		if (!test.expected_output) {
+		if (!conversation.expected_outcome) {
 			return res.status(400).json({ error: 'Test has no expected output to score against' });
 		}
 
 		const { llm_config_id } = req.body;
 
-		scoringService.scoreTestResult(result, test, llm_config_id).catch(error => {
-			console.error(`Failed to score result ${result.id}:`, error);
+		// Transform session to legacy result for scoring
+		const sessionMessages = await getSessionMessages(sessionId);
+		const legacyResult = sessionToLegacyResult(session, sessionMessages);
+		const legacyTest = conversationToLegacyTest(conversation, []);
+
+		scoringService.scoreTestResult(legacyResult, legacyTest, llm_config_id).catch(error => {
+			console.error(`Failed to score result ${legacyResult.id}:`, error);
 		});
 
 		return res.status(202).json({
 			message: 'Scoring initiated',
-			result_id: resultId
+			result_id: sessionId
 		});
 	} catch (error) {
 		console.error('Error initiating scoring:', error);
