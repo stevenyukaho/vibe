@@ -7,11 +7,14 @@ import {
 	JobFilters,
 	JobStatus,
 	TestSuite,
-	TestSuiteTest,
 	SuiteEntry,
 	SuiteRun,
 	SuiteRunFilters,
-	LLMConfig
+	LLMConfig,
+	Conversation,
+	ConversationMessage,
+	ExecutionSession,
+	SessionMessage
 } from '../types';
 
 
@@ -392,20 +395,22 @@ export const getExecutionTimeByResultId = (resultId: number): number | undefined
 export async function createJob(job: Job): Promise<Job> {
 	const statement = db.prepare(`
 	INSERT INTO jobs (
-	  id, agent_id, test_id, status, progress, partial_result, result_id, error, suite_run_id, job_type, claimed_by, claimed_at
+	  id, agent_id, test_id, conversation_id, status, progress, partial_result, result_id, session_id, error, suite_run_id, job_type, claimed_by, claimed_at
 	) VALUES (
-	  @id, @agent_id, @test_id, @status, @progress, @partial_result, @result_id, @error, @suite_run_id, @job_type, @claimed_by, @claimed_at
+	  @id, @agent_id, @test_id, @conversation_id, @status, @progress, @partial_result, @result_id, @session_id, @error, @suite_run_id, @job_type, @claimed_by, @claimed_at
 	)
   `);
 
 	statement.run({
 		id: job.id,
 		agent_id: job.agent_id,
-		test_id: job.test_id,
+		test_id: job.test_id || null,
+		conversation_id: job.conversation_id || null,
 		status: job.status,
 		progress: job.progress || 0,
 		partial_result: job.partial_result || null,
 		result_id: job.result_id || null,
+		session_id: job.session_id || null,
 		error: job.error || null,
 		suite_run_id: job.suite_run_id || null,
 		job_type: job.job_type || 'crewai',
@@ -669,51 +674,6 @@ export const getTestSuiteById = (id: number) => {
 	return db.prepare('SELECT * FROM test_suites WHERE id = ?').get(id) as TestSuite;
 };
 
-// TestSuiteTest queries
-export const addTestToSuite = (suiteId: number, testId: number, sequence?: number) => {
-	const testSuiteTest: TestSuiteTest = {
-		suite_id: suiteId,
-		test_id: testId,
-		sequence
-	};
-
-	const statement = db.prepare(`
-	INSERT INTO test_suite_tests (suite_id, test_id, sequence)
-	VALUES (@suite_id, @test_id, @sequence)
-	RETURNING *
-  `);
-
-	return statement.get(testSuiteTest) as TestSuiteTest;
-};
-
-export const removeTestFromSuite = (suiteId: number, testId: number) => {
-	const statement = db.prepare('DELETE FROM test_suite_tests WHERE suite_id = ? AND test_id = ?');
-	return statement.run(suiteId, testId);
-};
-
-export const getTestsInSuite = (suiteId: number): Test[] => {
-	const query = `
-	SELECT t.*, tst.sequence
-	FROM tests t
-	JOIN test_suite_tests tst ON t.id = tst.test_id
-	WHERE tst.suite_id = ?
-	ORDER BY tst.sequence, t.name
-  `;
-
-	return db.prepare(query).all(suiteId) as (Test & { sequence?: number })[];
-};
-
-export const reorderTestsInSuite = (suiteId: number, testOrders: { test_id: number, sequence: number }[]) => {
-	const transaction = db.transaction(() => {
-		const statement = db.prepare('UPDATE test_suite_tests SET sequence = ? WHERE suite_id = ? AND test_id = ?');
-
-		for (const order of testOrders) {
-			statement.run(order.sequence, suiteId, order.test_id);
-		}
-	});
-
-	return transaction();
-};
 
 export const getEntriesInSuite = (parentSuiteId: number): SuiteEntry[] => {
     const stmt = db.prepare(`
@@ -731,14 +691,15 @@ export const addSuiteEntry = (entry: {
     parent_suite_id: number;
     sequence?: number;
     test_id?: number;
+    conversation_id?: number;
     child_suite_id?: number;
     agent_id_override?: number;
 }): SuiteEntry => {
     const statement = db.prepare(`
         INSERT INTO suite_entries (
-            parent_suite_id, sequence, test_id, child_suite_id, agent_id_override
+            parent_suite_id, sequence, test_id, conversation_id, child_suite_id, agent_id_override
         ) VALUES (
-            @parent_suite_id, @sequence, @test_id, @child_suite_id, @agent_id_override
+            @parent_suite_id, @sequence, @test_id, @conversation_id, @child_suite_id, @agent_id_override
         )
         RETURNING *
     `);
@@ -1107,4 +1068,276 @@ export const getLLMConfigsWithCount = (params: { limit?: number; offset?: number
 	const totalResult = db.prepare('SELECT COUNT(*) as count FROM llm_configs').get() as { count: number };
 
 	return { data, total: totalResult.count };
+};
+
+export const createConversation = (conversation: Conversation) => {
+	const conversationWithDefaults = {
+		...conversation,
+		name: conversation.name || '',
+		description: conversation.description || '',
+		tags: conversation.tags || '[]',
+		expected_outcome: conversation.expected_outcome || ''
+	};
+
+	const statement = db.prepare(`
+		INSERT INTO conversations (name, description, tags, expected_outcome)
+		VALUES (@name, @description, @tags, @expected_outcome)
+		RETURNING *
+	`);
+	return statement.get(conversationWithDefaults) as Conversation;
+};
+
+export const getConversations = () => {
+	return db.prepare('SELECT * FROM conversations ORDER BY created_at DESC').all() as Conversation[];
+};
+
+export const getConversationById = (id: number) => {
+	return db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as Conversation;
+};
+
+export const getConversationsWithCount = (params: { limit?: number; offset?: number } = {}): { data: Conversation[]; total: number } => {
+	const { limit, offset } = params;
+	let query = 'SELECT * FROM conversations ORDER BY created_at DESC';
+	const queryParams: any[] = [];
+
+	if (limit !== undefined) {
+		query += ' LIMIT ?';
+		queryParams.push(limit);
+	}
+	if (offset !== undefined) {
+		query += ' OFFSET ?';
+		queryParams.push(offset);
+	}
+
+	const data = db.prepare(query).all(...queryParams) as Conversation[];
+	const totalResult = db.prepare('SELECT COUNT(*) as count FROM conversations').get() as { count: number };
+
+	return { data, total: totalResult.count };
+};
+
+export const updateConversation = (id: number, conversation: Partial<Conversation>) => {
+	const filteredConversation = Object.fromEntries(
+		Object.entries(conversation).filter(([_, value]) => value !== undefined)
+	);
+
+	if (Object.keys(filteredConversation).length === 0) {
+		return getConversationById(id);
+	}
+
+	const updates = Object.keys(filteredConversation)
+		.filter(key => key !== 'id' && key !== 'created_at')
+		.map(key => `${key} = @${key}`)
+		.join(', ');
+
+	const statement = db.prepare(`
+		UPDATE conversations 
+		SET ${updates}, updated_at = CURRENT_TIMESTAMP
+		WHERE id = @id
+		RETURNING *
+	`);
+
+	return statement.get({ ...filteredConversation, id }) as Conversation;
+};
+
+export const deleteConversation = (id: number) => {
+	const transaction = db.transaction(() => {
+		// Delete associated jobs first
+		const deleteJobsStmt = db.prepare('DELETE FROM jobs WHERE conversation_id = ?');
+		deleteJobsStmt.run(id);
+
+		// Delete associated execution sessions (will cascade to session messages)
+		const deleteSessionsStmt = db.prepare('DELETE FROM execution_sessions WHERE conversation_id = ?');
+		deleteSessionsStmt.run(id);
+
+		// Delete conversation messages (should cascade but being explicit)
+		const deleteMessagesStmt = db.prepare('DELETE FROM conversation_messages WHERE conversation_id = ?');
+		deleteMessagesStmt.run(id);
+
+		// Delete the conversation
+		const deleteConversationStmt = db.prepare('DELETE FROM conversations WHERE id = ?');
+		return deleteConversationStmt.run(id);
+	});
+
+	return transaction();
+};
+
+export const addMessageToConversation = (message: ConversationMessage) => {
+	const statement = db.prepare(`
+		INSERT INTO conversation_messages (conversation_id, sequence, role, content, metadata)
+		VALUES (@conversation_id, @sequence, @role, @content, @metadata)
+		RETURNING *
+	`);
+	return statement.get(message) as ConversationMessage;
+};
+
+export const getConversationMessages = (conversationId: number) => {
+	return db.prepare('SELECT * FROM conversation_messages WHERE conversation_id = ? ORDER BY sequence').all(conversationId) as ConversationMessage[];
+};
+
+export const updateConversationMessage = (id: number, message: Partial<ConversationMessage>) => {
+	const filteredMessage = Object.fromEntries(
+		Object.entries(message).filter(([_, value]) => value !== undefined)
+	);
+
+	if (Object.keys(filteredMessage).length === 0) {
+		return db.prepare('SELECT * FROM conversation_messages WHERE id = ?').get(id) as ConversationMessage;
+	}
+
+	const updates = Object.keys(filteredMessage)
+		.filter(key => key !== 'id' && key !== 'created_at')
+		.map(key => `${key} = @${key}`)
+		.join(', ');
+
+	const statement = db.prepare(`
+		UPDATE conversation_messages 
+		SET ${updates}
+		WHERE id = @id
+		RETURNING *
+	`);
+
+	return statement.get({ ...filteredMessage, id }) as ConversationMessage;
+};
+
+export const deleteConversationMessage = (id: number) => {
+	const statement = db.prepare('DELETE FROM conversation_messages WHERE id = ?');
+	return statement.run(id);
+};
+
+export const reorderConversationMessages = (_conversationId: number, newOrder: { id: number; sequence: number }[]) => {
+	const transaction = db.transaction(() => {
+		const updateStmt = db.prepare('UPDATE conversation_messages SET sequence = ? WHERE id = ?');
+		for (const { id, sequence } of newOrder) {
+			updateStmt.run(sequence, id);
+		}
+	});
+	
+	return transaction();
+};
+
+export const createExecutionSession = (session: ExecutionSession) => {
+	const statement = db.prepare(`
+		INSERT INTO execution_sessions (
+			conversation_id, agent_id, status, started_at, completed_at,
+			success, error_message, metadata
+		)
+		VALUES (
+			@conversation_id, @agent_id, @status, @started_at, @completed_at,
+			@success, @error_message, @metadata
+		)
+		RETURNING *
+	`);
+	return statement.get(session) as ExecutionSession;
+};
+
+export const getExecutionSessions = (filters?: { conversation_id?: number; agent_id?: number; limit?: number; offset?: number }) => {
+	let query = 'SELECT * FROM execution_sessions';
+	const params: any[] = [];
+
+	if (filters) {
+		const conditions: string[] = [];
+		if (filters.conversation_id) {
+			conditions.push('conversation_id = ?');
+			params.push(filters.conversation_id);
+		}
+		if (filters.agent_id) {
+			conditions.push('agent_id = ?');
+			params.push(filters.agent_id);
+		}
+		if (conditions.length > 0) {
+			query += ' WHERE ' + conditions.join(' AND ');
+		}
+	}
+
+	query += ' ORDER BY started_at DESC';
+
+	if (filters?.limit !== undefined) {
+		query += ' LIMIT ?';
+		params.push(filters.limit);
+	}
+	if (filters?.offset !== undefined) {
+		query += ' OFFSET ?';
+		params.push(filters.offset);
+	}
+
+	return db.prepare(query).all(...params) as ExecutionSession[];
+};
+
+export const getExecutionSessionsWithCount = (filters?: { conversation_id?: number; agent_id?: number; limit?: number; offset?: number }): { data: ExecutionSession[]; total: number } => {
+	// Get total count
+	let countQuery = 'SELECT COUNT(*) as count FROM execution_sessions';
+	const countParams: any[] = [];
+
+	if (filters) {
+		const conditions: string[] = [];
+		if (filters.conversation_id) {
+			conditions.push('conversation_id = ?');
+			countParams.push(filters.conversation_id);
+		}
+		if (filters.agent_id) {
+			conditions.push('agent_id = ?');
+			countParams.push(filters.agent_id);
+		}
+		if (conditions.length > 0) {
+			countQuery += ' WHERE ' + conditions.join(' AND ');
+		}
+	}
+
+	const countResult = db.prepare(countQuery).get(...countParams) as { count: number };
+	const total = countResult.count;
+
+	// Get actual data
+	const data = getExecutionSessions(filters);
+
+	return { data, total };
+};
+
+export const getExecutionSessionById = (id: number) => {
+	return db.prepare('SELECT * FROM execution_sessions WHERE id = ?').get(id) as ExecutionSession;
+};
+
+export const updateExecutionSession = (id: number, session: Partial<ExecutionSession>) => {
+	const filteredSession = Object.fromEntries(
+		Object.entries(session).filter(([_, value]) => value !== undefined)
+	);
+
+	if (Object.keys(filteredSession).length === 0) {
+		return getExecutionSessionById(id);
+	}
+
+	const updates = Object.keys(filteredSession)
+		.filter(key => key !== 'id')
+		.map(key => `${key} = @${key}`)
+		.join(', ');
+
+	const statement = db.prepare(`
+		UPDATE execution_sessions 
+		SET ${updates}
+		WHERE id = @id
+		RETURNING *
+	`);
+
+	return statement.get({ ...filteredSession, id }) as ExecutionSession;
+};
+
+export const addSessionMessage = (message: SessionMessage) => {
+	const statement = db.prepare(`
+		INSERT INTO session_messages (session_id, sequence, role, content, timestamp, metadata)
+		VALUES (@session_id, @sequence, @role, @content, @timestamp, @metadata)
+		RETURNING *
+	`);
+	return statement.get(message) as SessionMessage;
+};
+
+export const getSessionMessages = (sessionId: number) => {
+	return db.prepare('SELECT * FROM session_messages WHERE session_id = ? ORDER BY sequence').all(sessionId) as SessionMessage[];
+};
+
+export const getFullSessionTranscript = (sessionId: number) => {
+	const session = getExecutionSessionById(sessionId);
+	const messages = getSessionMessages(sessionId);
+	
+	return {
+		session,
+		messages
+	};
 };
