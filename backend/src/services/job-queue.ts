@@ -116,6 +116,46 @@ export class JobQueueService {
 		
 		return id;
 	}
+
+	/**
+	 * Create a new conversation job and add it to the queue
+	 * @param agent_id Agent ID to use for the conversation
+	 * @param conversation_id Conversation ID to run
+	 * @param suite_run_id Optional suite run ID if this job is part of a suite run
+	 * @returns The job ID
+	 */
+	async createConversationJob(agent_id: number, conversation_id: number, suite_run_id?: number): Promise<string> {
+		const id = uuidv4();
+
+		const agent = await getAgentById(agent_id);
+		if (!agent) {
+			throw new Error(`Agent ${agent_id} not found`);
+		}
+
+		const jobType = getAgentJobType(agent.settings);
+		
+		const job: Job = {
+			id,
+			agent_id,
+			conversation_id,
+			status: JobStatus.PENDING,
+			progress: 0,
+			job_type: jobType
+		};
+		
+		// Add suite_run_id if provided
+		if (suite_run_id) {
+			job.suite_run_id = suite_run_id;
+		}
+		
+		// Save to database
+		await dbCreateJob(job);
+		
+		// Add to in-memory queue
+		this.jobs.set(id, job);
+		
+		return id;
+	}
 	
 	/**
 	 * Get a job by ID
@@ -442,9 +482,8 @@ export class JobQueueService {
 			.filter((id): id is number => id !== undefined && id !== null)
 			.map(id => getExecutionTimeByResultId(id) || 0);
 		const executionTimesMs = executionTimesSec.map(sec => sec * 1000);
-		const totalExecutionTime = executionTimesMs.reduce((sum, ms) => sum + ms, 0);
 		const averageExecutionTime = executionTimesMs.length > 0
-			? totalExecutionTime / executionTimesMs.length
+			? executionTimesMs.reduce((sum, ms) => sum + ms, 0) / executionTimesMs.length
 			: undefined;
 		
 		// Calculate overall progress percentage
@@ -469,7 +508,6 @@ export class JobQueueService {
 			successful_tests: successfulJobs.length,
 			failed_tests: completedJobs.length - successfulJobs.length,
 			average_execution_time: averageExecutionTime,
-			total_execution_time: totalExecutionTime,
 			total_input_tokens: tokenUsage.total_input_tokens,
 			total_output_tokens: tokenUsage.total_output_tokens
 		});
