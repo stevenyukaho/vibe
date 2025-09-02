@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SideNav, SideNavItems, SideNavLink } from '@carbon/react';
+import { SideNav, SideNavItems, SideNavLink, SideNavMenu } from '@carbon/react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
     TestTool,
@@ -8,7 +8,10 @@ import {
     Dashboard,
     Play,
     CloudServices,
-    Rocket
+    Rocket,
+    Chat,
+    Events,
+    Warning
 } from '@carbon/icons-react';
 import styles from './SideNav.module.scss';
 
@@ -43,11 +46,11 @@ export default function AppSideNav() {
                     Dashboard
                 </SideNavLink>
                 <SideNavLink
-                    renderIcon={TestTool}
-                    isActive={activeItem === 'tests'}
-                    onClick={() => handleNavChange('tests')}
+                    renderIcon={Chat}
+                    isActive={activeItem === 'conversations'}
+                    onClick={() => handleNavChange('conversations')}
                 >
-                    Tests
+                    Conversations
                 </SideNavLink>
                 <SideNavLink
                     renderIcon={DataTable}
@@ -57,11 +60,11 @@ export default function AppSideNav() {
                     Agents
                 </SideNavLink>
                 <SideNavLink
-                    renderIcon={Report}
-                    isActive={activeItem === 'results'}
-                    onClick={() => handleNavChange('results')}
+                    renderIcon={Events}
+                    isActive={activeItem === 'sessions'}
+                    onClick={() => handleNavChange('sessions')}
                 >
-                    Results
+                    Sessions
                 </SideNavLink>
                 <SideNavLink
                     renderIcon={Dashboard}
@@ -72,10 +75,10 @@ export default function AppSideNav() {
                 </SideNavLink>
                 <SideNavLink
                     renderIcon={Play}
-                    isActive={activeItem === 'run'}
-                    onClick={() => handleNavChange('run')}
+                    isActive={activeItem === 'execute'}
+                    onClick={() => handleNavChange('execute')}
                 >
-                    Run test
+                    Quick execute
                 </SideNavLink>
                 <SideNavLink
                     renderIcon={DataTable}
@@ -98,6 +101,31 @@ export default function AppSideNav() {
                 >
                     LLM configs
                 </SideNavLink>
+                
+                {/* Legacy (Deprecated) Section */}
+                <SideNavMenu renderIcon={Warning} title="Legacy (Deprecated)">
+                    <SideNavLink
+                        renderIcon={TestTool}
+                        isActive={activeItem === 'tests'}
+                        onClick={() => handleNavChange('tests')}
+                    >
+                        Tests
+                    </SideNavLink>
+                    <SideNavLink
+                        renderIcon={Report}
+                        isActive={activeItem === 'results'}
+                        onClick={() => handleNavChange('results')}
+                    >
+                        Results
+                    </SideNavLink>
+                    <SideNavLink
+                        renderIcon={Play}
+                        isActive={activeItem === 'run'}
+                        onClick={() => handleNavChange('run')}
+                    >
+                        Run test
+                    </SideNavLink>
+                </SideNavMenu>
             </SideNavItems>
         </SideNav>
     );
