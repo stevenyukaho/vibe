@@ -47,9 +47,9 @@ export default function JobsManager({
 
 	// Confirmation modal states
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-	const [jobToDelete, setJobToDelete] = useState<number | null>(null);
+	const [jobToDelete, setJobToDelete] = useState<string | null>(null);
 	const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-	const [jobToCancel, setJobToCancel] = useState<number | null>(null);
+	const [jobToCancel, setJobToCancel] = useState<string | null>(null);
 
 	const [currentPage, setCurrentPage] = useState(0);
 	const [pageSize, setPageSize] = useState(50);
@@ -89,7 +89,7 @@ export default function JobsManager({
 	}, [currentPage]);
 
 	// Handle job selection for viewing details
-	const handleViewJob = (jobId: number) => {
+	const handleViewJob = (jobId: string) => {
 		const job = jobs.find(j => j.id === jobId);
 		if (job) {
 			setSelectedJob(job);
@@ -130,8 +130,17 @@ export default function JobsManager({
 		setSuccessMessage(null);
 
 		try {
-			const newJob = await api.createJob(selectedJob.agent_id, selectedJob.test_id);
-			setSuccessMessage(`New job #${newJob.id} created successfully and is now queued for execution`);
+			if (selectedJob.test_id) {
+				// Legacy test job
+				const newJob = await api.createJob(selectedJob.agent_id, selectedJob.test_id);
+				setSuccessMessage(`New job #${newJob.id} created successfully and is now queued for execution`);
+			} else if (selectedJob.conversation_id) {
+				// Conversation job
+				const result = await api.executeConversation(selectedJob.agent_id, selectedJob.conversation_id);
+				setSuccessMessage(`Conversation job ${result.job_id} created successfully and is now queued for execution`);
+			} else {
+				throw new Error('Job has neither test_id nor conversation_id');
+			}
 			fetchJobs();
 		} catch (error) {
 			setError(error instanceof Error ? error.message : 'Failed to re-run job');
@@ -141,7 +150,7 @@ export default function JobsManager({
 	};
 
 	// Open delete confirmation modal
-	const handleDeleteJobOpen = (jobId: number) => {
+	const handleDeleteJobOpen = (jobId: string) => {
 		setJobToDelete(jobId);
 		setIsDeleteModalOpen(true);
 	};
@@ -169,7 +178,7 @@ export default function JobsManager({
 	};
 
 	// Open cancel confirmation modal
-	const handleCancelJobOpen = (jobId: number) => {
+	const handleCancelJobOpen = (jobId: string) => {
 		setJobToCancel(jobId);
 		setIsCancelModalOpen(true);
 	};
@@ -244,19 +253,25 @@ export default function JobsManager({
 							kind="ghost"
 							size="sm"
 							renderIcon={PlayFilled}
-							onClick={() => {
+							onClick={async () => {
 								setRerunningJob(true);
-								api.createJob(job.agent_id, job.test_id)
-									.then(() => {
-										fetchJobs();
-									})
-									.catch(err => {
-										console.error('Error re-running job:', err);
-										setError(err instanceof Error ? err.message : 'Failed to re-run job');
-									})
-									.finally(() => {
-										setRerunningJob(false);
-									});
+								try {
+									if (job.test_id) {
+										// Legacy test job
+										await api.createJob(job.agent_id, job.test_id);
+									} else if (job.conversation_id) {
+										// Conversation job
+										await api.executeConversation(job.agent_id, job.conversation_id);
+									} else {
+										throw new Error('Job has neither test_id nor conversation_id');
+									}
+									fetchJobs();
+								} catch (err) {
+									console.error('Error re-running job:', err);
+									setError(err instanceof Error ? err.message : 'Failed to re-run job');
+								} finally {
+									setRerunningJob(false);
+								}
 							}}
 							iconDescription="Re-run this job"
 							disabled={rerunningJob}
