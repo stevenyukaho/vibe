@@ -3,6 +3,50 @@ import { Agent, Test, TestResult } from '../../../backend/src/exports';
 // Re-export types for use in components
 export type { Agent, Test, TestResult };
 
+// Conversation types
+export interface ConversationMessage {
+	id?: number;
+	conversation_id?: number;
+	sequence: number;
+	role: 'user' | 'system';
+	content: string;
+	metadata?: string;
+	created_at?: string;
+}
+
+export interface Conversation {
+	id?: number;
+	name: string;
+	description?: string;
+	tags?: string;
+	expected_outcome?: string;
+	created_at?: string;
+	updated_at?: string;
+	messages?: ConversationMessage[];
+}
+
+export interface SessionMessage {
+	id?: number;
+	session_id?: number;
+	sequence: number;
+	role: 'user' | 'assistant' | 'system' | 'tool';
+	content: string;
+	timestamp: string;
+	metadata?: string;
+}
+
+export interface ExecutionSession {
+	id?: number;
+	conversation_id: number;
+	agent_id: number;
+	status: 'pending' | 'running' | 'completed' | 'failed';
+	started_at?: string;
+	completed_at?: string;
+	success?: boolean;
+	error_message?: string;
+	metadata?: string;
+}
+
 export interface LLMConfig {
 	id: number;
 	name: string;
@@ -35,15 +79,21 @@ export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 // Job interface
 export interface Job {
-	id: number;
+	id: string; // UUID
 	agent_id: number;
-	test_id: number;
+	test_id?: number; // Legacy field
+	conversation_id?: number; // New field for conversations
 	status: JobStatus;
 	progress: number;
-	result_id: number | null;
+	result_id?: number | null; // Legacy field
+	session_id?: number; // New field for execution sessions
 	created_at: string;
 	updated_at: string;
 	error?: string;
+	suite_run_id?: number;
+	job_type?: string;
+	claimed_by?: string;
+	claimed_at?: string;
 }
 
 // Test Suite and Suite Run interfaces
@@ -776,5 +826,186 @@ export const api = {
 		}
 		const data = await response.json() as { success: boolean };
 		return data;
+	},
+
+	// Conversations
+	async getConversations(filters?: { limit?: number; offset?: number }): Promise<PaginatedResponse<Conversation>> {
+		const params = new URLSearchParams();
+		if (filters?.limit !== undefined) {
+			params.append('limit', filters.limit.toString());
+		}
+		if (filters?.offset !== undefined) {
+			params.append('offset', filters.offset.toString());
+		}
+
+		const response = await fetch(`${API_URL}/api/conversations?${params}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch conversations');
+		}
+		return response.json();
+	},
+
+	async getConversationById(id: number): Promise<Conversation> {
+		const response = await fetch(`${API_URL}/api/conversations/${id}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch conversation');
+		}
+		return response.json();
+	},
+
+	async createConversation(conversation: Omit<Conversation, 'id' | 'created_at' | 'updated_at'>): Promise<Conversation> {
+		const response = await fetch(`${API_URL}/api/conversations`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(conversation),
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to create conversation');
+		}
+		return response.json();
+	},
+
+	async updateConversation(id: number, conversation: Partial<Conversation>): Promise<Conversation> {
+		const response = await fetch(`${API_URL}/api/conversations/${id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(conversation),
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update conversation');
+		}
+		return response.json();
+	},
+
+	async deleteConversation(id: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/conversations/${id}`, {
+			method: 'DELETE',
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete conversation');
+		}
+	},
+
+	async addMessageToConversation(conversationId: number, message: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>): Promise<ConversationMessage> {
+		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(message),
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to add message to conversation');
+		}
+		return response.json();
+	},
+
+	async updateConversationMessage(conversationId: number, sequence: number, updates: Partial<ConversationMessage>): Promise<ConversationMessage> {
+		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/${sequence}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updates),
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update conversation message');
+		}
+		return response.json();
+	},
+
+	async deleteConversationMessage(conversationId: number, sequence: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/${sequence}`, {
+			method: 'DELETE',
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete conversation message');
+		}
+	},
+
+	async reorderConversationMessages(conversationId: number, messageOrders: { sequence: number; new_sequence: number }[]): Promise<void> {
+		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/reorder`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ message_orders: messageOrders }),
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to reorder conversation messages');
+		}
+	},
+
+	// Execute a conversation with a specific agent
+	async executeConversation(agent_id: number, conversation_id: number): Promise<{ job_id: string; message: string }> {
+		const response = await fetch(`${API_URL}/api/execute/conversation`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ agent_id, conversation_id }),
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to execute conversation');
+		}
+		return response.json();
+	},
+
+	// Execution Sessions
+	async getExecutionSessions(filters?: { conversation_id?: number; agent_id?: number; limit?: number; offset?: number }): Promise<PaginatedResponse<ExecutionSession>> {
+		const params = new URLSearchParams();
+		if (filters?.conversation_id) {
+			params.append('conversation_id', filters.conversation_id.toString());
+		}
+		if (filters?.agent_id) {
+			params.append('agent_id', filters.agent_id.toString());
+		}
+		if (filters?.limit !== undefined) {
+			params.append('limit', filters.limit.toString());
+		}
+		if (filters?.offset !== undefined) {
+			params.append('offset', filters.offset.toString());
+		}
+
+		const response = await fetch(`${API_URL}/api/sessions?${params}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch execution sessions');
+		}
+		return response.json();
+	},
+
+	async getExecutionSessionById(id: number): Promise<ExecutionSession> {
+		const response = await fetch(`${API_URL}/api/sessions/${id}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch execution session');
+		}
+		return response.json();
+	},
+
+	async getSessionTranscript(sessionId: number): Promise<SessionMessage[]> {
+		const response = await fetch(`${API_URL}/api/sessions/${sessionId}/transcript`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch session transcript');
+		}
+		const data = await response.json();
+		return data.messages;
+	},
+
+	async getSessionTranscriptWithSession(sessionId: number): Promise<{ session: ExecutionSession; messages: SessionMessage[] }> {
+		const response = await fetch(`${API_URL}/api/sessions/${sessionId}/transcript`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch session transcript');
+		}
+		const data = await response.json();
+		return {
+			session: data.session,
+			messages: data.messages || []
+		};
 	}
 };
