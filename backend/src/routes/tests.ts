@@ -1,12 +1,27 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createTest, getTests, getTestById, updateTest, deleteTest, getTestsWithCount } from '../db/queries';
+import { 
+	createConversation, 
+	getConversations, 
+	getConversationById, 
+	updateConversation, 
+	deleteConversation, 
+	getConversationsWithCount,
+	addMessageToConversation,
+	getConversationMessages,
+	updateConversationMessage
+} from '../db/queries';
 import type { Test } from '../types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
+import { 
+	conversationToLegacyTest, 
+	legacyTestToConversation, 
+	isSingleTurnConversation 
+} from '../adapters/legacy-adapter';
 
 const router = Router();
 
-// Get all tests
+// Get all tests (from conversations)
 router.get('/', (async (req: Request, res: Response) => {
 	try {
 		if (hasPaginationParams(req)) {
@@ -15,39 +30,81 @@ router.get('/', (async (req: Request, res: Response) => {
 				return;
 			}
 
-			const { data, total } = getTestsWithCount(queryParams);
+			const { data } = getConversationsWithCount(queryParams);
+			
+			// Filter to single-turn conversations and transform to legacy test format
+			const legacyTests = await Promise.all(
+				data.map(async (conversation) => {
+					const messages = await getConversationMessages(conversation.id!);
+					// Only include single-turn conversations as "tests"
+					if (isSingleTurnConversation(conversation, messages)) {
+						return conversationToLegacyTest(conversation, messages);
+					}
+					return null;
+				})
+			);
+
+			// Filter out null values (multi-turn conversations)
+			const filteredTests = legacyTests.filter(test => test !== null) as Test[];
 
 			return res.json({
-				data,
-				total,
+				data: filteredTests,
+				total: filteredTests.length, // Note: this changes the total count from conversations to single-turn only
 				limit: queryParams.limit,
 				offset: queryParams.offset
 			});
 		}
 
-		const tests = await getTests();
-		return res.json(tests);
+		const conversations = await getConversations();
+		
+		// Transform conversations to legacy tests format
+		const legacyTests = await Promise.all(
+			conversations.map(async (conversation) => {
+				const messages = await getConversationMessages(conversation.id!);
+				// Only include single-turn conversations as "tests"
+				if (isSingleTurnConversation(conversation, messages)) {
+					return conversationToLegacyTest(conversation, messages);
+				}
+				return null;
+			})
+		);
+
+		// Filter out null values (multi-turn conversations)
+		const filteredTests = legacyTests.filter(test => test !== null) as Test[];
+		
+		return res.json(filteredTests);
 	} catch (error) {
 		console.error('Error fetching tests:', error);
 		return res.status(500).json({ error: 'Failed to fetch tests' });
 	}
 }) as any);
 
-// Get test by ID
+// Get test by ID (from conversation)
 router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const test = await getTestById(Number(req.params.id));
-		if (!test) {
+		const conversationId = Number(req.params.id);
+		const conversation = await getConversationById(conversationId);
+		
+		if (!conversation) {
 			return res.status(404).json({ error: 'Test not found' });
 		}
-		return res.json(test);
+
+		const messages = await getConversationMessages(conversationId);
+		
+		// Ensure this is a single-turn conversation (valid as a "test")
+		if (!isSingleTurnConversation(conversation, messages)) {
+			return res.status(404).json({ error: 'Test not found (multi-turn conversation)' });
+		}
+
+		const legacyTest = conversationToLegacyTest(conversation, messages);
+		return res.json(legacyTest);
 	} catch (error) {
 		console.error('Error fetching test:', error);
 		return res.status(500).json({ error: 'Failed to fetch test' });
 	}
 }) as any);
 
-// Create new test
+// Create new test (as conversation)
 router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | 'updated_at'>>, res: Response) => {
 	try {
 		const { name, input } = req.body;
@@ -60,8 +117,20 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
 			});
 		}
 
-		const test = await createTest(req.body);
-		return res.status(201).json(test);
+		// Transform legacy test to conversation format
+		const { conversation, messages } = legacyTestToConversation(req.body);
+		const createdConversation = await createConversation(conversation);
+
+		// Add the user message
+		const createdMessage = await addMessageToConversation({
+			conversation_id: createdConversation.id!,
+			...messages[0]
+		});
+
+		// Transform back to legacy test format for response
+		const legacyTest = conversationToLegacyTest(createdConversation, [createdMessage]);
+		
+		return res.status(201).json(legacyTest);
 	} catch (error) {
 		console.error('Error creating test:', error);
 		return res.status(500).json({
@@ -71,32 +140,69 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
 	}
 }) as any);
 
-// Update test
+// Update test (conversation)
 router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res: Response) => {
 	try {
-		const test = await updateTest(Number(req.params.id), req.body);
-		if (!test) {
+		const conversationId = Number(req.params.id);
+		
+		// Check if conversation exists and is single-turn
+		const conversation = await getConversationById(conversationId);
+		if (!conversation) {
 			return res.status(404).json({ error: 'Test not found' });
 		}
-		return res.json(test);
+
+		const messages = await getConversationMessages(conversationId);
+		if (!isSingleTurnConversation(conversation, messages)) {
+			return res.status(400).json({ error: 'Cannot update multi-turn conversation as test' });
+		}
+
+		// Update conversation metadata
+		const conversationUpdates: any = {};
+		if (req.body.name) conversationUpdates.name = req.body.name;
+		if (req.body.description !== undefined) conversationUpdates.description = req.body.description;
+		if (req.body.expected_output !== undefined) conversationUpdates.expected_outcome = req.body.expected_output;
+
+		const updatedConversation = await updateConversation(conversationId, conversationUpdates);
+		if (!updatedConversation) {
+			return res.status(404).json({ error: 'Test not found' });
+		}
+
+		// Update user message if input changed
+		if (req.body.input !== undefined) {
+			const userMessage = messages.find(m => m.role === 'user');
+			if (userMessage) {
+				await updateConversationMessage(userMessage.id!, { content: req.body.input });
+			}
+		}
+
+		// Get updated messages and return as legacy test
+		const updatedMessages = await getConversationMessages(conversationId);
+		const legacyTest = conversationToLegacyTest(updatedConversation, updatedMessages);
+		
+		return res.json(legacyTest);
 	} catch (error) {
 		console.error('Error updating test:', error);
 		return res.status(500).json({ error: 'Failed to update test' });
 	}
 }) as any);
 
-// Delete test
+// Delete test (conversation)
 router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = Number(req.params.id);
+		const conversationId = Number(req.params.id);
 
-		// Check if test exists
-		const existingTest = await getTestById(id);
-		if (!existingTest) {
+		// Check if conversation exists and is single-turn
+		const conversation = await getConversationById(conversationId);
+		if (!conversation) {
 			return res.status(404).json({ error: 'Test not found' });
 		}
 
-		await deleteTest(id);
+		const messages = await getConversationMessages(conversationId);
+		if (!isSingleTurnConversation(conversation, messages)) {
+			return res.status(400).json({ error: 'Cannot delete multi-turn conversation as test' });
+		}
+
+		await deleteConversation(conversationId);
 		return res.status(204).send();
 	} catch (error) {
 		console.error('Error deleting test:', error);
