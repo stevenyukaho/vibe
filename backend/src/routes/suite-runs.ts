@@ -41,14 +41,16 @@ async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
 		}
 	}
 
-	// Fallback: compute total_execution_time if missing or zero
-	if (!suiteRun.total_execution_time && suiteRun.completed_tests > 0) {
+	// Always compute total_execution_time as sum of individual test execution times
+	if (suiteRun.completed_tests > 0) {
 		const sumMs = jobs
 			.map(j => j.result_id)
 			.filter((id): id is number => id !== undefined && id !== null)
 			.map(id => (getExecutionTimeByResultId(id) || 0) * 1000)
 			.reduce((s, t) => s + t, 0);
 		suiteRun.total_execution_time = sumMs;
+	} else {
+		suiteRun.total_execution_time = 0;
 	}
 
 	// Calculate average similarity score (server-side to avoid heavy client work)
