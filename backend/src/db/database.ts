@@ -1,9 +1,16 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import { dbConfig } from '../config';
 
 // Database setup
-const dbPath = path.join(__dirname, '../../data/agent-testing.db');
-const db = new Database(dbPath);
+// Read database path from configuration (env: DB_PATH). If the configured path
+// is relative, resolve it against the process working directory so that
+// development (ts-node-dev) and production (node dist) behave consistently.
+const configuredDbPath = dbConfig.path;
+const resolvedDbPath = path.isAbsolute(configuredDbPath)
+  ? configuredDbPath
+  : path.resolve(process.cwd(), configuredDbPath);
+const db = new Database(resolvedDbPath);
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
