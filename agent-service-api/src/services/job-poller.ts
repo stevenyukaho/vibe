@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { apiService } from './api-service';
-import { TestExecutionRequest } from '../types';
+import { TestExecutionRequest, ConversationExecutionRequest, ConversationMessage } from '../types';
 import { BACKEND_CONFIG } from '../config';
 
 // Using the same interfaces as defined in the backend for consistency
@@ -8,11 +8,11 @@ import { BACKEND_CONFIG } from '../config';
 export interface Job {
 	id: string;  // UUID
 	agent_id: number;
-	test_id: number;
+	test_id?: number; // Legacy field
 	status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
 	progress?: number;  // 0-100 percentage
 	partial_result?: string;
-	result_id?: number;
+	result_id?: number; // Legacy field
 	error?: string;
 	created_at?: string;
 	updated_at?: string;
@@ -37,6 +37,16 @@ export interface Test {
 	description?: string;
 	input: string;
 	expected_output?: string;
+	created_at?: string;
+	updated_at?: string;
+}
+
+export interface Conversation {
+	id?: number;
+	name: string;
+	description?: string;
+	tags?: string;
+	expected_outcome?: string;
 	created_at?: string;
 	updated_at?: string;
 }
@@ -96,7 +106,7 @@ export class JobPollerService {
 		}
 
 		this.isCurrentlyPolling = true;
-		
+
 		try {
 			// Get available jobs for external API type
 			const response = await axios.get(`${this.backendUrl}/api/jobs/available/external_api?limit=5`);
@@ -131,17 +141,10 @@ export class JobPollerService {
 				return;
 			}
 
-			// Get agent and test details
-			const [agentResponse, testResponse] = await Promise.all([
-				axios.get(`${this.backendUrl}/api/agents/${job.agent_id}`),
-				axios.get(`${this.backendUrl}/api/tests/${job.test_id}`)
-			]);
-
+			// Get agent details
+			const agentResponse = await axios.get(`${this.backendUrl}/api/agents/${job.agent_id}`);
 			const agent: Agent = agentResponse.data;
-			const test: Test = testResponse.data;
-
 			const settings = JSON.parse(agent.settings);
-
 			const agentType = settings.type;
 
 			if (agentType !== 'external_api') {
@@ -152,6 +155,98 @@ export class JobPollerService {
 			}
 
 			await this.updateJobStatus(job.id, 'running', 10);
+
+			// Determine if this is a conversation or legacy test job
+			if (job.conversation_id) {
+				await this.executeConversationJob(job, agent, settings);
+			} else if (job.test_id) {
+				await this.executeLegacyTestJob(job, agent, settings);
+			} else {
+				const errorMsg = `Job ${job.id} has neither conversation_id nor test_id`;
+				console.error(errorMsg);
+				await this.updateJobStatus(job.id, 'failed', 0, undefined, errorMsg);
+			}
+		} catch (error: any) {
+			console.error(`Error executing job ${job.id}:`, error.message);
+			await this.updateJobStatus(job.id, 'failed', 0, undefined, error.message);
+		}
+	}
+
+	/**
+	 * Execute a conversation job
+	 */
+	private async executeConversationJob(job: Job, agent: Agent, settings: any): Promise<void> {
+		try {
+			// Get conversation and messages
+			const conversationResponse = await axios.get(`${this.backendUrl}/api/conversations/${job.conversation_id}`);
+			const conversation: Conversation & { messages: ConversationMessage[] } = conversationResponse.data;
+
+			const executionRequest: ConversationExecutionRequest = {
+				conversation_id: conversation.id!,
+				conversation_script: conversation.messages,
+				api_endpoint: settings.api_endpoint,
+				http_method: settings.http_method,
+				headers: settings.headers,
+				api_key: settings.api_key,
+				request_template: settings.request_template,
+				response_mapping: settings.response_mapping,
+				token_mapping: settings.token_mapping
+			};
+
+			await this.updateJobStatus(job.id, 'running', 30);
+
+			const result = await apiService.executeConversation(executionRequest);
+
+			await this.updateJobStatus(job.id, 'running', 80);
+
+			// Create execution session
+			const sessionResponse = await axios.post(`${this.backendUrl}/api/sessions`, {
+				conversation_id: conversation.id!,
+				agent_id: agent.id!,
+				status: 'completed',
+				started_at: new Date().toISOString(),
+				completed_at: new Date().toISOString(),
+				success: result.success,
+				metadata: JSON.stringify({
+					input_tokens: result.metrics.input_tokens,
+					output_tokens: result.metrics.output_tokens,
+					token_mapping_metadata: JSON.stringify({
+						extraction_method: result.metrics.input_tokens || result.metrics.output_tokens ? 'external_api' : 'none',
+						agent_type: 'external_api'
+					}),
+					intermediate_steps: JSON.stringify(result.intermediate_steps)
+				})
+			});
+
+			const savedSession = sessionResponse.data;
+
+			// Save transcript messages
+			for (const message of result.transcript) {
+				await axios.post(`${this.backendUrl}/api/session-messages`, {
+					session_id: savedSession.id,
+					sequence: message.sequence,
+					role: message.role,
+					content: message.content,
+					timestamp: message.timestamp,
+					metadata: JSON.stringify(message.metadata || {})
+				});
+			}
+
+			await this.updateJobStatus(job.id, 'completed', 100, undefined, undefined, savedSession.id);
+		} catch (error: any) {
+			console.error(`Error executing conversation job ${job.id}:`, error.message);
+			await this.updateJobStatus(job.id, 'failed', 0, undefined, error.message);
+		}
+	}
+
+	/**
+	 * Execute a legacy test job
+	 */
+	private async executeLegacyTestJob(job: Job, agent: Agent, settings: any): Promise<void> {
+		try {
+			// Get test details
+			const testResponse = await axios.get(`${this.backendUrl}/api/tests/${job.test_id}`);
+			const test: Test = testResponse.data;
 
 			const executionRequest: TestExecutionRequest = {
 				test_id: test.id!,
@@ -171,7 +266,7 @@ export class JobPollerService {
 
 			await this.updateJobStatus(job.id, 'running', 80);
 
-			// Send result back to backend
+			// Send result back to backend (legacy results endpoint)
 			const resultResponse = await axios.post(`${this.backendUrl}/api/results`, {
 				test_id: test.id!,
 				agent_id: agent.id!,
@@ -192,8 +287,7 @@ export class JobPollerService {
 
 			await this.updateJobStatus(job.id, 'completed', 100, savedResult.id);
 		} catch (error: any) {
-			console.error(`Error executing job ${job.id}:`, error.message);
-			
+			console.error(`Error executing legacy test job ${job.id}:`, error.message);
 			await this.updateJobStatus(job.id, 'failed', 0, undefined, error.message);
 		}
 	}
@@ -202,11 +296,12 @@ export class JobPollerService {
 	 * Update job status in the backend
 	 */
 	private async updateJobStatus(
-		jobId: string, 
-		status: 'running' | 'completed' | 'failed', 
+		jobId: string,
+		status: 'running' | 'completed' | 'failed',
 		progress: number,
 		resultId?: number,
-		error?: string
+		error?: string,
+		sessionId?: number
 	): Promise<void> {
 		try {
 			const updateData: any = {
@@ -216,6 +311,10 @@ export class JobPollerService {
 
 			if (resultId) {
 				updateData.result_id = resultId;
+			}
+
+			if (sessionId) {
+				updateData.session_id = sessionId;
 			}
 
 			if (error) {
