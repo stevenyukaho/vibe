@@ -1,0 +1,70 @@
+.container {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.meta {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.transcript {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.empty {
+	text-align: center;
+}
+
+.message {
+	display: flex;
+	gap: 0.5rem;
+	align-items: flex-start;
+}
+
+.role {
+	min-width: 90px;
+	text-transform: capitalize;
+	color: var(--cds-text-secondary);
+	font-size: 0.85rem;
+}
+
+.bubble {
+	background: var(--cds-layer-01);
+	border: 1px solid var(--cds-border-subtle);
+	border-radius: 8px;
+	padding: 0.75rem;
+	width: 100%;
+}
+
+.content {
+	white-space: pre-wrap;
+}
+
+.metaRow {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+	color: var(--cds-text-secondary);
+	font-size: 0.75rem;
+}
+
+.metaChip {
+	background: var(--cds-layer-accent);
+	padding: 0.1rem 0.4rem;
+	border-radius: 6px;
+}
+
+.assistant .bubble {
+	background: var(--cds-layer-selected);
+}
