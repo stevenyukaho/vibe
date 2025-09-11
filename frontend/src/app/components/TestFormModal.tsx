@@ -7,6 +7,7 @@ import {
 	Stack
 } from '@carbon/react';
 import { api } from '@/lib/api';
+import styles from './TestFormModal.module.scss';
 
 interface TestFormModalProps {
 	isOpen: boolean;
@@ -82,13 +83,7 @@ export default function TestFormModal({
 			primaryButtonDisabled={isSaving}
 		>
 			{error && (
-				<div style={{
-					marginBottom: '1rem',
-					padding: '0.5rem',
-					backgroundColor: '#fff1f1',
-					color: '#da1e28',
-					borderLeft: '3px solid #da1e28'
-				}}>
+				<div className={styles.errorBox}>
 					{error}
 				</div>
 			)}
