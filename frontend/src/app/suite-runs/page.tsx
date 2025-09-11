@@ -196,8 +196,11 @@ export default function SuiteRunsPage() {
 	};
 
 	const rows = runs.map((run) => {
-		// Calculate Total Execution Time in seconds (sum of individual test times)
-		const totalMs = typeof run.total_execution_time === 'number' ? run.total_execution_time : 0;
+		// Calculate Total Execution Time from suite clock time
+		// Note: Backend computes this dynamically from individual test execution times
+		const totalMs = (run.started_at && run.completed_at) 
+			? (new Date(run.completed_at).getTime() - new Date(run.started_at).getTime())
+			: 0;
 		const totalExecutionTimeSec = totalMs / 1000;
 
 		// Calculate Success Rate
