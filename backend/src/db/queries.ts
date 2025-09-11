@@ -64,7 +64,7 @@ export const updateAgent = (id: number, agent: Partial<Agent>) => {
 		.join(', ');
 
 	const statement = db.prepare(`
-	UPDATE agents 
+	UPDATE agents
 	SET ${updates}
 	WHERE id = @id
 	RETURNING *
@@ -112,7 +112,7 @@ export const updateTest = (id: number, test: Partial<Test>) => {
 		.join(', ');
 
 	const statement = db.prepare(`
-	UPDATE tests 
+	UPDATE tests
 	SET ${updates}, updated_at = CURRENT_TIMESTAMP
 	WHERE id = @id
 	RETURNING *
@@ -353,9 +353,9 @@ export const getResultById = (id: number) => {
 
 export const updateResult = (id: number, updates: Partial<TestResult>) => {
 	const filteredUpdates = Object.fromEntries(
-		Object.entries(updates).filter(([key, value]) => 
-			value !== undefined && 
-			key !== 'id' && 
+		Object.entries(updates).filter(([key, value]) =>
+			value !== undefined &&
+			key !== 'id' &&
 			key !== 'created_at'
 		)
 	);
@@ -379,13 +379,7 @@ export const updateResult = (id: number, updates: Partial<TestResult>) => {
 	});
 };
 
-/**
- * Get execution time from a result by ID
- */
-export const getExecutionTimeByResultId = (resultId: number): number | undefined => {
-	const result = db.prepare('SELECT execution_time FROM results WHERE id = ?').get(resultId) as { execution_time?: number };
-	return result?.execution_time;
-};
+// Legacy helper removed: execution time is computed from execution_sessions timestamps
 
 // Job Queries
 
@@ -640,7 +634,7 @@ export const updateTestSuite = (id: number, testSuite: Partial<TestSuite>) => {
 		.join(', ');
 
 	const statement = db.prepare(`
-	UPDATE test_suites 
+	UPDATE test_suites
 	SET ${updates}, updated_at = CURRENT_TIMESTAMP
 	WHERE id = @id
 	RETURNING *
@@ -759,7 +753,7 @@ export const reorderSuiteEntries = (
 export const createSuiteRun = (suiteRun: SuiteRun) => {
 	const statement = db.prepare(`
 	INSERT INTO suite_runs (
-	  suite_id, agent_id, status, progress, 
+	  suite_id, agent_id, status, progress,
 	  total_tests, completed_tests, successful_tests, failed_tests
 	)
 	VALUES (
@@ -809,7 +803,7 @@ export const getSuiteRunById = (id: number): SuiteRun | undefined => {
 
 export const listSuiteRuns = (filters: SuiteRunFilters & { limit?: number; offset?: number } = {}) => {
 	let query = `
-		SELECT 
+		SELECT
 			sr.*,
 			a.name as agent_name
 		FROM suite_runs sr
@@ -904,17 +898,29 @@ export const getJobsBySuiteRunId = (suiteRunId: number) => {
  * Get aggregated token usage for a suite run
  */
 export const getSuiteRunTokenUsage = (suiteRunId: number): { total_input_tokens: number; total_output_tokens: number } => {
-	const stmt = db.prepare(`
-		SELECT 
-			COALESCE(SUM(r.input_tokens), 0) as total_input_tokens,
-			COALESCE(SUM(r.output_tokens), 0) as total_output_tokens
-		FROM jobs j
-		LEFT JOIN results r ON j.result_id = r.id
-		WHERE j.suite_run_id = ? AND j.status = 'completed'
-	`);
-	
-	const result = stmt.get(suiteRunId) as { total_input_tokens: number; total_output_tokens: number };
-	return result || { total_input_tokens: 0, total_output_tokens: 0 };
+	// Sum tokens from execution session metadata for completed jobs in the suite run
+	const sessions = db.prepare(`
+		SELECT es.metadata
+		FROM execution_sessions es
+		WHERE es.id IN (
+			SELECT j.session_id FROM jobs j
+			WHERE j.suite_run_id = ? AND j.status = 'completed' AND j.session_id IS NOT NULL
+		)
+	`).all(suiteRunId) as { metadata: string | null }[];
+
+	let total_input_tokens = 0;
+	let total_output_tokens = 0;
+
+	for (const row of sessions) {
+		if (!row.metadata) continue;
+		try {
+			const meta = JSON.parse(row.metadata);
+			if (typeof meta?.input_tokens === 'number') total_input_tokens += meta.input_tokens;
+			if (typeof meta?.output_tokens === 'number') total_output_tokens += meta.output_tokens;
+		} catch {}
+	}
+
+	return { total_input_tokens, total_output_tokens };
 };
 
 export const deleteSuiteRun = (id: number) => {
@@ -976,7 +982,7 @@ export const updateLLMConfig = (id: number, config: Partial<LLMConfig>) => {
 		.join(', ');
 
 	const statement = db.prepare(`
-		UPDATE llm_configs 
+		UPDATE llm_configs
 		SET ${updates}, updated_at = CURRENT_TIMESTAMP
 		WHERE id = @id
 		RETURNING *
@@ -1130,7 +1136,7 @@ export const updateConversation = (id: number, conversation: Partial<Conversatio
 		.join(', ');
 
 	const statement = db.prepare(`
-		UPDATE conversations 
+		UPDATE conversations
 		SET ${updates}, updated_at = CURRENT_TIMESTAMP
 		WHERE id = @id
 		RETURNING *
@@ -1189,7 +1195,7 @@ export const updateConversationMessage = (id: number, message: Partial<Conversat
 		.join(', ');
 
 	const statement = db.prepare(`
-		UPDATE conversation_messages 
+		UPDATE conversation_messages
 		SET ${updates}
 		WHERE id = @id
 		RETURNING *
@@ -1210,7 +1216,7 @@ export const reorderConversationMessages = (_conversationId: number, newOrder: {
 			updateStmt.run(sequence, id);
 		}
 	});
-	
+
 	return transaction();
 };
 
@@ -1310,7 +1316,7 @@ export const updateExecutionSession = (id: number, session: Partial<ExecutionSes
 		.join(', ');
 
 	const statement = db.prepare(`
-		UPDATE execution_sessions 
+		UPDATE execution_sessions
 		SET ${updates}
 		WHERE id = @id
 		RETURNING *
@@ -1335,7 +1341,7 @@ export const getSessionMessages = (sessionId: number) => {
 export const getFullSessionTranscript = (sessionId: number) => {
 	const session = getExecutionSessionById(sessionId);
 	const messages = getSessionMessages(sessionId);
-	
+
 	return {
 		session,
 		messages
