@@ -1,0 +1,92 @@
+.modalContent {
+	max-height: 80vh;
+	overflow-y: auto;
+}
+
+.tagsSection {
+	margin-bottom: 1rem;
+
+	.label {
+		display: block;
+		margin-bottom: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--cds-text-primary);
+	}
+
+	.tagInput {
+		display: flex;
+		gap: 0.5rem;
+		align-items: flex-end;
+		margin-bottom: 0.5rem;
+
+		> div {
+			flex: 1;
+		}
+	}
+
+	.tagsContainer {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		min-height: 1.5rem;
+	}
+}
+
+.messagesSection {
+	margin-top: 2rem;
+	border-top: 1px solid var(--cds-border-subtle);
+	padding-top: 1rem;
+
+	.messagesHeader {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1rem;
+
+		h4 {
+			margin: 0;
+			font-size: 1.125rem;
+			font-weight: 500;
+		}
+	}
+
+	.emptyState {
+		text-align: center;
+		padding: 2rem;
+		color: var(--cds-text-secondary);
+	}
+
+	.messageItem {
+		margin-bottom: 1rem;
+		padding: 1rem;
+
+		.messageHeader {
+			display: flex;
+			justify-content: space-between;
+			align-items: flex-end;
+			margin-bottom: 1rem;
+
+			.messageActions {
+				display: flex;
+				gap: 0.25rem;
+			}
+		}
+	}
+}
+
+@media (max-width: 768px) {
+	.modalContent {
+		max-height: 70vh;
+	}
+
+	.messagesSection .messageItem .messageHeader {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 1rem;
+
+		.messageActions {
+			justify-content: flex-end;
+		}
+	}
+}
