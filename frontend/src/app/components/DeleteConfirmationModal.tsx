@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal } from '@carbon/react';
 import { api } from '@/lib/api';
+import noticeStyles from './Notice.module.scss';
 
 interface DeleteConfirmationModalProps {
 	isOpen: boolean;
@@ -80,13 +81,7 @@ export default function DeleteConfirmationModal({
 			danger
 		>
 			{error && (
-				<div style={{
-					marginBottom: '1rem',
-					padding: '0.5rem',
-					backgroundColor: '#fff1f1',
-					color: '#da1e28',
-					borderLeft: '3px solid #da1e28'
-				}}>
+				<div className={noticeStyles.errorBox}>
 					{error}
 				</div>
 			)}
