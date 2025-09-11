@@ -1,9 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
-import { 
-	createJob as dbCreateJob, 
-	getJobById, 
+import {
+	createJob as dbCreateJob,
+	getJobById,
 	updateJob as dbUpdateJob,
-	listJobs as dbListJobs, 
+	listJobs as dbListJobs,
 	deleteOldJobs,
 	deleteJob as dbDeleteJob,
 	getAgentById,
@@ -38,7 +38,7 @@ export class JobQueueService {
 	private runningJobs: Set<string>;
 	// private _maxConcurrentJobs: number; // Currently unused, reserved for future concurrency control
 	private isProcessing: boolean;
-	
+
 	/**
 	 * Create a new JobQueueService
 	 * @param maxConcurrentJobs Maximum number of jobs to run concurrently
@@ -48,14 +48,14 @@ export class JobQueueService {
 		this.runningJobs = new Set();
 		// this._maxConcurrentJobs = maxConcurrentJobs;
 		this.isProcessing = false;
-		
+
 		// Initialize jobs from database
 		this.loadJobsFromDatabase();
-		
+
 		// Start processing queue
 		setInterval(() => this.processQueue(), 1000);
 	}
-	
+
 	/**
 	 * Load jobs from database into memory
 	 */
@@ -75,7 +75,7 @@ export class JobQueueService {
 			console.error('Error loading jobs from database:', error);
 		}
 	}
-	
+
 	/**
 	 * Create a new job and add it to the queue
 	 * @param agent_id Agent ID to use for the test
@@ -85,7 +85,7 @@ export class JobQueueService {
 	 */
 	async createJob(agent_id: number, test_id: number, suite_run_id?: number): Promise<string> {
 		const id = uuidv4();
-		
+
 		// Get agent to determine job type
 		const agent = await getAgentById(agent_id);
 		if (!agent) {
@@ -93,7 +93,7 @@ export class JobQueueService {
 		}
 
 		const jobType = getAgentJobType(agent.settings);
-		
+
 		const job: Job = {
 			id,
 			agent_id,
@@ -102,18 +102,18 @@ export class JobQueueService {
 			progress: 0,
 			job_type: jobType
 		};
-		
+
 		// Add suite_run_id if provided
 		if (suite_run_id) {
 			job.suite_run_id = suite_run_id;
 		}
-		
+
 		// Save to database
 		await dbCreateJob(job);
-		
+
 		// Add to in-memory queue
 		this.jobs.set(id, job);
-		
+
 		return id;
 	}
 
@@ -133,7 +133,7 @@ export class JobQueueService {
 		}
 
 		const jobType = getAgentJobType(agent.settings);
-		
+
 		const job: Job = {
 			id,
 			agent_id,
@@ -142,21 +142,21 @@ export class JobQueueService {
 			progress: 0,
 			job_type: jobType
 		};
-		
+
 		// Add suite_run_id if provided
 		if (suite_run_id) {
 			job.suite_run_id = suite_run_id;
 		}
-		
+
 		// Save to database
 		await dbCreateJob(job);
-		
+
 		// Add to in-memory queue
 		this.jobs.set(id, job);
-		
+
 		return id;
 	}
-	
+
 	/**
 	 * Get a job by ID
 	 * @param id Job ID
@@ -167,7 +167,7 @@ export class JobQueueService {
 		if (this.jobs.has(id)) {
 			return this.jobs.get(id);
 		}
-		
+
 		// Then try database
 		try {
 			const job = await getJobById(id);
@@ -180,7 +180,7 @@ export class JobQueueService {
 			return undefined;
 		}
 	}
-	
+
 	/**
 	 * Update a job's status and metadata
 	 * @param id Job ID
@@ -191,27 +191,27 @@ export class JobQueueService {
 		if (!job) {
 			throw new Error(`Job ${id} not found`);
 		}
-		
+
 		// Update in-memory job
 		Object.assign(job, updates);
 		this.jobs.set(id, job);
-		
+
 		// Update in database
 		await dbUpdateJob(id, updates);
-		
+
 		// If job completed or failed, remove from running jobs
-		if (updates.status === JobStatus.COMPLETED || 
+		if (updates.status === JobStatus.COMPLETED ||
 				updates.status === JobStatus.FAILED ||
 				updates.status === JobStatus.TIMEOUT) {
 			this.runningJobs.delete(id);
 		}
-		
+
 		// If job is part of a suite run and status changed to completed/failed, update suite run progress
 		if (job.suite_run_id && (updates.status === JobStatus.COMPLETED || updates.status === JobStatus.FAILED)) {
 			await this.updateSuiteRunProgress(job.suite_run_id);
 		}
 	}
-	
+
 	/**
 	 * Process the job queue - only handles cleanup, actual execution is done by external services
 	 */
@@ -219,7 +219,7 @@ export class JobQueueService {
 		// Prevent concurrent processing
 		if (this.isProcessing) return;
 		this.isProcessing = true;
-		
+
 		try {
 			// Clean up any orphaned running jobs (running too long without updates)
 			const staleThreshold = Date.now() - (10 * 60 * 1000); // 10 minutes
@@ -228,7 +228,7 @@ export class JobQueueService {
 					const updatedAt = new Date(job.updated_at).getTime();
 					if (updatedAt < staleThreshold) {
 						console.warn(`Job ${job.id} appears stale, resetting to pending`);
-						await this.updateJob(job.id, { 
+						await this.updateJob(job.id, {
 							status: JobStatus.PENDING,
 							error: 'Job was reset due to inactivity'
 						});
@@ -239,7 +239,7 @@ export class JobQueueService {
 			this.isProcessing = false;
 		}
 	}
-	
+
 	/**
 	 * Get jobs available for polling by services
 	 * @param jobType Optional job type filter ('crewai', 'external_api')
@@ -251,11 +251,11 @@ export class JobQueueService {
 			const filters: JobFilters = {
 				status: JobStatus.PENDING
 			};
-			
+
 			if (jobType) {
 				filters.job_type = jobType;
 			}
-			
+
 			const jobs = await dbListJobs(filters);
 			return jobs.slice(0, limit);
 		} catch (error) {
@@ -263,7 +263,7 @@ export class JobQueueService {
 			return [];
 		}
 	}
-	
+
 	/**
 	 * Claim a job for execution (atomic operation)
 	 * @param jobId Job ID to claim
@@ -283,7 +283,7 @@ export class JobQueueService {
 				claimed_by: serviceId,
 				claimed_at: new Date().toISOString()
 			});
-			
+
 			this.runningJobs.add(jobId);
 			return true;
 		} catch (error) {
@@ -291,7 +291,7 @@ export class JobQueueService {
 			return false;
 		}
 	}
-	
+
 	/**
 	 * List all jobs with optional filtering
 	 * @param filters Filters to apply
@@ -310,7 +310,7 @@ export class JobQueueService {
 			return [];
 		}
 	}
-	
+
 	/**
 	 * Clean up old completed jobs
 	 * @param olderThan Delete jobs older than this date
@@ -318,7 +318,7 @@ export class JobQueueService {
 	async cleanupOldJobs(olderThan: Date): Promise<void> {
 		try {
 			const deletedCount = await deleteOldJobs(olderThan);
-			
+
 			// Remove from in-memory queue
 			for (const [id, job] of this.jobs.entries()) {
 				if (job.status === JobStatus.COMPLETED || job.status === JobStatus.FAILED) {
@@ -328,7 +328,7 @@ export class JobQueueService {
 					}
 				}
 			}
-			
+
 			console.log(`Deleted ${deletedCount} old jobs`);
 		} catch (error) {
 			console.error('Error cleaning up old jobs:', error);
@@ -346,17 +346,17 @@ export class JobQueueService {
 		if (!job) {
 			return false;
 		}
-		
+
 		// Delete from database
 		const deleted = await dbDeleteJob(id);
-		
+
 		if (deleted) {
 			// Remove from in-memory maps
 			this.jobs.delete(id);
 			this.runningJobs.delete(id);
 			return true;
 		}
-		
+
 		return false;
 	}
 
@@ -372,7 +372,7 @@ export class JobQueueService {
 		if (!leaves || leaves.length === 0) {
 			// Instead of throwing an error, create a suite run with 0 tests that completes immediately
 			console.warn(`Suite ${suite_id} contains no executable tests. Creating empty suite run.`);
-			
+
 			const suiteRun: SuiteRun = {
 				suite_id,
 				agent_id,
@@ -383,12 +383,12 @@ export class JobQueueService {
 				successful_tests: 0,
 				failed_tests: 0
 			};
-			
+
 			const createdSuiteRun = await dbQueries.createSuiteRun(suiteRun);
 			if (!createdSuiteRun.id) {
 				throw new Error('Failed to create empty suite run');
 			}
-			
+
 			return createdSuiteRun.id;
 		}
 
@@ -417,7 +417,7 @@ export class JobQueueService {
 
 		return createdSuiteRun.id;
 	}
-	
+
 	/**
 	 * Create a job for a test within a suite run
 	 * @param agent_id Agent ID to use
@@ -426,8 +426,8 @@ export class JobQueueService {
 	 * @returns The job ID
 	 */
 	private async createJobForSuiteRun(
-		agent_id: number, 
-		test_id: number, 
+		agent_id: number,
+		test_id: number,
 		suite_run_id: number
 	): Promise<string> {
 		// Get agent details to determine job type
@@ -452,7 +452,7 @@ export class JobQueueService {
 		await dbCreateJob(job);
 		return jobId;
 	}
-	
+
 	/**
 	 * Update a suite run's progress based on completed jobs
 	 * @param suite_run_id Suite run ID
@@ -463,32 +463,31 @@ export class JobQueueService {
 		if (!suiteRun) {
 			throw new Error(`Suite run ${suite_run_id} not found`);
 		}
-		
+
 		// Get all jobs for this suite run
 		const jobs = await dbListJobs({ suite_run_id });
-		
+
 		// Calculate progress
 		const totalJobs = jobs.length;
-		const completedJobs = jobs.filter(job => 
-			job.status === JobStatus.COMPLETED || 
-			job.status === JobStatus.FAILED || 
+		const completedJobs = jobs.filter(job =>
+			job.status === JobStatus.COMPLETED ||
+			job.status === JobStatus.FAILED ||
 			job.status === JobStatus.TIMEOUT
 		);
 		const successfulJobs = jobs.filter(job => job.status === JobStatus.COMPLETED);
-		
-		// Get results for completed jobs (in seconds -> convert to ms)
-		const executionTimesSec = completedJobs
+
+		// Get results for completed jobs (execution_time already stored in ms)
+		const executionTimesMs = completedJobs
 			.map(job => job.result_id)
 			.filter((id): id is number => id !== undefined && id !== null)
 			.map(id => getExecutionTimeByResultId(id) || 0);
-		const executionTimesMs = executionTimesSec.map(sec => sec * 1000);
 		const averageExecutionTime = executionTimesMs.length > 0
 			? executionTimesMs.reduce((sum, ms) => sum + ms, 0) / executionTimesMs.length
 			: undefined;
-		
+
 		// Calculate overall progress percentage
 		const progress = Math.floor((completedJobs.length / totalJobs) * 100);
-		
+
 		// Determine suite run status
 		let status = suiteRun.status;
 		if (completedJobs.length === totalJobs) {
@@ -496,10 +495,10 @@ export class JobQueueService {
 		} else if (jobs.some(job => job.status === JobStatus.RUNNING)) {
 			status = JobStatus.RUNNING;
 		}
-		
+
 		// Get token usage for the suite run
 		const tokenUsage = dbQueries.getSuiteRunTokenUsage(suite_run_id);
-		
+
 		// Update suite run
 		await dbQueries.updateSuiteRun(suite_run_id, {
 			status,
