@@ -30,11 +30,11 @@ import {
 	Tabs,
 	Tile
 } from '@carbon/react';
-import { 
-	ChevronLeft, 
-	Rocket, 
-	Add, 
-	ArrowRight, 
+import {
+	ChevronLeft,
+	Rocket,
+	Add,
+	ArrowRight,
 	ArrowLeft,
 	Edit,
 	TrashCan
@@ -69,7 +69,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	const [entries, setEntries] = useState<SuiteEntry[]>([]);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [activeTab, setActiveTab] = useState(0);
-	
+
 	// Track agent selections for available items
 	const [availableItemAgents, setAvailableItemAgents] = useState<Record<string, number | null>>({});
 
@@ -96,11 +96,11 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 					api.getTests(),
 					api.getSuiteEntries(suiteId)
 				]);
-				
+
 				setAgents(agentsData);
 				setAllTests(allTestsData);
 				setEntries(entriesData);
-				
+
 				if (agentsData.length > 0) {
 					setSelectedAgentId(agentsData[0].id ?? null);
 				}
@@ -187,17 +187,17 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	const handleAddEntry = async (item: AvailableItem) => {
 		const itemKey = `${item.type}-${item.id}`;
 		const agentOverride = availableItemAgents[itemKey];
-		
-		const entryPayload: { sequence: number; test_id?: number; child_suite_id?: number; agent_id_override?: number } = { 
-			sequence: entries.length 
+
+		const entryPayload: { sequence: number; test_id?: number; child_suite_id?: number; agent_id_override?: number } = {
+			sequence: entries.length
 		};
-		
+
 		if (item.type === 'test') {
 			entryPayload.test_id = item.id;
 		} else {
 			entryPayload.child_suite_id = item.id;
 		}
-		
+
 		if (agentOverride) {
 			entryPayload.agent_id_override = agentOverride;
 		}
@@ -230,10 +230,10 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	const handleUpdateEntryAgent = async (entryId: number, agentId: number | null) => {
 		try {
 			await api.updateSuiteEntry(suiteId, entryId, { agent_id_override: agentId || undefined });
-			setEntries(prev => prev.map(e => 
-				e.id === entryId 
+			setEntries(prev => prev.map(e =>
+				e.id === entryId
 					? { ...e, agent_id_override: agentId || undefined }
-					: e
+					: e,
 			));
 			setError(null);
 		} catch (e: unknown) {
@@ -262,11 +262,11 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	// Filter available tests and suites
 	const usedTestIds = new Set(entries.filter(e => e.test_id).map(e => e.test_id!));
 	const usedSuiteIds = new Set(entries.filter(e => e.child_suite_id).map(e => e.child_suite_id!));
-	
+
 	const availableTests: AvailableItem[] = allTests
 		.filter(t => t.id != null && !usedTestIds.has(t.id))
 		.map(t => ({ id: t.id!, name: t.name, type: 'test', description: t.description }));
-	
+
 	const availableSuites: AvailableItem[] = allSuites
 		.filter(s => !usedSuiteIds.has(s.id!))
 		.map(s => ({ id: s.id!, name: s.name, type: 'suite', description: s.description }));
@@ -275,9 +275,9 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	const getFilteredItems = () => {
 		const allItems = activeTab === 0 ? availableTests : availableSuites;
 		if (!searchTerm) return allItems;
-		return allItems.filter(item => 
+		return allItems.filter(item =>
 			item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			(item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
+			(item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase())),
 		);
 	};
 
@@ -340,7 +340,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 					{suite.description && (
 						<p>{suite.description}</p>
 					)}
-					
+
 					<Tile className={styles.runConfigTile}>
 						<h3>Run Configuration</h3>
 						<div className={styles.agentSelect}>
@@ -359,7 +359,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 					</Tile>
 
 					{error && <InlineNotification kind="error" title="Error" subtitle={error} onCloseButtonClick={() => setError(null)} />}
-					
+
 					{/* Dual Panel Interface */}
 					<Grid className={styles.dualPanelGrid}>
 						{/* Available Items Panel */}
@@ -368,7 +368,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 								<div className={styles.panelHeader}>
 									<h3>Available Items</h3>
 								</div>
-								
+
 								<Search
 									id="search-available"
 									labelText="Search available items"
@@ -427,25 +427,24 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 																				}}
 																			>
 																				{agentSelectOptions.map(option => (
-																					<SelectItem 
-																						key={option.id} 
-																						value={option.id} 
-																						text={option.label} 
+																					<SelectItem
+																						key={option.id}
+																						value={option.id}
+																						text={option.label}
 																					/>
 																				))}
 																			</Select>
 																		</TableCell>
 																		<TableCell>
-																			
-																				<IconButton 
-																					kind="ghost" 
-																					size="sm"
-																					onClick={() => handleAddEntry(item)}
-																					label="Add to suite"
-																					align='left'
-																				>
-																					<ArrowRight size={16} />
-																				</IconButton>
+																			<IconButton
+																				kind="ghost"
+																				size="sm"
+																				onClick={() => handleAddEntry(item)}
+																				label="Add to suite"
+																				align='left'
+																			>
+																				<ArrowRight size={16} />
+																			</IconButton>
 																		</TableCell>
 																	</TableRow>
 																);
@@ -502,17 +501,17 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 																				}}
 																			>
 																				{agentSelectOptions.map(option => (
-																					<SelectItem 
-																						key={option.id} 
-																						value={option.id} 
-																						text={option.label} 
+																					<SelectItem
+																						key={option.id}
+																						value={option.id}
+																						text={option.label}
 																					/>
 																				))}
 																			</Select>
 																		</TableCell>
 																		<TableCell>
-																			<IconButton 
-																				kind="ghost" 
+																			<IconButton
+																				kind="ghost"
 																				size="sm"
 																				onClick={() => handleAddEntry(item)}
 																				label="Add to suite"
@@ -568,8 +567,8 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 													{entries.map((entry) => (
 														<TableRow key={entry.id}>
 															<TableCell>
-																<IconButton 
-																	kind="ghost" 
+																<IconButton
+																	kind="ghost"
 																	size="sm"
 																	onClick={() => handleDeleteEntry(entry.id)}
 																	label="Remove from suite"
@@ -599,10 +598,10 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 																	}}
 																>
 																	{agentSelectOptions.map(option => (
-																		<SelectItem 
-																			key={option.id} 
-																			value={option.id} 
-																			text={option.label} 
+																		<SelectItem
+																			key={option.id}
+																			value={option.id}
+																			text={option.label}
 																		/>
 																	))}
 																</Select>

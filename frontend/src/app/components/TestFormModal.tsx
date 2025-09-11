@@ -4,7 +4,7 @@ import {
 	TextInput,
 	TextArea,
 	Form,
-	Stack,
+	Stack
 } from '@carbon/react';
 import { api } from '@/lib/api';
 
@@ -37,7 +37,7 @@ export default function TestFormModal({
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 		setFormData({
 			...formData,
-			[e.target.id]: e.target.value,
+			[e.target.id]: e.target.value
 		});
 	};
 
@@ -49,7 +49,7 @@ export default function TestFormModal({
 				name: formData['test-name'],
 				description: formData['test-description'],
 				input: formData['test-input'],
-				expected_output: formData['test-expected-output'],
+				expected_output: formData['test-expected-output']
 			};
 
 			if (editingId) {

@@ -81,7 +81,7 @@ export default function Results({
 				execution_time: result.execution_time ? (result.execution_time / 1000).toFixed(3) : '0.000',
 				token_usage: tokenDisplay,
 				similarity_score: result,
-				created_at: new Date(result.created_at!).toLocaleString(),
+				created_at: new Date(result.created_at!).toLocaleString()
 			};
 		});
 	}, [results, agents, tests]);
@@ -94,7 +94,7 @@ export default function Results({
 		{ key: 'token_usage', header: 'Tokens' },
 		{ key: 'similarity_score', header: 'Similarity score' },
 		{ key: 'created_at', header: 'Created at' },
-		{ key: 'actions', header: 'Actions' },
+		{ key: 'actions', header: 'Actions' }
 	];
 
 	return (

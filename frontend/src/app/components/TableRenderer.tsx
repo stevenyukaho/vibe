@@ -7,7 +7,7 @@ import {
 	TableBody,
 	TableCell,
 	Tag,
-	Button,
+	Button
 } from '@carbon/react';
 import { Edit, TrashCan, ViewFilled, AiGenerate } from '@carbon/icons-react';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';

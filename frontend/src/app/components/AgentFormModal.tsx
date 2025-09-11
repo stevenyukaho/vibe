@@ -31,7 +31,7 @@ export default function AgentFormModal({
 	editingId,
 	formData: initialFormData,
 	onClose,
-	onSuccess,
+	onSuccess
 }: AgentFormModalProps) {
 	// State for form data
 	const [formData, setFormData] = useState<Record<string, string>>(initialFormData || {});
@@ -56,7 +56,7 @@ export default function AgentFormModal({
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 		setFormData({
 			...formData,
-			[e.target.id]: e.target.value,
+			[e.target.id]: e.target.value
 		});
 	};
 
@@ -294,7 +294,7 @@ export default function AgentFormModal({
 				name: formData['agent-name'],
 				version: formData['agent-version'],
 				prompt: formData['agent-prompt'],
-				settings: JSON.stringify(settings),
+				settings: JSON.stringify(settings)
 			};
 
 			if (editingId) {
@@ -384,7 +384,7 @@ export default function AgentFormModal({
 			const response = await fetch(formData['agent-api-endpoint'], {
 				method: 'POST',
 				headers,
-				body: JSON.stringify(body),
+				body: JSON.stringify(body)
 			});
 
 			if (response.ok) {
@@ -554,8 +554,8 @@ export default function AgentFormModal({
 								]}
 								selectedItem={
 									formData['agent-http-method']
-									? { id: formData['agent-http-method'], label: formData['agent-http-method'] }
-									: { id: 'POST', label: 'POST' }
+										? { id: formData['agent-http-method'], label: formData['agent-http-method'] }
+										: { id: 'POST', label: 'POST' }
 								}
 								onChange={(e) => {
 									const event = {
@@ -666,15 +666,15 @@ export default function AgentFormModal({
 								<h5 className={styles.sectionHeading}>Request Template</h5>
 								<p className={styles.helpText}>The request template formats your test input for the external API. It should be a valid JSON string with a placeholder for where the test input should go.</p>
 								<ul className={styles.helpList}>
-									<li className={styles.listItem}>Must include <code>{"{{input}}"}</code> as a placeholder for the test input</li>
+									<li className={styles.listItem}>Must include <code>{'{{input}}'}</code> as a placeholder for the test input</li>
 									<li className={styles.listItem}>Should be valid JSON when the placeholder is replaced with text</li>
 								</ul>
 								<h6 className={styles.exampleHeading}>Example for OpenAI:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										model: "gpt-4", 
+										model: 'gpt-4', 
 										messages: [
-											{ role: "user", content: "{{input}}" }
+											{ role: 'user', content: '{{input}}' }
 										]
 									}, null, 2)}
 								</CodeSnippet>
@@ -682,9 +682,9 @@ export default function AgentFormModal({
 								<h6 className={styles.exampleHeading}>Example for Anthropic/Claude:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										model: "claude-3-5-sonnet-20240620", 
+										model: 'claude-3-5-sonnet-20240620', 
 										messages: [
-											{ role: "user", content: "{{input}}" }
+											{ role: 'user', content: '{{input}}' }
 										],
 										max_tokens: 1024
 									}, null, 2)}
@@ -694,7 +694,7 @@ export default function AgentFormModal({
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
 										contents: [
-											{ role: "user", parts: [{ text: "{{input}}" }] }
+											{ role: 'user', parts: [{ text: '{{input}}' }] }
 										],
 										generationConfig: {
 											temperature: 0.7,
@@ -706,9 +706,9 @@ export default function AgentFormModal({
 								<h6 className={styles.exampleHeading}>Example for Mistral AI:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										model: "mistral-large-latest", 
+										model: 'mistral-large-latest', 
 										messages: [
-											{ role: "user", content: "{{input}}" }
+											{ role: 'user', content: '{{input}}' }
 										],
 										temperature: 0.7,
 										max_tokens: 1000
@@ -718,8 +718,8 @@ export default function AgentFormModal({
 								<h6 className={styles.exampleHeading}>Example for Cohere:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										message: "{{input}}",
-										model: "command",
+										message: '{{input}}',
+										model: 'command',
 										temperature: 0.7,
 										max_tokens: 1000
 									}, null, 2)}
@@ -728,8 +728,8 @@ export default function AgentFormModal({
 								<h6 className={styles.exampleHeading}>Example for Ollama:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										model: "llama3",
-										prompt: "{{input}}",
+										model: 'llama3',
+										prompt: '{{input}}',
 										options: {
 											temperature: 0.7,
 											num_predict: 1000
@@ -746,31 +746,31 @@ export default function AgentFormModal({
 								</ul>
 								<h6 className={styles.exampleHeading}>Example for OpenAI:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ output: "choices.0.message.content" }, null, 2)}
+									{JSON.stringify({ output: 'choices.0.message.content' }, null, 2)}
 								</CodeSnippet>
 								<h6 className={styles.exampleHeading}>Example for Claude:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ output: "content.0.text" }, null, 2)}
+									{JSON.stringify({ output: 'content.0.text' }, null, 2)}
 								</CodeSnippet>
 
 								<h6 className={styles.exampleHeading}>Example for Google Gemini:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ output: "candidates.0.content.parts.0.text" }, null, 2)}
+									{JSON.stringify({ output: 'candidates.0.content.parts.0.text' }, null, 2)}
 								</CodeSnippet>
 
 								<h6 className={styles.exampleHeading}>Example for Mistral AI:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ output: "choices.0.message.content" }, null, 2)}
+									{JSON.stringify({ output: 'choices.0.message.content' }, null, 2)}
 								</CodeSnippet>
 
 								<h6 className={styles.exampleHeading}>Example for Cohere:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ output: "text" }, null, 2)}
+									{JSON.stringify({ output: 'text' }, null, 2)}
 								</CodeSnippet>
 
 								<h6 className={styles.exampleHeading}>Example for Ollama:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ output: "response" }, null, 2)}
+									{JSON.stringify({ output: 'response' }, null, 2)}
 								</CodeSnippet>
 
 								<h5 className={styles.subSectionHeading}>Token mapping</h5>
@@ -785,39 +785,39 @@ export default function AgentFormModal({
 								<h6 className={styles.exampleHeading}>Example for OpenAI (auto-detected):</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										"input_tokens": "usage.prompt_tokens",
-										"output_tokens": "usage.completion_tokens"
+										'input_tokens': 'usage.prompt_tokens',
+										'output_tokens': 'usage.completion_tokens'
 									}, null, 2)}
 								</CodeSnippet>
 
 								<h6 className={styles.exampleHeading}>Example for Anthropic/Claude (auto-detected):</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										"input_tokens": "usage.input_tokens",
-										"output_tokens": "usage.output_tokens"
+										'input_tokens': 'usage.input_tokens',
+										'output_tokens': 'usage.output_tokens'
 									}, null, 2)}
 								</CodeSnippet>
 
 								<h6 className={styles.exampleHeading}>Example for Google Gemini (auto-detected):</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										"input_tokens": "usageMetadata.promptTokenCount",
-										"output_tokens": "usageMetadata.candidatesTokenCount"
+										'input_tokens': 'usageMetadata.promptTokenCount',
+										'output_tokens': 'usageMetadata.candidatesTokenCount'
 									}, null, 2)}
 								</CodeSnippet>
 
 								<h6 className={styles.exampleHeading}>Example for Ollama (auto-detected):</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										"input_tokens": "prompt_eval_count",
-										"output_tokens": "eval_count"
+										'input_tokens': 'prompt_eval_count',
+										'output_tokens': 'eval_count'
 									}, null, 2)}
 								</CodeSnippet>
 
 								<h6 className={styles.exampleHeading}>Example for custom API with total tokens only:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										"total_tokens": "metadata.tokens_used"
+										'total_tokens': 'metadata.tokens_used'
 									}, null, 2)}
 								</CodeSnippet>
 
@@ -830,8 +830,8 @@ export default function AgentFormModal({
 								<h6 className={styles.exampleHeading}>Example:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
 									{JSON.stringify({ 
-										"Content-Type": "application/json",
-										"X-Custom-Header": "custom-value"
+										'Content-Type': 'application/json',
+										'X-Custom-Header': 'custom-value'
 									}, null, 2)}
 								</CodeSnippet>
 							</div>

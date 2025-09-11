@@ -4,7 +4,7 @@ import {
 	CodeSnippet,
 	Tag,
 	Button,
-	InlineNotification,
+	InlineNotification
 } from '@carbon/react';
 import { Restart, Edit } from '@carbon/icons-react';
 import { TestResult, api, Test } from '@/lib/api';
@@ -98,11 +98,11 @@ export default function ResultViewModal({
 	// Prepare initial form data for TestFormModal
 	const initialFormData: Record<string, string> = testData
 		? {
-				'test-name': testData.name || '',
-				'test-description': testData.description || '',
-				'test-input': testData.input || '',
-				'test-expected-output': testData.expected_output || '',
-			}
+			'test-name': testData.name || '',
+			'test-description': testData.description || '',
+			'test-input': testData.input || '',
+			'test-expected-output': testData.expected_output || ''
+		}
 		: {};
 
 	const canScore = result && result.similarity_scoring_status !== undefined;

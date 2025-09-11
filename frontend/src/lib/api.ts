@@ -159,7 +159,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/agents`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(agent),
+			body: JSON.stringify(agent)
 		});
 
 		if (!response.ok) {
@@ -174,7 +174,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/agents/${id}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(agent),
+			body: JSON.stringify(agent)
 		});
 
 		if (!response.ok) {
@@ -187,7 +187,7 @@ export const api = {
 
 	async deleteAgent(id: number): Promise<void> {
 		const response = await fetch(`${API_URL}/api/agents/${id}`, {
-			method: 'DELETE',
+			method: 'DELETE'
 		});
 
 		if (!response.ok) {
@@ -224,7 +224,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/tests`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(test),
+			body: JSON.stringify(test)
 		});
 
 		if (!response.ok) {
@@ -250,7 +250,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/tests/${id}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(test),
+			body: JSON.stringify(test)
 		});
 
 		if (!response.ok) {
@@ -263,7 +263,7 @@ export const api = {
 
 	async deleteTest(id: number): Promise<void> {
 		const response = await fetch(`${API_URL}/api/tests/${id}`, {
-			method: 'DELETE',
+			method: 'DELETE'
 		});
 
 		if (!response.ok) {
@@ -348,7 +348,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/results`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(result),
+			body: JSON.stringify(result)
 		});
 
 		if (!response.ok) {
@@ -364,7 +364,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/execute`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ agent_id, test_id }),
+			body: JSON.stringify({ agent_id, test_id })
 		});
 
 		if (!response.ok) {
@@ -379,7 +379,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/results/${result_id}/score`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ llm_config_id }),
+			body: JSON.stringify({ llm_config_id })
 		});
 
 		if (!response.ok) {
@@ -405,7 +405,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/execute-suite`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ suite_id, agent_id }),
+			body: JSON.stringify({ suite_id, agent_id })
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -475,7 +475,7 @@ export const api = {
 
 	async deleteSuiteRun(id: number): Promise<void> {
 		const response = await fetch(`${API_URL}/api/suite-runs/${id}`, {
-			method: 'DELETE',
+			method: 'DELETE'
 		});
 
 		if (!response.ok) {
@@ -541,7 +541,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/jobs`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ agent_id, test_id }),
+			body: JSON.stringify({ agent_id, test_id })
 		});
 
 		if (!response.ok) {
@@ -565,7 +565,7 @@ export const api = {
 
 	async cancelJob(id: string): Promise<void> {
 		const response = await fetch(`${API_URL}/api/jobs/${id}/cancel`, {
-			method: 'POST',
+			method: 'POST'
 		});
 
 		if (!response.ok) {
@@ -582,7 +582,7 @@ export const api = {
 
 	async deleteJob(id: string): Promise<void> {
 		const response = await fetch(`${API_URL}/api/jobs/${id}`, {
-			method: 'DELETE',
+			method: 'DELETE'
 		});
 
 		if (!response.ok) {
@@ -602,7 +602,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/test-suites`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(suite),
+			body: JSON.stringify(suite)
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -615,7 +615,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/test-suites/${id}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(suite),
+			body: JSON.stringify(suite)
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -626,7 +626,7 @@ export const api = {
 
 	async deleteTestSuite(id: number): Promise<void> {
 		const response = await fetch(`${API_URL}/api/test-suites/${id}`, {
-			method: 'DELETE',
+			method: 'DELETE'
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -638,7 +638,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/test-suites/${suite_id}/tests`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ test_id }),
+			body: JSON.stringify({ test_id })
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -673,7 +673,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/llm-configs`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(config),
+			body: JSON.stringify(config)
 		});
 
 		if (!response.ok) {
@@ -688,7 +688,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/llm-configs/${id}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(config),
+			body: JSON.stringify(config)
 		});
 
 		if (!response.ok) {
@@ -701,7 +701,7 @@ export const api = {
 
 	async deleteLLMConfig(id: number): Promise<void> {
 		const response = await fetch(`${API_URL}/api/llm-configs/${id}`, {
-			method: 'DELETE',
+			method: 'DELETE'
 		});
 
 		if (!response.ok) {
@@ -726,7 +726,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/llm-configs/${id}/call`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(options),
+			body: JSON.stringify(options)
 		});
 
 		if (!response.ok) {
@@ -741,7 +741,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/llm-configs/call`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(options),
+			body: JSON.stringify(options)
 		});
 
 		if (!response.ok) {
@@ -840,7 +840,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/conversations`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(conversation),
+			body: JSON.stringify(conversation)
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -853,7 +853,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/conversations/${id}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(conversation),
+			body: JSON.stringify(conversation)
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -864,7 +864,7 @@ export const api = {
 
 	async deleteConversation(id: number): Promise<void> {
 		const response = await fetch(`${API_URL}/api/conversations/${id}`, {
-			method: 'DELETE',
+			method: 'DELETE'
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -876,7 +876,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(message),
+			body: JSON.stringify(message)
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -889,7 +889,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/${sequence}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(updates),
+			body: JSON.stringify(updates)
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -900,7 +900,7 @@ export const api = {
 
 	async deleteConversationMessage(conversationId: number, sequence: number): Promise<void> {
 		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/${sequence}`, {
-			method: 'DELETE',
+			method: 'DELETE'
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -912,7 +912,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/reorder`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ message_orders: messageOrders }),
+			body: JSON.stringify({ message_orders: messageOrders })
 		});
 		if (!response.ok) {
 			const error = await response.json();
@@ -925,7 +925,7 @@ export const api = {
 		const response = await fetch(`${API_URL}/api/execute/conversation`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ agent_id, conversation_id }),
+			body: JSON.stringify({ agent_id, conversation_id })
 		});
 		if (!response.ok) {
 			const error = await response.json();

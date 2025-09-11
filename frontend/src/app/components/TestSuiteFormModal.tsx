@@ -24,7 +24,7 @@ export default function TestSuiteFormModal({
 	editingId,
 	formData: initialFormData,
 	onClose,
-	onSuccess,
+	onSuccess
 }: TestSuiteFormModalProps) {
 	const [formData, setFormData] = useState<{ name: string; description: string; tags: string }>(initialFormData || { name: '', description: '', tags: '' });
 	const [isSaving, setIsSaving] = useState(false);

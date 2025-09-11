@@ -7,7 +7,7 @@ import {
 	NumberInput,
 	Dropdown,
 	TextArea,
-	Stack,
+	Stack
 } from '@carbon/react';
 import { LLMConfig } from '../../lib/api';
 import { useLLMConfigs } from '../../lib/AppDataContext';
@@ -28,7 +28,7 @@ interface FormData {
 export default function LLMConfigFormModal({
 	isOpen,
 	onClose,
-	config = null,
+	config = null
 }: LLMConfigFormModalProps) {
 	const { createLLMConfig, updateLLMConfig } = useLLMConfigs();
 	const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export default function LLMConfigFormModal({
 		name: '',
 		provider: 'ollama',
 		priority: 100,
-		configJson: JSON.stringify({ model: 'llama2', base_url: 'http://localhost:11434' }, null, 2),
+		configJson: JSON.stringify({ model: 'llama2', base_url: 'http://localhost:11434' }, null, 2)
 	});
 
 	// Initialize form data if editing
@@ -51,7 +51,7 @@ export default function LLMConfigFormModal({
 					name: config.name,
 					provider: config.provider,
 					priority: config.priority,
-					configJson: JSON.stringify(configObj, null, 2),
+					configJson: JSON.stringify(configObj, null, 2)
 				});
 			} catch (error) {
 				console.error('Error parsing config JSON:', error);
@@ -65,14 +65,14 @@ export default function LLMConfigFormModal({
 		{ id: 'ollama', label: 'Ollama' },
 		{ id: 'openai', label: 'OpenAI' },
 		{ id: 'anthropic', label: 'Anthropic' },
-		{ id: 'watsonx', label: 'IBM watsonx' },
+		{ id: 'watsonx', label: 'IBM watsonx' }
 	];
 
 	// Handle form input changes
 	const handleInputChange = (field: keyof FormData, value: string | number) => {
 		setFormData({
 			...formData,
-			[field]: value,
+			[field]: value
 		});
 	};
 
@@ -83,30 +83,30 @@ export default function LLMConfigFormModal({
 				return JSON.stringify(
 					{
 						model: 'llama2',
-						base_url: 'http://localhost:11434',
+						base_url: 'http://localhost:11434'
 					},
 					null,
-					2
+					2,
 				);
 			case 'openai':
 				return JSON.stringify(
 					{
 						model: 'gpt-4o',
 						api_key: '',
-						base_url: 'https://api.openai.com/v1',
+						base_url: 'https://api.openai.com/v1'
 					},
 					null,
-					2
+					2,
 				);
 			case 'anthropic':
 				return JSON.stringify(
 					{
 						model: 'claude-3-5-sonnet-20240620',
 						api_key: '',
-						base_url: 'https://api.anthropic.com/v1',
+						base_url: 'https://api.anthropic.com/v1'
 					},
 					null,
-					2
+					2,
 				);
 			case 'watsonx':
 				return JSON.stringify(
@@ -114,10 +114,10 @@ export default function LLMConfigFormModal({
 						model: 'ibm/granite-13b-instruct-v2',
 						api_key: '',
 						project_id: '',
-						base_url: 'https://us-south.ml.cloud.ibm.com',
+						base_url: 'https://us-south.ml.cloud.ibm.com'
 					},
 					null,
-					2
+					2,
 				);
 			default:
 				return JSON.stringify({}, null, 2);
@@ -130,7 +130,7 @@ export default function LLMConfigFormModal({
 		setFormData({
 			...formData,
 			provider: newProvider,
-			configJson: config ? formData.configJson : getDefaultConfigTemplate(newProvider),
+			configJson: config ? formData.configJson : getDefaultConfigTemplate(newProvider)
 		});
 	};
 
@@ -174,7 +174,7 @@ export default function LLMConfigFormModal({
 				name: formData.name,
 				provider: formData.provider,
 				config: formData.configJson,
-				priority: formData.priority,
+				priority: formData.priority
 			};
 
 			// Create or update

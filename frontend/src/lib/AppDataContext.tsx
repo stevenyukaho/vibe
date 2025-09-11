@@ -201,7 +201,7 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 		try {
 			const updatedAgent = await api.updateAgent(id, agentData);
 			setAgents(prev => prev.map(agent =>
-				agent.id === id ? { ...agent, ...updatedAgent } : agent
+				agent.id === id ? { ...agent, ...updatedAgent } : agent,
 			));
 			setErrors(prev => ({ ...prev, agents: null }));
 			return updatedAgent;
@@ -262,7 +262,7 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 		try {
 			const updatedTest = await api.updateTest(id, testData);
 			setTests(prev => prev.map(test =>
-				test.id === id ? { ...test, ...updatedTest } : test
+				test.id === id ? { ...test, ...updatedTest } : test,
 			));
 			setErrors(prev => ({ ...prev, tests: null }));
 			return updatedTest;
@@ -323,7 +323,7 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 		try {
 			const updatedConfig = await api.updateLLMConfig(id, configData);
 			setLLMConfigs(prev => prev.map(config =>
-				config.id === id ? { ...config, ...updatedConfig } : config
+				config.id === id ? { ...config, ...updatedConfig } : config,
 			));
 			setErrors(prev => ({ ...prev, llmConfigs: null }));
 			return updatedConfig;

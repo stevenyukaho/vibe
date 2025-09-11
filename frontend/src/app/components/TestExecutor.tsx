@@ -7,7 +7,7 @@ import {
 	SelectItem,
 	Button,
 	InlineLoading,
-	Tile,
+	Tile
 } from '@carbon/react';
 import { PlayFilled } from '@carbon/icons-react';
 import { api } from '@/lib/api';

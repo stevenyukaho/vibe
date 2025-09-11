@@ -7,7 +7,7 @@ import {
 	TrashCan,
 	ArrowUp,
 	ArrowDown,
-	PlayOutline,
+	PlayOutline
 } from '@carbon/icons-react';
 import {
 	DataTable,
@@ -19,7 +19,7 @@ import {
 	TableCell,
 	Button,
 	Loading,
-	InlineNotification,
+	InlineNotification
 } from '@carbon/react';
 import styles from './page.module.scss';
 import { useLLMConfigs } from '../../lib/AppDataContext';
@@ -35,7 +35,7 @@ export default function LLMConfigsPage() {
 		error,
 		updateLLMConfig,
 		deleteLLMConfig,
-		fetchLLMConfigs,
+		fetchLLMConfigs
 	} = useLLMConfigs();
 
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -83,7 +83,7 @@ export default function LLMConfigsPage() {
 		{ key: 'priority', header: 'Priority' },
 		{ key: 'name', header: 'Name' },
 		{ key: 'provider', header: 'Provider' },
-		{ key: 'actions', header: 'Actions' },
+		{ key: 'actions', header: 'Actions' }
 	];
 
 	// Format rows for the data table
@@ -150,7 +150,7 @@ export default function LLMConfigsPage() {
 					onClick={() => handleDelete(config.id!)}
 				/>
 			</div>
-		),
+		)
 	}));
 
 	return (

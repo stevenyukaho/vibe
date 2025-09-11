@@ -38,7 +38,7 @@ export default function SuiteRunDetailPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [previousStatus, setPreviousStatus] = useState<string | null>(null);
 	const [freshResults, setFreshResults] = useState<Map<number, TestResult>>(new Map());
-	
+
 	// Result modal state
 	const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
 	const [modalOpen, setModalOpen] = useState(false);
@@ -51,11 +51,11 @@ export default function SuiteRunDetailPage() {
 		if (!suiteRunData || !jobsData) {
 			return true;
 		}
-		
+
 		if (suiteRunData.status === 'running') {
 			return true;
 		}
-		
+
 		if (suiteRunData.status === 'completed') {
 			const activeScoringJobs = jobsData.filter(job => {
 				if (!job.result_id) {
@@ -65,15 +65,15 @@ export default function SuiteRunDetailPage() {
 				if (!result) {
 					return true;
 				}
-				
+
 				const scoringStatus = result.similarity_scoring_status;
 				// Only poll if scoring is actively in progress, not if it was never started (null)
 				return scoringStatus === 'pending' || scoringStatus === 'running';
 			});
-			
+
 			return activeScoringJobs.length > 0;
 		}
-		
+
 		return false;
 	}, [freshResults]);
 
@@ -82,14 +82,14 @@ export default function SuiteRunDetailPage() {
 		if (freshResults.size === 0) {
 			return true;
 		}
-		
+
 		if (suiteRunData.status === 'running') {
-			const newlyCompletedJobs = jobsData.filter(job => 
-				job.result_id && !freshResults.has(job.result_id)
+			const newlyCompletedJobs = jobsData.filter(job =>
+				job.result_id && !freshResults.has(job.result_id),
 			);
 			return newlyCompletedJobs.length > 0;
 		}
-		
+
 		if (suiteRunData.status === 'completed') {
 			const jobsWithActiveSimilarityScoring = jobsData.filter(job => {
 				if (!job.result_id) {
@@ -99,15 +99,15 @@ export default function SuiteRunDetailPage() {
 				if (!result) {
 					return true;
 				}
-				
+
 				const scoringStatus = result.similarity_scoring_status;
 				// Only fetch if scoring is actively in progress, not if it was never started (null)
 				return scoringStatus === 'pending' || scoringStatus === 'running';
 			});
-			
+
 			return jobsWithActiveSimilarityScoring.length > 0;
 		}
-		
+
 		return false;
 	}, [freshResults]);
 
@@ -116,24 +116,24 @@ export default function SuiteRunDetailPage() {
 			if (!job.result_id) {
 				return false;
 			}
-			
+
 			const existingResult = freshResults.get(job.result_id);
 			if (!existingResult) {
 				return true;
 			}
-			
+
 			if (suiteRunData.status === 'running') {
 				return !freshResults.has(job.result_id);
 			}
-			
+
 			const scoringStatus = existingResult.similarity_scoring_status;
 			return scoringStatus === 'pending' || scoringStatus === 'running';
 		});
-		
+
 		if (jobsToFetch.length === 0) {
 			return;
 		}
-		
+
 		const resultPromises = jobsToFetch.map(async (job) => {
 			try {
 				const result = await getResultById(job.result_id!);
@@ -143,13 +143,13 @@ export default function SuiteRunDetailPage() {
 				return null;
 			}
 		});
-		
+
 		const results = await Promise.all(resultPromises);
 		const newResults = results.filter(Boolean) as [number, TestResult][];
-		
+
 		setFreshResults(prev => new Map([...prev, ...newResults]));
 	}, [freshResults, getResultById]);
-	
+
 	const handleResultView = async (id: number) => {
 		try {
 			setResultError(null);
@@ -167,10 +167,10 @@ export default function SuiteRunDetailPage() {
 			setLoading(false);
 			return;
 		}
-		
+
 		let mounted = true;
 		let interval: NodeJS.Timeout | null = null;
-		
+
 		async function fetchData() {
 			try {
 				const [runData, jobsData] = await Promise.all([
@@ -179,33 +179,33 @@ export default function SuiteRunDetailPage() {
 				]);
 
 				await fetchResults();
-				
+
 				if (shouldFetchFreshResults(runData, jobsData)) {
 					await fetchFreshResultsConditionally(runData, jobsData);
 				}
-				
+
 				if (!mounted) return;
-				
+
 				// Check if status changed to "completed" and refresh all data
 				if (previousStatus !== runData.status && runData.status === 'completed') {
 					await fetchAllData();
 				}
-				
+
 				// Check if any job got a new result_id (indicating it just completed)
-				const newlyCompletedJobs = jobsData.filter(job => 
-					job.result_id && !jobs.find(prevJob => 
-						prevJob.id === job.id && prevJob.result_id === job.result_id
-					)
+				const newlyCompletedJobs = jobsData.filter(job =>
+					job.result_id && !jobs.find(prevJob =>
+						prevJob.id === job.id && prevJob.result_id === job.result_id,
+					),
 				);
-				
+
 				if (newlyCompletedJobs.length > 0) {
 					await fetchAllData();
 				}
-				
+
 				setPreviousStatus(runData.status);
 				setSuiteRun(runData);
 				setJobs(jobsData);
-				
+
 				// Setup next interval based on whether we still need polling
 				if (mounted && shouldPollData(runData, jobsData)) {
 					interval = setTimeout(fetchData, 2000);
@@ -213,7 +213,7 @@ export default function SuiteRunDetailPage() {
 			} catch (err: unknown) {
 				if (err instanceof Error) setError(err.message);
 				else setError(String(err));
-				
+
 				// On error, continue polling to retry
 				if (mounted) {
 					interval = setTimeout(fetchData, 2000);
@@ -222,12 +222,12 @@ export default function SuiteRunDetailPage() {
 				if (mounted) setLoading(false);
 			}
 		}
-		
+
 		// Initial fetch
 		fetchData();
-		
-		return () => { 
-			mounted = false; 
+
+		return () => {
+			mounted = false;
 			if (interval) clearTimeout(interval);
 		};
 	}, [runId, previousStatus, fetchAllData, fetchResults, shouldPollData, shouldFetchFreshResults, fetchFreshResultsConditionally]);
@@ -253,19 +253,19 @@ export default function SuiteRunDetailPage() {
 	];
 
 	const rows = jobs.map((job) => {
-		const testName = getTestById(job.test_id)?.name || `#${job.test_id}`;
+		const testName = job.test_id ? getTestById(job.test_id)?.name || `Test #${job.test_id}` : `Conversation #${job.conversation_id}`;
 		const agent = getAgentById(job.agent_id);
 		const agentName = agent ? `${agent.name} (v${agent.version})` : `Agent #${job.agent_id}`;
 		// Use fresh results if available, otherwise fall back to cache
 		const result = job.result_id ? (freshResults.get(job.result_id) || getResultByIdFromCache(job.result_id)) : null;
-		
+
 		// Calculate token usage display
 		let tokenDisplay = '-';
 		if (result && (result.input_tokens || result.output_tokens)) {
 			const inputTokens = result.input_tokens || 0;
 			const outputTokens = result.output_tokens || 0;
 			const totalTokens = inputTokens + outputTokens;
-			
+
 			if (totalTokens > 0) {
 				if (inputTokens > 0 && outputTokens > 0) {
 					tokenDisplay = `${inputTokens} + ${outputTokens} = ${totalTokens}`;
@@ -274,7 +274,7 @@ export default function SuiteRunDetailPage() {
 				}
 			}
 		}
-		
+
 		return {
 			id: String(job.id),
 			test: testName,
@@ -311,9 +311,9 @@ export default function SuiteRunDetailPage() {
 		<Grid>
 			<Column sm={4} md={8} lg={16}>
 				<div style={{ marginBottom: '2rem' }}>
-					<Button 
-						kind="ghost" 
-						onClick={() => router.push('/suite-runs')} 
+					<Button
+						kind="ghost"
+						onClick={() => router.push('/suite-runs')}
 						renderIcon={ChevronLeft}
 					>
 						Back to suite runs
@@ -321,7 +321,7 @@ export default function SuiteRunDetailPage() {
 				</div>
 
 				<h1>Suite run {suiteRun.id}</h1>
-				
+
 				<Tile style={{ marginBottom: '2rem' }}>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 						<div>
@@ -440,7 +440,7 @@ export default function SuiteRunDetailPage() {
 						)}
 					</DataTable>
 				)}
-				
+
 				<ResultViewModal
 					isOpen={modalOpen}
 					result={selectedResult}

@@ -12,7 +12,7 @@ import {
 	Checkbox,
 	Button,
 	InlineLoading,
-	TextInput,
+	TextInput
 } from '@carbon/react';
 import { parseLLMVariations } from '@/lib/parseLLMResponse';
 

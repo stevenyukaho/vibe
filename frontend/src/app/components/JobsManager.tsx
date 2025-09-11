@@ -16,7 +16,7 @@ import {
 	InlineLoading,
 	CodeSnippet,
 	InlineNotification,
-	Pagination,
+	Pagination
 } from '@carbon/react';
 import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
 import { api, Job, JobStatus } from '@/lib/api';
@@ -213,7 +213,7 @@ export default function JobsManager({
 		{ key: 'status', header: 'Status' },
 		{ key: 'similarity_score', header: 'Similarity score' },
 		{ key: 'created_at', header: 'Created' },
-		{ key: 'actions', header: 'Actions' },
+		{ key: 'actions', header: 'Actions' }
 	];
 
 	// Memoize expensive row mapping with O(1) lookups
@@ -298,7 +298,7 @@ export default function JobsManager({
 							hasIconOnly
 						/>
 					</div>
-				),
+				)
 			};
 		});
 	// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -405,7 +405,7 @@ export default function JobsManager({
 					open={jobModalOpen}
 					onRequestClose={() => setJobModalOpen(false)}
 					modalHeading={`Job #${selectedJob.id} Details`}
-					primaryButtonText={selectedJob.result_id ? "View Result" : null}
+					primaryButtonText={selectedJob.result_id ? 'View Result' : null}
 					primaryButtonDisabled={!selectedJob.result_id}
 					onRequestSubmit={handleViewResult}
 					secondaryButtonText="Close"
@@ -546,7 +546,7 @@ export default function JobsManager({
 			<Modal
 				open={isDeleteModalOpen}
 				modalHeading="Delete Job"
-				primaryButtonText={deletingJob ? "Deleting..." : "Delete"}
+				primaryButtonText={deletingJob ? 'Deleting...' : 'Delete'}
 				secondaryButtonText="Cancel"
 				onRequestClose={() => setIsDeleteModalOpen(false)}
 				onRequestSubmit={handleDeleteJobConfirm}
@@ -560,7 +560,7 @@ export default function JobsManager({
 			<Modal
 				open={isCancelModalOpen}
 				modalHeading="Cancel Job"
-				primaryButtonText={cancelingJob ? "Canceling..." : "Cancel Job"}
+				primaryButtonText={cancelingJob ? 'Canceling...' : 'Cancel Job'}
 				secondaryButtonText="Go Back"
 				onRequestClose={() => setIsCancelModalOpen(false)}
 				onRequestSubmit={handleCancelJobConfirm}

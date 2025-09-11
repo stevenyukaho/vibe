@@ -90,7 +90,7 @@ export default function ConversationsPage() {
 		description: conversation.description || '',
 		messageCount: conversation.messages?.length || 0,
 		tags: formatTags(conversation.tags),
-		createdAt: conversation.created_at ? new Date(conversation.created_at).toLocaleDateString() : '',
+		createdAt: conversation.created_at ? new Date(conversation.created_at).toLocaleDateString() : ''
 	}));
 
 	const conversationHeaders = [
@@ -99,7 +99,7 @@ export default function ConversationsPage() {
 		{ key: 'messageCount', header: 'Messages' },
 		{ key: 'tags', header: 'Tags' },
 		{ key: 'createdAt', header: 'Created' },
-		{ key: 'actions', header: 'Actions' },
+		{ key: 'actions', header: 'Actions' }
 	];
 
 	return (

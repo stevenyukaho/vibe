@@ -29,14 +29,14 @@ export default function Agents({
 		id: agent.id?.toString() || `agent-${Date.now()}`,
 		name: agent.name,
 		version: agent.version,
-		created_at: new Date(agent.created_at!).toLocaleString(),
+		created_at: new Date(agent.created_at!).toLocaleString()
 	}));
 
 	const agentHeaders = [
 		{ key: 'name', header: 'Name' },
 		{ key: 'version', header: 'Version' },
 		{ key: 'created_at', header: 'Created At' },
-		{ key: 'actions', header: 'Actions' },
+		{ key: 'actions', header: 'Actions' }
 	];
 
 	return (

@@ -7,7 +7,7 @@ import AppSideNav from './components/SideNav';
 import './globals.scss';
 
 export default function RootLayout({
-	children,
+	children
 }: Readonly<{
   children: React.ReactNode;
 }>) {

@@ -46,7 +46,7 @@ export default function AgentsPage() {
 				'agent-name': agent.name || '',
 				'agent-version': agent.version || '',
 				'agent-prompt': agent.prompt || '',
-				'agent-settings': agent.settings || '',
+				'agent-settings': agent.settings || ''
 			};
 
 			// Parse settings JSON and map to form fields

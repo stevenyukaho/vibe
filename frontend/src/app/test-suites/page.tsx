@@ -119,7 +119,7 @@ export default function TestSuitesPage() {
 	// Get current page of data for pagination
 	const paginatedSuites = suites.slice(
 		(page - 1) * pageSize,
-		page * pageSize
+		page * pageSize,
 	);
 
 	if (loading) {

@@ -30,14 +30,14 @@ export default function Tests({
 		id: test.id?.toString() || `test-${Date.now()}`,
 		name: test.name,
 		description: test.description || '',
-		created_at: new Date(test.created_at!).toLocaleString(),
+		created_at: new Date(test.created_at!).toLocaleString()
 	}));
 
 	const testHeaders = [
 		{ key: 'name', header: 'Name' },
 		{ key: 'description', header: 'Description' },
 		{ key: 'created_at', header: 'Created At' },
-		{ key: 'actions', header: 'Actions' },
+		{ key: 'actions', header: 'Actions' }
 	];
 
 	return (

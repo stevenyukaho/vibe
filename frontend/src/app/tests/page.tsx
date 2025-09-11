@@ -41,11 +41,11 @@ export default function TestsPage() {
 	// Prepare initial form data for TestFormModal
 	const initialFormData: Record<string, string> = editingId
 		? {
-				'test-name': getTestById(editingId)?.name || '',
-				'test-description': getTestById(editingId)?.description || '',
-				'test-input': getTestById(editingId)?.input || '',
-				'test-expected-output': getTestById(editingId)?.expected_output || '',
-			}
+			'test-name': getTestById(editingId)?.name || '',
+			'test-description': getTestById(editingId)?.description || '',
+			'test-input': getTestById(editingId)?.input || '',
+			'test-expected-output': getTestById(editingId)?.expected_output || ''
+		}
 		: ({} as Record<string, string>);
 
 	return (

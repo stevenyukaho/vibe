@@ -21,7 +21,7 @@ export function filterScoredResults(results: TestResult[]): ScoredResult[] {
 		result.similarity_score !== undefined &&
 		result.similarity_score !== null &&
 		'similarity_scoring_status' in result &&
-		result.similarity_scoring_status === 'completed'
+		result.similarity_scoring_status === 'completed',
 	);
 }
 
@@ -48,7 +48,7 @@ export function calculateOverallAverageSimilarityScore(results: TestResult[]): s
  */
 export function calculateSuiteRunAverageSimilarityScore(
 	results: TestResult[],
-	suiteRun: SuiteRun
+	suiteRun: SuiteRun,
 ): number | null {
 	// Filter results by suite run timing and agent
 	const suiteStartTime = new Date(suiteRun.started_at).getTime();
