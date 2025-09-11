@@ -12,6 +12,7 @@ import {
 import { PlayFilled } from '@carbon/icons-react';
 import { api } from '@/lib/api';
 import { useAgents, useTests } from '@/lib/AppDataContext';
+import styles from './TestExecutor.module.scss';
 
 interface TestExecutorProps {
 	onJobCreated: () => void;
@@ -78,7 +79,7 @@ export default function TestExecutor({
 	return (
 		<div>
 			<Form>
-				<div style={{ marginBottom: '1rem' }}>
+				<div className={styles.fieldGroup}>
 					<Select
 						id="agent-select"
 						labelText="Select Agent"
@@ -97,7 +98,7 @@ export default function TestExecutor({
 					</Select>
 				</div>
 
-				<div style={{ marginBottom: '1rem' }}>
+				<div className={styles.fieldGroup}>
 					<Select
 						id="test-select"
 						labelText="Select Test"
@@ -127,13 +128,13 @@ export default function TestExecutor({
 			</Form>
 
 			{error && (
-				<Tile className="error-tile" style={{ marginTop: '1rem', backgroundColor: '#fff1f1', color: '#da1e28' }}>
+				<Tile className={styles.errorTile}>
 					{error}
 				</Tile>
 			)}
 
 			{successMessage && (
-				<Tile className="success-tile" style={{ marginTop: '1rem', backgroundColor: '#defbe6', color: '#0e6027' }}>
+				<Tile className={styles.successTile}>
 					{successMessage}
 				</Tile>
 			)}
