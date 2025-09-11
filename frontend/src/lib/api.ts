@@ -885,8 +885,8 @@ export const api = {
 		return response.json();
 	},
 
-	async updateConversationMessage(conversationId: number, sequence: number, updates: Partial<ConversationMessage>): Promise<ConversationMessage> {
-		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/${sequence}`, {
+	async updateConversationMessage(conversationId: number, messageId: number, updates: Partial<ConversationMessage>): Promise<ConversationMessage> {
+		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/${messageId}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(updates)
@@ -908,11 +908,11 @@ export const api = {
 		}
 	},
 
-	async reorderConversationMessages(conversationId: number, messageOrders: { sequence: number; new_sequence: number }[]): Promise<void> {
+	async reorderConversationMessages(conversationId: number, messages: { id: number; sequence: number }[]): Promise<void> {
 		const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages/reorder`, {
-			method: 'POST',
+			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ message_orders: messageOrders })
+			body: JSON.stringify({ messages })
 		});
 		if (!response.ok) {
 			const error = await response.json();
