@@ -2,8 +2,11 @@ import axios, { AxiosRequestConfig } from 'axios';
 import {
 	TestExecutionRequest,
 	TestExecutionResponse,
+	ConversationExecutionRequest,
+	ConversationExecutionResponse,
 	IntermediateStep,
-	ResponseMapping
+	ResponseMapping,
+	SessionMessage
 } from '../types';
 import { DEFAULT_TIMEOUT } from '../config';
 import { extractTokenUsage } from './token-extractor';
@@ -17,10 +20,10 @@ import { extractTokenUsage } from './token-extractor';
 export class ApiService {
 	/**
 	 * Executes a test using an external API.
-	 * 
+	 *
 	 * @param request - The test execution request containing API configuration and test input
 	 * @returns Promise<TestExecutionResponse> - The test execution result including output, success status, and metrics
-	 * 
+	 *
 	 * @description
 	 * This method:
 	 * 1. Formats the request using templates if provided
@@ -29,7 +32,7 @@ export class ApiService {
 	 * 4. Logs intermediate steps
 	 * 5. Processes the response
 	 * 6. Returns formatted results with execution metrics
-	 * 
+	 *
 	 * The method includes comprehensive error handling and timing of the execution.
 	 */
 	async executeTest(request: TestExecutionRequest): Promise<TestExecutionResponse> {
@@ -79,7 +82,7 @@ export class ApiService {
 				} else {
 					url.searchParams.append('input', request.test_input);
 				}
-				
+
 				response = await axios.get(url.toString(), config);
 			} else {
 				// For POST, PUT, PATCH, DELETE - use request body
@@ -164,25 +167,25 @@ export class ApiService {
 
 	/**
 	 * Formats the request payload using a template.
-	 * 
+	 *
 	 * @param input - The test input string to be formatted
 	 * @param template - The template string containing placeholders
 	 * @returns any - The formatted request payload as a JSON object
-	 * 
+	 *
 	 * @description
 	 * This method:
 	 * 1. Properly escapes the input for JSON insertion
 	 * 2. Replaces {{input}} placeholders in the template with the escaped input
 	 * 3. Parses the resulting string as JSON
 	 * 4. Falls back to a simple {input: input} object if parsing fails
-	 * 
+	 *
 	 * The template should be a valid JSON string with {{input}} placeholders.
 	 */
 	private formatRequest(input: string, template: string): any {
 		try {
 			// Properly escape the input for JSON insertion
 			const escapedInput = JSON.stringify(input).slice(1, -1); // Remove surrounding quotes
-			
+
 			// Replace input placeholder in template with escaped input
 			const formattedTemplate = template.replace(/\{\{input\}\}/g, escapedInput);
 			return JSON.parse(formattedTemplate);
@@ -197,12 +200,12 @@ export class ApiService {
 
 	/**
 	 * Processes the API response and determines test success.
-	 * 
+	 *
 	 * @param responseData - The raw response data from the API
 	 * @param request - The original test execution request
 	 * @param steps - Array of intermediate steps to be updated
 	 * @returns { output: string, steps: IntermediateStep[], success: boolean } - Processed response data
-	 * 
+	 *
 	 * @description
 	 * This method:
 	 * 1. Extracts output based on response mapping configuration
@@ -311,11 +314,11 @@ export class ApiService {
 
 	/**
 	 * Extracts a value from an object using dot notation path.
-	 * 
+	 *
 	 * @param obj - The source object to extract from
 	 * @param path - Dot notation path (e.g., "data.items[0].name")
 	 * @returns any - The extracted value or undefined if not found
-	 * 
+	 *
 	 * @description
 	 * This method:
 	 * 1. Splits the path into parts
@@ -344,12 +347,12 @@ export class ApiService {
 
 	/**
 	 * Compares two values using the specified operator.
-	 * 
+	 *
 	 * @param left - The left-hand value to compare
 	 * @param operator - The comparison operator to use
 	 * @param right - The right-hand value to compare against
 	 * @returns boolean - The result of the comparison
-	 * 
+	 *
 	 * @description
 	 * Supported operators:
 	 * - == : Loose equality
@@ -385,10 +388,273 @@ export class ApiService {
 	}
 
 	/**
+	 * Executes a conversation using an external API.
+	 *
+	 * @param request - The conversation execution request containing API configuration and conversation script
+	 * @returns Promise<ConversationExecutionResponse> - The conversation execution result including transcript and metrics
+	 *
+	 * @description
+	 * This method:
+	 * 1. Iterates through the conversation script messages
+	 * 2. For each user message, makes an API call and captures the response
+	 * 3. Builds a full transcript of the conversation
+	 * 4. Returns the complete conversation history with timing and token usage
+	 */
+	async executeConversation(request: ConversationExecutionRequest): Promise<ConversationExecutionResponse> {
+		const startTime = Date.now();
+		const transcript: SessionMessage[] = [];
+		const intermediateSteps: IntermediateStep[] = [];
+		let totalInputTokens = 0;
+		let totalOutputTokens = 0;
+		let conversationSuccess = true;
+
+		try {
+			// Log conversation start
+			intermediateSteps.push({
+				timestamp: new Date().toISOString(),
+				action: 'Conversation started',
+				output: `Starting conversation with ${request.conversation_script.length} scripted messages`
+			});
+
+			let conversationHistory = '';
+
+			// Process each message in the conversation script
+			for (const scriptMessage of request.conversation_script) {
+				if (scriptMessage.role === 'system') {
+					// Add system message to transcript
+					transcript.push({
+						sequence: transcript.length + 1,
+						role: 'system',
+						content: scriptMessage.content,
+						timestamp: new Date().toISOString(),
+						metadata: { type: 'system_instruction' }
+					});
+
+					conversationHistory += `System: ${scriptMessage.content}\n`;
+					continue;
+				}
+
+				if (scriptMessage.role === 'user') {
+					// Add user message to transcript
+					transcript.push({
+						sequence: transcript.length + 1,
+						role: 'user',
+						content: scriptMessage.content,
+						timestamp: new Date().toISOString(),
+						metadata: { script_sequence: scriptMessage.sequence }
+					});
+
+					conversationHistory += `User: ${scriptMessage.content}\n`;
+
+					// Prepare the input for the API call
+					// For conversations, we might want to include the history
+					const currentInput = request.request_template?.includes('{{conversation_history}}')
+						? scriptMessage.content // Use just current message if template handles history
+						: conversationHistory;
+
+					const messageStartTime = Date.now();
+
+					intermediateSteps.push({
+						timestamp: new Date().toISOString(),
+						action: `API call for message ${scriptMessage.sequence}`,
+						output: `Processing user message: "${scriptMessage.content.substring(0, 50)}${scriptMessage.content.length > 50 ? '...' : ''}"`
+					});
+
+					try {
+						// Format request using the template if provided
+						const requestPayload = request.request_template
+							? this.formatConversationRequest(currentInput, conversationHistory, request.request_template)
+							: { input: currentInput };
+
+						const headers = {
+							'Content-Type': 'application/json',
+							...request.headers,
+							...(request.api_key ? { 'Authorization': `Bearer ${request.api_key}` } : {})
+						};
+
+						const config: AxiosRequestConfig = {
+							headers,
+							timeout: DEFAULT_TIMEOUT
+						};
+
+						// Get HTTP method, default to POST
+						const httpMethod = request.http_method || 'POST';
+
+						let response;
+						if (httpMethod === 'GET') {
+							const url = new URL(request.api_endpoint);
+							Object.entries(requestPayload).forEach(([key, value]) => {
+								url.searchParams.append(key, String(value));
+							});
+							response = await axios.get(url.toString(), config);
+						} else {
+							response = await axios({
+								method: httpMethod.toLowerCase(),
+								url: request.api_endpoint,
+								data: requestPayload,
+								...config
+							});
+						}
+
+						const messageExecutionTime = Date.now() - messageStartTime;
+
+						// Process the response for this message
+						const { output, steps, success } = this.processResponse(
+							response.data,
+							{
+								...request,
+								test_input: scriptMessage.content,
+								test_id: request.conversation_id
+							} as TestExecutionRequest,
+							[]
+						);
+
+						// Add processing steps to conversation-level steps
+						steps.forEach(step => {
+							intermediateSteps.push({
+								...step,
+								action: `Message ${scriptMessage.sequence}: ${step.action}`
+							});
+						});
+
+						// Extract token usage for this message
+						const { tokens } = extractTokenUsage(response.data, request.token_mapping);
+						if (tokens.input_tokens) totalInputTokens += tokens.input_tokens;
+						if (tokens.output_tokens) totalOutputTokens += tokens.output_tokens;
+
+						// Add assistant response to transcript
+						transcript.push({
+							sequence: transcript.length + 1,
+							role: 'assistant',
+							content: output,
+							timestamp: new Date().toISOString(),
+							metadata: {
+								script_sequence: scriptMessage.sequence,
+								execution_time_ms: messageExecutionTime,
+								success: success,
+								input_tokens: tokens.input_tokens,
+								output_tokens: tokens.output_tokens
+							}
+						});
+
+						conversationHistory += `Assistant: ${output}\n`;
+
+						if (!success) {
+							conversationSuccess = false;
+						}
+
+						intermediateSteps.push({
+							timestamp: new Date().toISOString(),
+							action: `Message ${scriptMessage.sequence} Completed`,
+							output: `Response received: "${output.substring(0, 100)}${output.length > 100 ? '...' : ''}"`
+						});
+
+					} catch (messageError: any) {
+						const errorMessage = `Error in message ${scriptMessage.sequence}: ${messageError.message}`;
+
+						intermediateSteps.push({
+							timestamp: new Date().toISOString(),
+							action: `Message ${scriptMessage.sequence} Error`,
+							output: errorMessage
+						});
+
+						// Add error to transcript
+						transcript.push({
+							sequence: transcript.length + 1,
+							role: 'assistant',
+							content: `Error: ${messageError.message}`,
+							timestamp: new Date().toISOString(),
+							metadata: {
+								script_sequence: scriptMessage.sequence,
+								error: true,
+								error_message: messageError.message
+							}
+						});
+
+						conversationSuccess = false;
+					}
+				}
+			}
+
+			const totalExecutionTime = Date.now() - startTime;
+
+			intermediateSteps.push({
+				timestamp: new Date().toISOString(),
+				action: 'Conversation completed',
+				output: `Conversation completed with ${transcript.length} messages. Success: ${conversationSuccess}`
+			});
+
+			return {
+				conversation_id: request.conversation_id,
+				transcript,
+				success: conversationSuccess,
+				execution_time: totalExecutionTime,
+				intermediate_steps: intermediateSteps,
+				metrics: {
+					execution_time: totalExecutionTime,
+					input_tokens: totalInputTokens,
+					output_tokens: totalOutputTokens
+				}
+			};
+
+		} catch (error: any) {
+			const totalExecutionTime = Date.now() - startTime;
+
+			intermediateSteps.push({
+				timestamp: new Date().toISOString(),
+				action: 'Conversation error',
+				output: `Conversation failed: ${error.message}`
+			});
+
+			return {
+				conversation_id: request.conversation_id,
+				transcript,
+				success: false,
+				execution_time: totalExecutionTime,
+				intermediate_steps: intermediateSteps,
+				metrics: {
+					execution_time: totalExecutionTime,
+					input_tokens: totalInputTokens,
+					output_tokens: totalOutputTokens
+				}
+			};
+		}
+	}
+
+	/**
+	 * Formats a conversation request using a template that supports both current input and conversation history.
+	 *
+	 * @param currentInput - The current user message
+	 * @param conversationHistory - The full conversation history so far
+	 * @param template - The template string containing placeholders
+	 * @returns any - The formatted request payload as a JSON object
+	 */
+	private formatConversationRequest(currentInput: string, conversationHistory: string, template: string): any {
+		try {
+			// Escape inputs for JSON insertion
+			const escapedCurrentInput = JSON.stringify(currentInput).slice(1, -1);
+			const escapedHistory = JSON.stringify(conversationHistory).slice(1, -1);
+
+			// Replace placeholders in template
+			let formattedTemplate = template
+				.replace(/\{\{input\}\}/g, escapedCurrentInput)
+				.replace(/\{\{conversation_history\}\}/g, escapedHistory);
+
+			return JSON.parse(formattedTemplate);
+		} catch (error: any) {
+			console.error('Error formatting conversation request:', error);
+			console.error('Template:', template);
+			console.error('Current input:', currentInput);
+
+			return { input: currentInput };
+		}
+	}
+
+	/**
 	 * Performs a health check on the service.
-	 * 
+	 *
 	 * @returns Promise<boolean> - Always returns true as this is a stateless service
-	 * 
+	 *
 	 * @description
 	 * This method is used to verify the service is operational.
 	 * As this is a stateless service that makes external API calls,
