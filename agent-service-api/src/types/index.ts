@@ -1,9 +1,34 @@
 /**
- * Represents a request to execute a test
+ * Represents a conversation message
+ */
+export interface ConversationMessage {
+  sequence: number;
+  role: 'user' | 'system';
+  content: string;
+  metadata?: any;
+}
+
+/**
+ * Represents a request to execute a test (legacy single prompt)
  */
 export interface TestExecutionRequest {
   test_input: string;
   test_id: number;
+  api_endpoint: string;
+  api_key?: string;
+  request_template?: string;
+  response_mapping?: string;
+  token_mapping?: string;
+  headers?: Record<string, string>;
+  http_method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+}
+
+/**
+ * Represents a request to execute a conversation
+ */
+export interface ConversationExecutionRequest {
+  conversation_id: number;
+  conversation_script: ConversationMessage[];
   api_endpoint: string;
   api_key?: string;
   request_template?: string;
@@ -35,12 +60,36 @@ export interface Metrics {
 }
 
 /**
- * Represents the response from a test execution
+ * Represents a session message (actual conversation turn)
+ */
+export interface SessionMessage {
+  sequence: number;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  timestamp: string;
+  metadata?: any;
+}
+
+/**
+ * Represents the response from a test execution (legacy)
  */
 export interface TestExecutionResponse {
   agent_id?: number;
   test_id: number;
   output: string;
+  success: boolean;
+  execution_time: number;
+  intermediate_steps: IntermediateStep[];
+  metrics: Metrics;
+}
+
+/**
+ * Represents the response from a conversation execution
+ */
+export interface ConversationExecutionResponse {
+  agent_id?: number;
+  conversation_id: number;
+  transcript: SessionMessage[];
   success: boolean;
   execution_time: number;
   intermediate_steps: IntermediateStep[];
