@@ -1301,6 +1301,16 @@ export const getExecutionSessionById = (id: number) => {
 	return db.prepare('SELECT * FROM execution_sessions WHERE id = ?').get(id) as ExecutionSession;
 };
 
+export const getExecutionSessionsByIds = (ids: number[]): ExecutionSession[] => {
+	if (!ids || ids.length === 0) {
+		return [];
+	}
+	const placeholders = ids.map(() => '?').join(',');
+	const sql = `SELECT * FROM execution_sessions WHERE id IN (${placeholders})`;
+
+	return db.prepare(sql).all(...ids) as ExecutionSession[];
+};
+
 export const updateExecutionSession = (id: number, session: Partial<ExecutionSession>) => {
 	const filteredSession = Object.fromEntries(
 		Object.entries(session).filter(([_, value]) => value !== undefined)
