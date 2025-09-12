@@ -1,0 +1,40 @@
+.container {
+	padding: 2rem;
+	max-width: 100%;
+}
+
+.header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 2rem;
+
+	h1 {
+		margin: 0;
+		font-size: 2rem;
+		font-weight: 400;
+	}
+}
+
+.actionButton {
+	margin-right: 0.5rem;
+}
+
+.tagContainer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+}
+
+.messageCount {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2rem;
+	height: 1.5rem;
+	background-color: var(--cds-background-brand);
+	color: var(--cds-text-on-color);
+	border-radius: 0.75rem;
+	font-size: 0.75rem;
+	font-weight: 500;
+}
