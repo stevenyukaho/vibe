@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { InlineLoading, Pagination } from '@carbon/react';
 import { Report } from '@carbon/icons-react';
 import styles from '../page.module.scss';
+import noticeStyles from '../components/Notice.module.scss';
 import EmptyState from '../components/EmptyState';
 import TableRenderer from '../components/TableRenderer';
 import { api, ExecutionSession, Agent, Conversation, TestResult } from '../../lib/api';
@@ -200,7 +201,7 @@ export default function SessionsPage() {
 			) : loading ? (
 				<InlineLoading description="Loading data..." />
 			) : error ? (
-				<div style={{ color: 'red', padding: '1rem' }}>{error}</div>
+				<div className={noticeStyles.errorBox}>{error}</div>
 			) : (
 				<EmptyState
 					title="Sessions"
