@@ -212,7 +212,7 @@ export default function Home() {
 							{avgSimilarityScore !== 'N/A' ? `${avgSimilarityScore}%` : avgSimilarityScore}
 						</div>
 						{scoredResults.length > 0 && (
-							<div style={{ fontSize: '0.75rem', color: '#6f6f6f', marginTop: '0.25rem' }}>
+							<div className={styles.metricSubtext}>
 								Based on {scoredResults.length} scored results
 							</div>
 						)}
