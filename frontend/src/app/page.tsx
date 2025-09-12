@@ -246,13 +246,13 @@ export default function Home() {
 						) : recentSuiteRuns.length > 0 ? (
 							<div>
 								{recentSuiteRuns.map(run => (
-									<div key={run.id} style={{ marginBottom: '10px' }}>
+									<div key={run.id} className={styles.runRow}>
 										<Tag type={run.status === 'completed' ? 'green' :
 											run.status === 'running' ? 'blue' :
-												run.status === 'failed' ? 'red' : 'gray'}>
+											run.status === 'failed' ? 'red' : 'gray'}>
 											{run.status}
 										</Tag>
-										<span style={{ marginLeft: '10px' }}>
+										<span className={styles.runLabel}>
 											Suite #{run.suite_id} with Agent #{run.agent_id} -
 											{run.successful_tests}/{run.total_tests} tests passed
 										</span>
