@@ -24,6 +24,7 @@ import {
 } from '@carbon/react';
 import { ChevronLeft, ViewFilled } from '@carbon/icons-react';
 import ResultViewModal from '../../components/ResultViewModal';
+import styles from './page.module.scss';
 import SimilarityScoreDisplay from '../../components/SimilarityScoreDisplay';
 
 export default function SuiteRunDetailPage() {
@@ -310,7 +311,7 @@ export default function SuiteRunDetailPage() {
 	return (
 		<Grid>
 			<Column sm={4} md={8} lg={16}>
-				<div style={{ marginBottom: '2rem' }}>
+				<div className={styles.backButtonRow}>
 					<Button
 						kind="ghost"
 						onClick={() => router.push('/suite-runs')}
@@ -322,16 +323,16 @@ export default function SuiteRunDetailPage() {
 
 				<h1>Suite run {suiteRun.id}</h1>
 
-				<Tile style={{ marginBottom: '2rem' }}>
-					<div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+				<Tile className={styles.statusPanel}>
+					<div className={styles.statusCardContent}>
 						<div>
-							<p style={{ marginBottom: '0.5rem' }}>Status:</p>
+							<p className={styles.label}>Status:</p>
 							<Tag type={getStatusTagType(suiteRun.status)}>{suiteRun.status}</Tag>
 						</div>
 						{(suiteRun.status === 'running') && (
 							<div>
-								<p style={{ marginBottom: '0.5rem' }}>Progress:</p>
-								<div style={{ width: '100%', marginBottom: '0.5rem' }}>
+								<p className={styles.label}>Progress:</p>
+								<div className={styles.fullWidth}>
 									<ProgressBar
 										value={suiteRun.progress}
 										max={100}
@@ -344,8 +345,8 @@ export default function SuiteRunDetailPage() {
 						{/* Token usage summary */}
 						{((suiteRun.total_input_tokens || 0) + (suiteRun.total_output_tokens || 0)) > 0 && (
 							<div>
-								<p style={{ marginBottom: '0.5rem' }}>Token Usage:</p>
-								<div style={{ display: 'flex', gap: '1rem' }}>
+								<p className={styles.label}>Token Usage:</p>
+								<div className={styles.tokenRow}>
 									<span>Input: {(suiteRun.total_input_tokens || 0).toLocaleString()}</span>
 									<span>Output: {(suiteRun.total_output_tokens || 0).toLocaleString()}</span>
 									<strong>Total: {((suiteRun.total_input_tokens || 0) + (suiteRun.total_output_tokens || 0)).toLocaleString()}</strong>

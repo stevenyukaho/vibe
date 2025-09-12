@@ -1,0 +1,26 @@
+.backButtonRow {
+	margin-bottom: 2rem;
+}
+
+.statusPanel {
+	margin-bottom: 2rem;
+}
+
+.statusCardContent {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.label {
+	margin-bottom: 0.5rem;
+}
+
+.fullWidth {
+	width: 100%;
+}
+
+.tokenRow {
+	display: flex;
+	gap: 1rem;
+}
