@@ -1,19 +1,17 @@
 .fieldGroup {
-  margin-bottom: 1rem;
+	margin-bottom: 1rem;
 }
 
 .errorTile {
-  margin-top: 1rem;
-  background-color: var(--cds-layer);
-  color: var(--cds-text-primary);
-  border-left: 3px solid var(--cds-support-error);
+	margin-top: 1rem;
+	background-color: var(--cds-layer);
+	color: var(--cds-text-primary);
+	border-left: 3px solid var(--cds-support-error);
 }
 
 .successTile {
-  margin-top: 1rem;
-  background-color: var(--cds-layer);
-  color: var(--cds-text-primary);
-  border-left: 3px solid var(--cds-support-success);
+	margin-top: 1rem;
+	background-color: var(--cds-layer);
+	color: var(--cds-text-primary);
+	border-left: 3px solid var(--cds-support-success);
 }
-
-
