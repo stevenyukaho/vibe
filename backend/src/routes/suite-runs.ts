@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, getExecutionTimeByResultId, listSuiteRunsWithCount } from '../db/queries';
+import { getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, listSuiteRunsWithCount, getExecutionSessionsByIds } from '../db/queries';
+import { computeSessionDurationMs, parseSessionMetadata } from '../lib/sessionMetadata';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
-import db from '../db/database';
 import { JobStatus } from '../types';
 
 const router = Router();
@@ -14,25 +14,25 @@ const router = Router();
  */
 async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
 	const jobs = await getJobsBySuiteRunId(suiteRun.id!);
-	
+
 	// Calculate actual job states
-	const completedJobs = jobs.filter(job => 
-		job.status === 'completed' || 
-		job.status === 'failed' || 
+	const completedJobs = jobs.filter(job =>
+		job.status === 'completed' ||
+		job.status === 'failed' ||
 		job.status === 'timeout'
 	);
 	const successfulJobs = jobs.filter(job => job.status === 'completed');
-	
+
 	// If the database values don't match the actual job states, use calculated values
 	// this is a fallback to ensure the UI is always up to date
-	if (suiteRun.completed_tests !== completedJobs.length || 
+	if (suiteRun.completed_tests !== completedJobs.length ||
 		suiteRun.successful_tests !== successfulJobs.length) {
-		
+
 		suiteRun.completed_tests = completedJobs.length;
 		suiteRun.successful_tests = successfulJobs.length;
 		suiteRun.failed_tests = completedJobs.length - successfulJobs.length;
 		suiteRun.progress = Math.floor((completedJobs.length / Math.max(jobs.length, 1)) * 100);
-		
+
 		// Update status if all jobs are completed
 		if (completedJobs.length === jobs.length && jobs.length > 0) {
 			suiteRun.status = 'completed' as any;
@@ -43,34 +43,33 @@ async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
 
 	// Always compute total_execution_time as sum of individual test execution times
 	if (suiteRun.completed_tests > 0) {
-		const sumMs = jobs
-			.map(j => j.result_id)
-			.filter((id): id is number => id !== undefined && id !== null)
-			.map(id => (getExecutionTimeByResultId(id) || 0) * 1000)
-			.reduce((s, t) => s + t, 0);
+		const sessionIds = jobs
+			.map(j => j.session_id)
+			.filter((id): id is number => id !== undefined && id !== null);
+		const sessions = getExecutionSessionsByIds(sessionIds);
+		const sumMs = sessions.map(s => computeSessionDurationMs(s)).reduce((a, b) => a + b, 0);
 		suiteRun.total_execution_time = sumMs;
 	} else {
 		suiteRun.total_execution_time = 0;
 	}
 
-	// Calculate average similarity score (server-side to avoid heavy client work)
+	// Calculate average similarity score (server-side from execution session metadata)
 	try {
-		const stmt = db.prepare(`
-			SELECT AVG(r.similarity_score) as avg_score
-			FROM jobs j
-			JOIN results r ON j.result_id = r.id
-			WHERE j.suite_run_id = ?
-				AND r.similarity_score IS NOT NULL
-				AND r.similarity_scoring_status = 'completed'
-		`);
-		const row = stmt.get(suiteRun.id) as { avg_score: number | null };
-		if (row && row.avg_score !== null) {
-			suiteRun.avg_similarity_score = row.avg_score;
+		const sessionIds = jobs
+			.map(j => j.session_id)
+			.filter((id): id is number => id !== undefined && id !== null);
+		const sessions = getExecutionSessionsByIds(sessionIds);
+		const scores = sessions
+			.map(s => parseSessionMetadata(s.metadata))
+			.filter(meta => meta && meta.similarity_scoring_status === 'completed' && typeof meta.similarity_score === 'number')
+			.map(meta => meta.similarity_score as number);
+		if (scores.length > 0) {
+			suiteRun.avg_similarity_score = scores.reduce((a, b) => a + b, 0) / scores.length;
 		}
 	} catch (err) {
 		console.error('Failed to compute average similarity score for suite run', suiteRun.id, err);
 	}
-	
+
 	return suiteRun;
 }
 
@@ -109,12 +108,12 @@ router.get('/', (async (req: Request, res: Response) => {
 			if (!paginationParams) return; // Error response already sent
 
 			const { data, total } = listSuiteRunsWithCount({ ...filters, ...paginationParams });
-			
+
 			// Enrich each suite run with calculated fields
 			const enrichedData = await Promise.all(
 				data.map(suiteRun => enrichSuiteRunWithCalculatedFields(suiteRun))
 			);
-			
+
 			return res.json({
 				data: enrichedData,
 				total,
@@ -162,7 +161,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		// Apply recalculation logic
 		const enrichedSuiteRun = await enrichSuiteRunWithCalculatedFields(suiteRun);
-		
+
 		return res.json(enrichedSuiteRun);
 	} catch (error) {
 		console.error(`Error getting suite run ${req.params.id}:`, error);
