@@ -30,6 +30,7 @@ export function mergeMetadata(existing: string | null | undefined, patch: Record
 export async function updateSessionMetadata(sessionId: number, patch: Record<string, unknown>): Promise<void> {
 	const session = await getExecutionSessionById(sessionId);
 	if (!session) {
+		console.warn(`updateSessionMetadata: session ${sessionId} not found; metadata patch ignored`);
 		return;
 	}
 	const metadata = mergeMetadata(session.metadata, patch);
