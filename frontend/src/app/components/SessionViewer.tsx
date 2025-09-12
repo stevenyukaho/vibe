@@ -71,7 +71,7 @@ export default function SessionViewer({ session, messages }: SessionViewerProps)
 									m.content.length > 800 ? (
 										<details>
 											<summary>{m.content.slice(0, 200)}…</summary>
-											<div style={{ marginTop: '0.5rem' }}>{m.content}</div>
+											<div className={styles.detailsContent}>{m.content}</div>
 										</details>
 									) : (
 										m.content
