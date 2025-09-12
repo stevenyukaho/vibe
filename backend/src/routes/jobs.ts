@@ -9,6 +9,7 @@ import {
 	getSessionMessages,
 	getConversationMessages
 } from '../db/queries';
+import { testIdToConversationId } from '../lib/legacyIdResolver';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import {
@@ -157,9 +158,10 @@ router.post('/', (async (req: Request, res: Response) => {
 			return res.status(400).json({ error: 'agent_id and test_id are required' });
 		}
 
-		// Check if agent and conversation exist (test_id maps to conversation_id) TODO deprecate this
+		// Resolve legacy id mapping and check entities
+		const conversationId = testIdToConversationId(test_id) ?? test_id;
 		const agent = await getAgentById(agent_id);
-		const conversation = await getConversationById(test_id); // test_id maps to conversation_id
+		const conversation = await getConversationById(conversationId);
 
 		if (!agent) {
 			return res.status(404).json({ error: 'Agent not found' });
@@ -170,13 +172,13 @@ router.post('/', (async (req: Request, res: Response) => {
 		}
 
 		// Verify this is a single-turn conversation (valid as a "test") TODO deprecate this
-		const messages = await getConversationMessages(test_id);
+		const messages = await getConversationMessages(conversationId);
 		if (!isSingleTurnConversation(conversation, messages)) {
 			return res.status(400).json({ error: 'Cannot execute multi-turn conversation as legacy test' });
 		}
 
 		// Create a new conversation job (legacy tests are now single-turn conversations) TODO deprecate this
-		const jobId = await jobQueue.createConversationJob(agent_id, test_id);
+		const jobId = await jobQueue.createConversationJob(agent_id, conversationId);
 
 		// Return the job ID with 202 Accepted status
 		return res.status(202).json({
