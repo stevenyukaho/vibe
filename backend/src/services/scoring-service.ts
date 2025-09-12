@@ -1,7 +1,9 @@
 import { Test, TestResult, Agent } from '../types';
 import { llmConfigService } from './llm-config-service';
 import { parseScoringResponse } from '../lib/parseScoringResponse';
-import { updateResult, getAgentById } from '../db/queries';
+import { updateResult, getAgentById, updateExecutionSession } from '../db/queries';
+import db from '../db/database';
+import { parseSessionMetadata, serializeSessionMetadata } from '../lib/sessionMetadata';
 
 /**
  * Generate scoring prompt for similarity evaluation
@@ -46,11 +48,11 @@ function hasExplicitSuccessCriteria(agent: Agent): boolean {
 		if (settings.type !== 'external_api') {
 			return false;
 		}
-		
+
 		if (!settings.response_mapping) {
 			return false;
 		}
-		
+
 		const responseMapping = JSON.parse(settings.response_mapping);
 		return !!(responseMapping.success_criteria);
 	} catch (error) {
@@ -81,7 +83,7 @@ export class ScoringService {
 		const startTime = Date.now();
 
 		try {
-			// Set status to running
+			// Set status to running in legacy result (if table exists) and in session metadata
 			await updateResult(result.id, { similarity_scoring_status: 'running' });
 
 			const prompt = generateScoringPrompt(test.expected_output, result.output);
@@ -98,7 +100,7 @@ export class ScoringService {
 			const scoringResult = parseScoringResponse(llmResponse.text);
 
 			const endTime = Date.now();
-			const metadata = {
+			const scoringMetadata = {
 				provider: llmResponse.provider,
 				model: llmResponse.model,
 				config_id: llmResponse.config_id,
@@ -110,30 +112,59 @@ export class ScoringService {
 			// Check if we should update success based on similarity score
 			let shouldUpdateSuccess = false;
 			const agent = await getAgentById(result.agent_id);
-			
 			if (agent && !hasExplicitSuccessCriteria(agent)) {
 				shouldUpdateSuccess = true;
 			}
 
-			const updateData: Partial<TestResult> = {
-				similarity_score: scoringResult.score,
-				similarity_scoring_status: 'completed',
-				similarity_scoring_metadata: JSON.stringify(metadata),
-				similarity_scoring_error: undefined
-			};
 
-			if (shouldUpdateSuccess) {
-				const threshold = 70; // % threshold for success
-				updateData.success = scoringResult.score >= threshold ? 1 : 0 as any;
-			}
+			// Update legacy result for compatibility if results table exists
+			try {
+				const hasResults = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='results'").all() as { name: string }[];
+				if (hasResults.length > 0) {
+					const updateData: Partial<TestResult> = {
+						similarity_score: scoringResult.score,
+						similarity_scoring_status: 'completed',
+						similarity_scoring_metadata: JSON.stringify(scoringMetadata),
+						similarity_scoring_error: undefined
+					};
+					if (shouldUpdateSuccess) {
+						const threshold = 70;
+						updateData.success = scoringResult.score >= threshold ? 1 : 0 as any;
+					}
+					await updateResult(result.id, updateData);
+				}
+			} catch {}
 
-			await updateResult(result.id, updateData);
+			// Also update the corresponding session metadata if a session with same id exists (adapter path)
+			// This maintains compatibility where legacy result id maps to session id in adapters
+			await updateExecutionSession(result.id!, {
+				metadata: serializeSessionMetadata({
+					...parseSessionMetadata(undefined),
+					similarity_score: scoringResult.score,
+					similarity_scoring_status: 'completed',
+					similarity_scoring_error: undefined,
+					similarity_scoring_metadata: scoringMetadata
+				})
+			});
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred during scoring';
 
-			await updateResult(result.id, {
-				similarity_scoring_status: 'failed',
-				similarity_scoring_error: errorMessage
+			// Attempt to update both legacy result and session metadata with failure
+			try {
+				const hasResults = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='results'").all() as { name: string }[];
+				if (hasResults.length > 0) {
+					await updateResult(result.id, {
+						similarity_scoring_status: 'failed',
+						similarity_scoring_error: errorMessage
+					});
+				}
+			} catch {}
+			await updateExecutionSession(result.id!, {
+				metadata: serializeSessionMetadata({
+					...parseSessionMetadata(undefined),
+					similarity_scoring_status: 'failed',
+					similarity_scoring_error: errorMessage
+				})
 			});
 
 			console.error(`Scoring failed for result ${result.id}:`, error);
