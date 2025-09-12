@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getAgentById, getConversationById, getConversationMessages } from '../db/queries';
+import { testIdToConversationId } from '../lib/legacyIdResolver';
 import { jobQueue } from '../services/job-queue';
 import { isSingleTurnConversation } from '../adapters/legacy-adapter';
 
@@ -26,9 +27,12 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
 			return res.status(400).json({ error: 'agent_id and test_id are required' });
 		}
 
-		// Get agent and conversation (test_id maps to conversation_id)
+		// Resolve legacy id mapping
+		const conversationId = testIdToConversationId(test_id) ?? test_id;
+
+		// Get agent and conversation (resolved)
 		const agent = await getAgentById(agent_id);
-		const conversation = await getConversationById(test_id); // test_id maps to conversation_id
+		const conversation = await getConversationById(conversationId);
 
 		// Check if agent and conversation exist
 		if (!agent) {
@@ -39,16 +43,16 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
 		}
 
 		// Verify this is a single-turn conversation (valid as a "test")
-		const messages = await getConversationMessages(test_id);
+		const messages = await getConversationMessages(conversationId);
 		if (!isSingleTurnConversation(conversation, messages)) {
 			return res.status(400).json({ error: 'Cannot execute multi-turn conversation as legacy test' });
 		}
 
 		// Create a conversation job (legacy tests are now single-turn conversations)
-		const jobId = await jobQueue.createConversationJob(agent_id, test_id);
+		const jobId = await jobQueue.createConversationJob(agent_id, conversationId);
 
 		// Return the job ID with 202 Accepted status
-		return res.status(202).json({ 
+		return res.status(202).json({
 			job_id: jobId,
 			message: 'Test execution job created and queued for execution'
 		});
@@ -83,7 +87,7 @@ router.post('/conversation', (async (req: Request<{}, {}, ExecuteConversationReq
 		const jobId = await jobQueue.createConversationJob(agent_id, conversation_id);
 
 		// Return the job ID with 202 Accepted status
-		return res.status(202).json({ 
+		return res.status(202).json({
 			job_id: jobId,
 			message: 'Conversation execution job created and queued for execution'
 		});
@@ -93,4 +97,4 @@ router.post('/conversation', (async (req: Request<{}, {}, ExecuteConversationReq
 	}
 }) as any);
 
-export default router; 
+export default router;
