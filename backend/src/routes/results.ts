@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { 
+import {
 	getExecutionSessionsWithCount,
 	getExecutionSessionById,
 	getSessionMessages,
@@ -13,11 +13,12 @@ import { scoringService } from '../services/scoring-service';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { extractTokenUsage, validateTokenUsage } from '../lib/tokenUsageExtractor';
-import { 
-	sessionToLegacyResult, 
+import {
+	sessionToLegacyResult,
 	legacyResultToSession,
 	conversationToLegacyTest
 } from '../adapters/legacy-adapter';
+import { testIdToConversationId } from '../lib/legacyIdResolver';
 
 const router = Router();
 
@@ -40,7 +41,7 @@ router.get('/', (async (req: Request, res: Response) => {
 			}
 
 			const { data, total } = getExecutionSessionsWithCount({ ...baseFilters, ...paginationParams });
-			
+
 			// Transform sessions to legacy results format
 			const legacyResults = await Promise.all(
 				data.map(async (session) => {
@@ -90,14 +91,14 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
 		const session = await getExecutionSessionById(sessionId);
-		
+
 		if (!session) {
 			return res.status(404).json({ error: 'Result not found' });
 		}
 
 		const sessionMessages = await getSessionMessages(sessionId);
 		const legacyResult = sessionToLegacyResult(session, sessionMessages);
-		
+
 		return res.json(legacyResult);
 	} catch (error) {
 		console.error('Error fetching result:', error);
@@ -109,7 +110,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_at'>>, res: Response) => {
 	try {
 		let processedBody = { ...req.body };
-		
+
 		// If token data isn't provided but we have intermediate steps, try to extract it
 		if (
 			!processedBody.input_tokens
@@ -119,7 +120,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 			try {
 				const { tokens, metadata } = extractTokenUsage(null, undefined, processedBody.intermediate_steps);
 				const validatedTokens = validateTokenUsage(tokens);
-				
+
 				if (validatedTokens.input_tokens !== undefined || validatedTokens.output_tokens !== undefined) {
 					processedBody.input_tokens = validatedTokens.input_tokens;
 					processedBody.output_tokens = validatedTokens.output_tokens;
@@ -142,14 +143,15 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 			processedBody.output_tokens = validatedTokens.output_tokens;
 		}
 
-		// Get conversation for the test input
-		const conversation = await getConversationById(processedBody.test_id); // test_id maps to conversation_id
+		// Resolve legacy id mapping and fetch conversation for the test input
+		const conversationId = testIdToConversationId(processedBody.test_id) ?? processedBody.test_id;
+		const conversation = await getConversationById(conversationId);
 		if (!conversation) {
 			return res.status(404).json({ error: 'Test not found' });
 		}
 
 		const legacyTest = conversationToLegacyTest(conversation, []);
-		const { session, messages } = legacyResultToSession(processedBody, legacyTest.input);
+		const { session, messages } = legacyResultToSession({ ...processedBody, test_id: conversationId }, legacyTest.input);
 
 		const createdSession = await createExecutionSession(session);
 
@@ -229,4 +231,4 @@ router.post('/:id/score', (async (req: Request<{ id: string }, {}, { llm_config_
 	}
 }) as any);
 
-export default router; 
+export default router;
