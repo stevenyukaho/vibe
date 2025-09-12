@@ -12,6 +12,7 @@ import {
 import { Edit, TrashCan, ViewFilled, AiGenerate } from '@carbon/icons-react';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
 import { TestResult } from '@/lib/api';
+import styles from './TableRenderer.module.scss';
 
 interface TableCell {
 	id: string;
@@ -76,7 +77,7 @@ export default function TableRenderer({
 									if (cell.info.header === 'actions' && type === 'agent') {
 										return (
 											<TableCell key={`${cell.id}-${cellIndex}`}>
-												<div style={{ display: 'flex', gap: '0.5rem' }}>
+												<div className={styles.actionRow}>
 													<Button
 														kind="ghost"
 														size="sm"
@@ -112,7 +113,7 @@ export default function TableRenderer({
 									if (cell.info.header === 'actions' && type === 'test') {
 										return (
 											<TableCell key={`${cell.id}-${cellIndex}`}>
-												<div style={{ display: 'flex', gap: '0.5rem' }}>
+												<div className={styles.actionRow}>
 													<Button
 														kind="ghost"
 														size="sm"
@@ -181,7 +182,7 @@ export default function TableRenderer({
 									if (cell.info.header === 'actions' && type === 'conversation') {
 										return (
 											<TableCell key={`${cell.id}-${cellIndex}`}>
-												<div style={{ display: 'flex', gap: '0.5rem' }}>
+												<div className={styles.actionRow}>
 													<Button
 														kind="ghost"
 														size="sm"
@@ -231,9 +232,9 @@ export default function TableRenderer({
 									if (cell.info.header === 'tags') {
 										return (
 											<TableCell key={`${cell.id}-${cellIndex}`}>
-												{Array.isArray(cell.value) 
+												{Array.isArray(cell.value)
 													? (cell.value as string[]).map((tag, index) => (
-														<Tag key={index} type="blue" size="sm" style={{ marginRight: '4px' }}>
+														<Tag key={index} type="blue" size="sm" className={styles.tag}>
 															{tag}
 														</Tag>
 													))
