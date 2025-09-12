@@ -6,8 +6,7 @@ import {
 	listJobs as dbListJobs,
 	deleteOldJobs,
 	deleteJob as dbDeleteJob,
-	getAgentById,
-	getExecutionSessionById
+	getAgentById
 } from '../db/queries';
 import { computeSessionDurationMs } from '../lib/sessionMetadata';
 import {
@@ -477,11 +476,12 @@ export class JobQueueService {
 		);
 		const successfulJobs = jobs.filter(job => job.status === JobStatus.COMPLETED);
 
-		// Compute execution time from execution sessions
-		const executionTimesMs = completedJobs
+		// Compute execution time from execution sessions (batch fetch)
+		const sessionIds = completedJobs
 			.map(job => job.session_id)
-			.filter((id): id is number => id !== undefined && id !== null)
-			.map(id => computeSessionDurationMs(getExecutionSessionById(id) as any));
+			.filter((id): id is number => id !== undefined && id !== null);
+		const sessions = dbQueries.getExecutionSessionsByIds(sessionIds);
+		const executionTimesMs = sessions.map(s => computeSessionDurationMs(s));
 		const averageExecutionTime = executionTimesMs.length > 0
 			? executionTimesMs.reduce((sum, ms) => sum + ms, 0) / executionTimesMs.length
 			: undefined;
