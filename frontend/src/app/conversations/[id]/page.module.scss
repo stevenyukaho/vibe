@@ -1,0 +1,35 @@
+.container {
+	padding: 2rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.headerRow {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.title {
+	margin: 0;
+}
+
+.tagRow {
+	display: flex;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+
+.actions {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.sectionTitle {
+	margin-top: 0;
+}
+
+.modalField {
+	margin-top: 1rem;
+}
