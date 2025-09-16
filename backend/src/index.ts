@@ -11,6 +11,7 @@ import suiteRunsRoutes from './routes/suite-runs';
 import llmConfigRoutes from './routes/llm-configs';
 import conversationRoutes from './routes/conversations';
 import sessionRoutes from './routes/sessions';
+import statsRoutes from './routes/stats';
 import sessionMessageRoutes from './routes/session-messages';
 import { serverConfig } from './config';
 
@@ -33,6 +34,7 @@ app.use('/api/suite-runs', suiteRunsRoutes);
 app.use('/api/llm-configs', llmConfigRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/stats', statsRoutes);
 app.use('/api/session-messages', sessionMessageRoutes);
 
 // Health check endpoint
