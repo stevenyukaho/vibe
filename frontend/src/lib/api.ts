@@ -142,7 +142,21 @@ export interface PaginatedResponse<T> {
 	offset?: number;
 }
 
+export interface StatsResponse {
+	agents_total: number;
+	tests_total: number;
+}
+
 export const api = {
+	async getStats(): Promise<StatsResponse> {
+		const response = await fetch(`${API_URL}/api/stats`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch stats');
+		}
+		return response.json();
+	},
+
 	// Agents
 	async getAgents(): Promise<Agent[]> {
 		const response = await fetch(`${API_URL}/api/agents`);
