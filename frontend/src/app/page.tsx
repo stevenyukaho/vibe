@@ -4,7 +4,7 @@ import { Grid, Column } from '@carbon/react';
 import { Tag, ProgressIndicator, Table, TableHead, TableRow, TableHeader, TableBody, TableCell } from '@carbon/react';
 import { useAppData } from '../lib/AppDataContext';
 import { useResultOperations } from '../lib/AppDataContext';
-import { api, SuiteRun, Job, TestResult } from '../lib/api';
+import { api, SuiteRun, Job, TestResult, StatsResponse } from '../lib/api';
 import { useEffect, useState } from 'react';
 import styles from './page.module.scss';
 import TileWrapper from './components/TileWrapper';
@@ -34,18 +34,21 @@ export default function Home() {
 	const [jobs, setJobs] = useState<Job[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [agentMetrics, setAgentMetrics] = useState<AgentPerformanceMetrics[]>([]);
+	const [stats, setStats] = useState<StatsResponse | null>(null);
 
 	useEffect(() => {
 		const fetchDashboardData = async () => {
 			try {
-				const [suiteRunsData, jobsData, resultsData] = await Promise.all([
+				const [suiteRunsData, jobsData, resultsData, statsData] = await Promise.all([
 					api.getSuiteRuns(),
 					api.getJobs(),
-					getResults()
+					getResults(),
+					api.getStats()
 				]);
 				setSuiteRuns(suiteRunsData);
 				setJobs(jobsData);
 				setResults(resultsData.data as ResultWithStatus[]);
+				setStats(statsData);
 			} catch (error) {
 				console.error('Error fetching dashboard data:', error);
 			} finally {
@@ -188,12 +191,12 @@ export default function Home() {
 				{/* Summary Metrics */}
 				<Column sm={4} md={4} lg={4}>
 					<TileWrapper title="Agents">
-						<div className={styles.metricValue}>{agents.length}</div>
+						<div className={styles.metricValue}>{stats ? stats.agents_total : agents.length}</div>
 					</TileWrapper>
 				</Column>
 				<Column sm={4} md={4} lg={4}>
 					<TileWrapper title="Tests">
-						<div className={styles.metricValue}>{tests.length}</div>
+						<div className={styles.metricValue}>{stats ? stats.tests_total : tests.length}</div>
 					</TileWrapper>
 				</Column>
 				<Column sm={4} md={4} lg={4}>
