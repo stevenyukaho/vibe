@@ -1036,6 +1036,29 @@ export const getTestsWithCount = (params: { limit?: number; offset?: number } = 
 	return { data, total: totalResult.count };
 };
 
+export const getAgentsCount = (): number => {
+	const row = db.prepare('SELECT COUNT(*) as count FROM agents').get() as { count: number };
+	return row.count;
+};
+
+/**
+ * Count legacy "tests" which are represented as single-turn conversations
+ * A single-turn conversation has exactly one user message.
+ */
+export const getSingleTurnTestsCount = (): number => {
+	const row = db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM (
+          SELECT c.id
+          FROM conversations c
+          JOIN conversation_messages m ON m.conversation_id = c.id
+          GROUP BY c.id
+          HAVING SUM(CASE WHEN m.role = 'user' THEN 1 ELSE 0 END) = 1
+        ) t
+    `).get() as { count: number };
+	return row.count;
+};
+
 export const getTestSuitesWithCount = (params: { limit?: number; offset?: number } = {}): { data: TestSuite[]; total: number } => {
 	const { limit, offset } = params;
 	let query = 'SELECT * FROM test_suites ORDER BY created_at DESC';
