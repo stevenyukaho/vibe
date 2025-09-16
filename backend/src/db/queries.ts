@@ -670,26 +670,26 @@ export const getTestSuiteById = (id: number) => {
 
 
 export const getEntriesInSuite = (parentSuiteId: number): SuiteEntry[] => {
-    const stmt = db.prepare(`
+	const stmt = db.prepare(`
         SELECT *
         FROM suite_entries
         WHERE parent_suite_id = ?
         ORDER BY sequence
     `);
-    return stmt.all(parentSuiteId) as SuiteEntry[];
+	return stmt.all(parentSuiteId) as SuiteEntry[];
 };
 
 
 
 export const addSuiteEntry = (entry: {
-    parent_suite_id: number;
-    sequence?: number;
-    test_id?: number;
-    conversation_id?: number;
-    child_suite_id?: number;
-    agent_id_override?: number;
+	parent_suite_id: number;
+	sequence?: number;
+	test_id?: number;
+	conversation_id?: number;
+	child_suite_id?: number;
+	agent_id_override?: number;
 }): SuiteEntry => {
-    const statement = db.prepare(`
+	const statement = db.prepare(`
         INSERT INTO suite_entries (
             parent_suite_id, sequence, test_id, conversation_id, child_suite_id, agent_id_override
         ) VALUES (
@@ -697,56 +697,56 @@ export const addSuiteEntry = (entry: {
         )
         RETURNING *
     `);
-    return statement.get(entry) as SuiteEntry;
+	return statement.get(entry) as SuiteEntry;
 };
 
 export const updateSuiteEntryOrder = (
-    entryId: number,
-    sequence?: number,
-    agent_id_override?: number
+	entryId: number,
+	sequence?: number,
+	agent_id_override?: number
 ): void => {
-    const fields: string[] = [];
-    const params: any = { id: entryId };
-    if (sequence !== undefined) {
-        fields.push('sequence = @sequence');
-        params.sequence = sequence;
-    }
-    if (agent_id_override !== undefined) {
-        fields.push('agent_id_override = @agent_id_override');
-        params.agent_id_override = agent_id_override;
-    }
-    if (fields.length === 0) return;
-    const stmt = db.prepare(`
+	const fields: string[] = [];
+	const params: any = { id: entryId };
+	if (sequence !== undefined) {
+		fields.push('sequence = @sequence');
+		params.sequence = sequence;
+	}
+	if (agent_id_override !== undefined) {
+		fields.push('agent_id_override = @agent_id_override');
+		params.agent_id_override = agent_id_override;
+	}
+	if (fields.length === 0) return;
+	const stmt = db.prepare(`
         UPDATE suite_entries
         SET ${fields.join(', ')}
         WHERE id = @id
     `);
-    stmt.run(params);
+	stmt.run(params);
 };
 
 export const deleteSuiteEntry = (entryId: number): void => {
-    const stmt = db.prepare('DELETE FROM suite_entries WHERE id = ?');
-    stmt.run(entryId);
+	const stmt = db.prepare('DELETE FROM suite_entries WHERE id = ?');
+	stmt.run(entryId);
 };
 
 // Add functions for single entry retrieval and reordering
 export const getSuiteEntryById = (entryId: number): SuiteEntry | undefined => {
-    return db.prepare('SELECT * FROM suite_entries WHERE id = ?').get(entryId) as SuiteEntry;
+	return db.prepare('SELECT * FROM suite_entries WHERE id = ?').get(entryId) as SuiteEntry;
 };
 
 export const reorderSuiteEntries = (
-    parentSuiteId: number,
-    entryOrders: { entry_id: number; sequence: number }[]
+	parentSuiteId: number,
+	entryOrders: { entry_id: number; sequence: number }[]
 ) => {
-    const transaction = db.transaction(() => {
-        const stmt = db.prepare(
-            'UPDATE suite_entries SET sequence = ? WHERE parent_suite_id = ? AND id = ?'
-        );
-        for (const order of entryOrders) {
-            stmt.run(order.sequence, parentSuiteId, order.entry_id);
-        }
-    });
-    return transaction();
+	const transaction = db.transaction(() => {
+		const stmt = db.prepare(
+			'UPDATE suite_entries SET sequence = ? WHERE parent_suite_id = ? AND id = ?'
+		);
+		for (const order of entryOrders) {
+			stmt.run(order.sequence, parentSuiteId, order.entry_id);
+		}
+	});
+	return transaction();
 };
 
 // SuiteRun queries
@@ -917,7 +917,7 @@ export const getSuiteRunTokenUsage = (suiteRunId: number): { total_input_tokens:
 			const meta = JSON.parse(row.metadata);
 			if (typeof meta?.input_tokens === 'number') total_input_tokens += meta.input_tokens;
 			if (typeof meta?.output_tokens === 'number') total_output_tokens += meta.output_tokens;
-		} catch {}
+		} catch { }
 	}
 
 	return { total_input_tokens, total_output_tokens };
