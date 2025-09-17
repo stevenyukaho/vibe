@@ -44,12 +44,17 @@ export default function ConversationsPage() {
 		setFormModal({ open: true });
 	};
 
-	const handleEditConversation = (id: number) => {
-		const conversation = conversations.find(c => c.id === id);
-		if (conversation) {
-			setFormModal({ open: true, conversation });
-		}
-	};
+    const handleEditConversation = async (id: number) => {
+        try {
+            setLoading(true);
+            const full = await api.getConversationById(id);
+            setFormModal({ open: true, conversation: full });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load conversation');
+        } finally {
+            setLoading(false);
+        }
+    };
 
 	const handleDeleteConversation = (id: number) => {
 		const conversation = conversations.find(c => c.id === id);
