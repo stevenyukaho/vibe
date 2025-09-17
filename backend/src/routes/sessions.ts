@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { 
+import {
 	getExecutionSessions,
 	getExecutionSessionsWithCount,
 	getExecutionSessionById,
@@ -55,7 +55,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
 		const session = await getExecutionSessionById(sessionId);
-		
+
 		if (!session) {
 			return res.status(404).json({ error: 'Execution session not found' });
 		}
@@ -71,7 +71,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
-		
+
 		// Check if session exists
 		const session = await getExecutionSessionById(sessionId);
 		if (!session) {
@@ -90,9 +90,9 @@ router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response)
 router.get('/:id/transcript', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
-		
+
 		const transcript = await getFullSessionTranscript(sessionId);
-		
+
 		if (!transcript.session) {
 			return res.status(404).json({ error: 'Execution session not found' });
 		}
@@ -108,7 +108,7 @@ router.get('/:id/transcript', (async (req: Request<{ id: string }>, res: Respons
 router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<ExecutionSession>>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
-		
+
 		// Check if session exists
 		const existingSession = await getExecutionSessionById(sessionId);
 		if (!existingSession) {
@@ -200,7 +200,7 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		// We'll just mark as failed rather than actually deleting
 		// This preserves the execution history
-		await updateExecutionSession(sessionId, { 
+		await updateExecutionSession(sessionId, {
 			status: 'failed',
 			error_message: 'Session cancelled by user',
 			completed_at: new Date().toISOString()
