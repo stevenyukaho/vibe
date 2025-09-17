@@ -729,11 +729,6 @@ export const deleteSuiteEntry = (entryId: number): void => {
 	stmt.run(entryId);
 };
 
-// Add functions for single entry retrieval and reordering
-export const getSuiteEntryById = (entryId: number): SuiteEntry | undefined => {
-	return db.prepare('SELECT * FROM suite_entries WHERE id = ?').get(entryId) as SuiteEntry;
-};
-
 export const reorderSuiteEntries = (
 	parentSuiteId: number,
 	entryOrders: { entry_id: number; sequence: number }[]
