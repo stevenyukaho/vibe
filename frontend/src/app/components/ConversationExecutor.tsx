@@ -16,6 +16,7 @@ import { PlayFilled, Chat } from '@carbon/icons-react';
 import { api, Conversation } from '@/lib/api';
 import { useAgents } from '@/lib/AppDataContext';
 import styles from './ConversationExecutor.module.scss';
+import { ExpandableText } from './ExpandableText';
 
 export default function ConversationExecutor() {
 	const { agents, fetchAgents } = useAgents();
@@ -177,11 +178,11 @@ export default function ConversationExecutor() {
 
 						<div className={styles.fieldGroup}>
 							<strong>{selectedConversation.name}</strong>
-							{selectedConversation.description && (
-								<p className={styles.previewDescription}>
-									{selectedConversation.description}
-								</p>
-							)}
+                                    {selectedConversation.description && (
+                                        <div className={styles.previewDescription}>
+                                            <ExpandableText text={selectedConversation.description} previewChars={160} threshold={240} />
+                                        </div>
+                                    )}
 						</div>
 
 						{formatTags(selectedConversation.tags).length > 0 && (
@@ -198,10 +199,10 @@ export default function ConversationExecutor() {
 							<div>
 								<strong>Script ({selectedConversation.messages.length} messages):</strong>
 								<ul className={styles.scriptList}>
-									{selectedConversation.messages.slice(0, 3).map((message, i) => (
+                                    {selectedConversation.messages.slice(0, 3).map((message, i) => (
 										<li key={i} className={styles.scriptItem}>
-											<strong>{message.role}:</strong> {message.content.slice(0, 60)}
-											{message.content.length > 60 && '...'}
+                                            <strong>{message.role}:</strong>{' '}
+                                            <ExpandableText text={message.content} previewChars={60} threshold={80} />
 										</li>
 									))}
 									{selectedConversation.messages.length > 3 && (
