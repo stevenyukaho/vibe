@@ -126,7 +126,60 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<ExecutionSes
 // Create execution session (for agent services)
 router.post('/', (async (req: Request<{}, {}, Partial<ExecutionSession>>, res: Response) => {
 	try {
-		const session = await createExecutionSession(req.body as ExecutionSession);
+		// Normalize payload: ensure sqlite-compatible bindings and accept boolean or 0/1 for success
+		const payload: any = { ...(req.body || {}) };
+
+		if (payload.conversation_id !== undefined) {
+			payload.conversation_id = Number(payload.conversation_id);
+		}
+		if (payload.agent_id !== undefined) {
+			payload.agent_id = Number(payload.agent_id);
+		}
+
+		// Success is 0/1 or null
+		if (payload.success !== undefined) {
+			if (typeof payload.success === 'boolean') {
+				payload.success = payload.success ? 1 : 0;
+			} else if (typeof payload.success === 'number') {
+				payload.success = payload.success ? 1 : 0;
+			} else {
+				payload.success = null;
+			}
+		} else {
+			payload.success = null;
+		}
+
+		// Ensure metadata is a string or null
+		if (payload.metadata === undefined || payload.metadata === null) {
+			payload.metadata = null;
+		} else if (typeof payload.metadata !== 'string') {
+			try {
+				payload.metadata = JSON.stringify(payload.metadata);
+			} catch (_e) {
+				payload.metadata = null;
+			}
+		}
+
+		// Ensure error_message is present as string or null (required named param in SQL)
+		if (payload.error_message === undefined || payload.error_message === null) {
+			payload.error_message = null;
+		} else if (typeof payload.error_message !== 'string') {
+			try {
+				payload.error_message = JSON.stringify(payload.error_message);
+			} catch (_e) {
+				payload.error_message = String(payload.error_message);
+			}
+		}
+
+		// Ensure timestamps are strings
+		if (payload.started_at && typeof payload.started_at !== 'string') {
+			payload.started_at = new Date(payload.started_at).toISOString();
+		}
+		if (payload.completed_at && typeof payload.completed_at !== 'string') {
+			payload.completed_at = new Date(payload.completed_at).toISOString();
+		}
+
+		const session = await createExecutionSession(payload as ExecutionSession);
 		return res.status(201).json(session);
 	} catch (error) {
 		console.error('Error creating execution session:', error);
