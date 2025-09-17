@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Tag, Tile, CodeSnippet } from '@carbon/react';
+import { ExpandableText } from './ExpandableText';
 import type { ExecutionSession, SessionMessage } from '../../lib/api';
 import styles from './SessionViewer.module.scss';
 
@@ -68,14 +69,7 @@ export default function SessionViewer({ session, messages }: SessionViewerProps)
 										{m.content.replace(/^```[a-zA-Z]*\n?|```$/g, '')}
 									</CodeSnippet>
 								) : (
-									m.content.length > 800 ? (
-										<details>
-											<summary>{m.content.slice(0, 200)}…</summary>
-											<div className={styles.detailsContent}>{m.content}</div>
-										</details>
-									) : (
-										m.content
-									)
+									<ExpandableText text={m.content} />
 								)}
 							</div>
 							<div className={styles.metaRow}>
