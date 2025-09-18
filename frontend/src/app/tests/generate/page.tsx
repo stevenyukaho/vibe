@@ -77,14 +77,14 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 		setError(null);
 		try {
 			for (const text of toSave) {
-				const test = await createTest({ 
-					name: text, 
+				const test = await createTest({
+					name: text,
 					input: text,
 					description,
 					expected_output: expectedOutput
 				});
 				if (selectedSuiteId) {
-					await api.addTestToSuite(selectedSuiteId, test.id!);
+					await api.addSuiteEntry(selectedSuiteId, { test_id: test.id! });
 				}
 			}
 			await fetchAllData();
