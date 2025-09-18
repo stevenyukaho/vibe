@@ -16,6 +16,7 @@ import {
 	ExecutionSession,
 	SessionMessage
 } from '../types';
+import { normalizeConversationMessageInsert, normalizeSuiteEntryInsert } from './normalizers';
 
 
 /**
@@ -1174,10 +1175,13 @@ export const deleteConversation = (id: number) => {
 		const deleteJobsStmt = db.prepare('DELETE FROM jobs WHERE conversation_id = ?');
 		deleteJobsStmt.run(id);
 
-		// Delete suite entries that reference this conversation
-		// In earlier migrations, suite_entries.conversation_id may not have ON DELETE CASCADE
-		const deleteSuiteEntriesStmt = db.prepare('DELETE FROM suite_entries WHERE conversation_id = ?');
-		deleteSuiteEntriesStmt.run(id);
+		// Also delete entries where the conversation id was stored in legacy test_id
+		// DEPRECATED: remove this explicit cleanup when all suite_entries have been
+		// backfilled to use conversation_id and when test_id is fully dropped
+		// from the schema and all code paths. At that point, this delete can be
+		// removed along with the test_id column.
+		const deleteLegacySuiteEntriesStmt = db.prepare('DELETE FROM suite_entries WHERE test_id = ?');
+		deleteLegacySuiteEntriesStmt.run(id);
 
 		// Delete associated execution sessions (will cascade to session messages)
 		const deleteSessionsStmt = db.prepare('DELETE FROM execution_sessions WHERE conversation_id = ?');
