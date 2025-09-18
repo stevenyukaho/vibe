@@ -9,10 +9,12 @@ export interface Job {
 	id: string;  // UUID
 	agent_id: number;
 	test_id?: number; // Legacy field
+	conversation_id?: number; // New conversation-based execution
 	status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
 	progress?: number;  // 0-100 percentage
 	partial_result?: string;
 	result_id?: number; // Legacy field
+	session_id?: number; // Execution session id for conversation jobs
 	error?: string;
 	created_at?: string;
 	updated_at?: string;
