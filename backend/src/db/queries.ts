@@ -132,6 +132,10 @@ export const deleteTest = (id: number) => {
 		const deleteResultsStmt = db.prepare('DELETE FROM results WHERE test_id = ?');
 		deleteResultsStmt.run(id);
 
+		// Delete any suite entries that reference this legacy test
+		const deleteSuiteEntriesStmt = db.prepare('DELETE FROM suite_entries WHERE test_id = ?');
+		deleteSuiteEntriesStmt.run(id);
+
 		// Finally delete the test
 		const deleteTestStmt = db.prepare('DELETE FROM tests WHERE id = ?');
 		return deleteTestStmt.run(id);
@@ -1168,6 +1172,11 @@ export const deleteConversation = (id: number) => {
 		// Delete associated jobs first
 		const deleteJobsStmt = db.prepare('DELETE FROM jobs WHERE conversation_id = ?');
 		deleteJobsStmt.run(id);
+
+		// Delete suite entries that reference this conversation
+		// In earlier migrations, suite_entries.conversation_id may not have ON DELETE CASCADE
+		const deleteSuiteEntriesStmt = db.prepare('DELETE FROM suite_entries WHERE conversation_id = ?');
+		deleteSuiteEntriesStmt.run(id);
 
 		// Delete associated execution sessions (will cascade to session messages)
 		const deleteSessionsStmt = db.prepare('DELETE FROM execution_sessions WHERE conversation_id = ?');
