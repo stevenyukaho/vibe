@@ -216,7 +216,7 @@ export default function LLMConfigFormModal({
 					required
 				/>
 
-				<Dropdown	
+				<Dropdown
 					id="llm-config-provider"
 					titleText="Provider"
 					label="Select a provider"
