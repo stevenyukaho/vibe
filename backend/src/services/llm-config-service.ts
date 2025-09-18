@@ -62,14 +62,14 @@ export class LLMConfigService {
 	 */
 	async callLLMWithFallback(options: LLMRequestOptions): Promise<LLMResponse> {
 		const configs = this.getConfigs();
-		
+
 		if (configs.length === 0) {
 			throw new Error('No LLM configs available');
 		}
 
 		// Try each config in priority order
 		const errors: string[] = [];
-		
+
 		for (const config of configs) {
 			try {
 				return await this.makeLLMRequest(config, options);
@@ -86,7 +86,7 @@ export class LLMConfigService {
 	 */
 	private async makeLLMRequest(config: LLMConfig, options: LLMRequestOptions): Promise<LLMResponse> {
 		const configData = JSON.parse(config.config);
-		
+
 		switch (config.provider.toLowerCase()) {
 			case 'ollama':
 				return this.callOllama(configData, options);
@@ -107,7 +107,7 @@ export class LLMConfigService {
 	private async callOllama(configData: any, options: LLMRequestOptions): Promise<LLMResponse> {
 		const baseUrl = configData.base_url || 'http://localhost:11434';
 		const model = configData.model || 'llama2';
-		
+
 		try {
 			const response = await axios.post(`${baseUrl}/api/generate`, {
 				model,
@@ -223,7 +223,7 @@ export class LLMConfigService {
 	private async callWatsonx(configData: any, options: LLMRequestOptions): Promise<LLMResponse> {
 		const apiKey = configData.api_key;
 		const projectId = configData.project_id;
-		
+
 		if (!apiKey) {
 			throw new Error('watsonx API key is required');
 		}
