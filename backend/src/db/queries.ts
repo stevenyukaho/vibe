@@ -693,6 +693,7 @@ export const addSuiteEntry = (entry: {
 	child_suite_id?: number;
 	agent_id_override?: number;
 }): SuiteEntry => {
+	const normalizedEntry = normalizeSuiteEntryInsert(entry);
 	const statement = db.prepare(`
         INSERT INTO suite_entries (
             parent_suite_id, sequence, test_id, conversation_id, child_suite_id, agent_id_override
@@ -701,7 +702,7 @@ export const addSuiteEntry = (entry: {
         )
         RETURNING *
     `);
-	return statement.get(entry) as SuiteEntry;
+	return statement.get(normalizedEntry) as SuiteEntry;
 };
 
 export const updateSuiteEntryOrder = (
@@ -1195,12 +1196,13 @@ export const deleteConversation = (id: number) => {
 };
 
 export const addMessageToConversation = (message: ConversationMessage) => {
+	const normalizedMessage = normalizeConversationMessageInsert(message);
 	const statement = db.prepare(`
 		INSERT INTO conversation_messages (conversation_id, sequence, role, content, metadata)
 		VALUES (@conversation_id, @sequence, @role, @content, @metadata)
 		RETURNING *
 	`);
-	return statement.get(message) as ConversationMessage;
+	return statement.get(normalizedMessage) as ConversationMessage;
 };
 
 export const getConversationMessages = (conversationId: number) => {
