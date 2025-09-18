@@ -8,8 +8,8 @@ import { dbConfig } from '../config';
 // development (ts-node-dev) and production (node dist) behave consistently.
 const configuredDbPath = dbConfig.path;
 const resolvedDbPath = path.isAbsolute(configuredDbPath)
-  ? configuredDbPath
-  : path.resolve(process.cwd(), configuredDbPath);
+	? configuredDbPath
+	: path.resolve(process.cwd(), configuredDbPath);
 const db = new Database(resolvedDbPath);
 
 // Enable foreign keys
@@ -120,34 +120,34 @@ db.exec(`
 const pragmaStmt = db.prepare("PRAGMA table_info('jobs')");
 const columns = pragmaStmt.all() as Array<{ name: string }>;
 if (!columns.some(col => col.name === 'suite_run_id')) {
-  db.exec("ALTER TABLE jobs ADD COLUMN suite_run_id INTEGER");
+	db.exec("ALTER TABLE jobs ADD COLUMN suite_run_id INTEGER");
 }
 
 // Migration: add token usage columns to suite_runs table if missing
 const suiteRunsInfo = db.prepare("PRAGMA table_info('suite_runs')").all() as Array<{ name: string }>;
 if (!suiteRunsInfo.some(col => col.name === 'total_input_tokens')) {
-  db.exec("ALTER TABLE suite_runs ADD COLUMN total_input_tokens INTEGER DEFAULT 0");
+	db.exec("ALTER TABLE suite_runs ADD COLUMN total_input_tokens INTEGER DEFAULT 0");
 }
 if (!suiteRunsInfo.some(col => col.name === 'total_output_tokens')) {
-  db.exec("ALTER TABLE suite_runs ADD COLUMN total_output_tokens INTEGER DEFAULT 0");
+	db.exec("ALTER TABLE suite_runs ADD COLUMN total_output_tokens INTEGER DEFAULT 0");
 }
 
 // Migration: add job polling columns to jobs table if missing
 const jobsInfo = db.prepare("PRAGMA table_info('jobs')").all() as Array<{ name: string }>;
 if (!jobsInfo.some(col => col.name === 'job_type')) {
-  db.exec("ALTER TABLE jobs ADD COLUMN job_type TEXT DEFAULT 'crewai'");
+	db.exec("ALTER TABLE jobs ADD COLUMN job_type TEXT DEFAULT 'crewai'");
 }
 if (!jobsInfo.some(col => col.name === 'claimed_by')) {
-  db.exec("ALTER TABLE jobs ADD COLUMN claimed_by TEXT");
+	db.exec("ALTER TABLE jobs ADD COLUMN claimed_by TEXT");
 }
 if (!jobsInfo.some(col => col.name === 'claimed_at')) {
-  db.exec("ALTER TABLE jobs ADD COLUMN claimed_at DATETIME");
+	db.exec("ALTER TABLE jobs ADD COLUMN claimed_at DATETIME");
 }
 
 // Migration: create suite_entries table if missing and migrate existing entries
 const suiteEntriesInfo = db.prepare("PRAGMA table_info('suite_entries')").all() as Array<{ name: string }>;
 if (!suiteEntriesInfo.some(col => col.name === 'id')) {
-  db.exec(`
+	db.exec(`
     CREATE TABLE IF NOT EXISTS suite_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       parent_suite_id INTEGER NOT NULL,
@@ -160,14 +160,14 @@ if (!suiteEntriesInfo.some(col => col.name === 'id')) {
       FOREIGN KEY (child_suite_id) REFERENCES test_suites(id) ON DELETE CASCADE
     );
   `);
-  db.exec(`
+	db.exec(`
     INSERT INTO suite_entries (parent_suite_id, sequence, test_id)
     SELECT suite_id, sequence, test_id FROM test_suite_tests;
   `);
-  
-  // Drop test_suite_tests table after migration (it's replaced by suite_entries)
-  db.exec(`DROP TABLE IF EXISTS test_suite_tests;`);
-  db.exec(`
+
+	// Drop test_suite_tests table after migration (it's replaced by suite_entries)
+	db.exec(`DROP TABLE IF EXISTS test_suite_tests;`);
+	db.exec(`
     CREATE INDEX IF NOT EXISTS idx_suite_entries_parent ON suite_entries(parent_suite_id);
     CREATE INDEX IF NOT EXISTS idx_suite_entries_sequence ON suite_entries(sequence);
     CREATE INDEX IF NOT EXISTS idx_suite_entries_test ON suite_entries(test_id);
@@ -178,33 +178,33 @@ if (!suiteEntriesInfo.some(col => col.name === 'id')) {
 // Migration: add similarity scoring columns to results table if missing
 const resultsInfo = db.prepare("PRAGMA table_info('results')").all() as Array<{ name: string }>;
 if (!resultsInfo.some(col => col.name === 'similarity_score')) {
-  db.exec("ALTER TABLE results ADD COLUMN similarity_score INTEGER");
+	db.exec("ALTER TABLE results ADD COLUMN similarity_score INTEGER");
 }
 if (!resultsInfo.some(col => col.name === 'similarity_scoring_status')) {
-  db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_status TEXT");
+	db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_status TEXT");
 }
 if (!resultsInfo.some(col => col.name === 'similarity_scoring_error')) {
-  db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_error TEXT");
+	db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_error TEXT");
 }
 if (!resultsInfo.some(col => col.name === 'similarity_scoring_metadata')) {
-  db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_metadata TEXT");
+	db.exec("ALTER TABLE results ADD COLUMN similarity_scoring_metadata TEXT");
 }
 
 // Migration: add token usage columns to results table if missing
 if (!resultsInfo.some(col => col.name === 'input_tokens')) {
-  db.exec("ALTER TABLE results ADD COLUMN input_tokens INTEGER");
+	db.exec("ALTER TABLE results ADD COLUMN input_tokens INTEGER");
 }
 if (!resultsInfo.some(col => col.name === 'output_tokens')) {
-  db.exec("ALTER TABLE results ADD COLUMN output_tokens INTEGER");
+	db.exec("ALTER TABLE results ADD COLUMN output_tokens INTEGER");
 }
 if (!resultsInfo.some(col => col.name === 'token_mapping_metadata')) {
-  db.exec("ALTER TABLE results ADD COLUMN token_mapping_metadata TEXT");
+	db.exec("ALTER TABLE results ADD COLUMN token_mapping_metadata TEXT");
 }
 
 // Migration: Create new conversation tables
 const conversationTablesInfo = db.prepare("PRAGMA table_info('conversations')").all() as Array<{ name: string }>;
 if (!conversationTablesInfo.some(col => col.name === 'id')) {
-  db.exec(`
+	db.exec(`
     CREATE TABLE conversations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -253,37 +253,37 @@ if (!conversationTablesInfo.some(col => col.name === 'id')) {
     );
   `);
 
-  // 1. Migrate tests -> conversations (without test_suite_id)
-  db.exec(`
+	// 1. Migrate tests -> conversations (without test_suite_id)
+	db.exec(`
     INSERT INTO conversations (name, description, expected_outcome, created_at, updated_at)
     SELECT name, description, expected_output, created_at, updated_at FROM tests;
   `);
 
-  // 2. Migrate test inputs -> conversation_messages
-  db.exec(`
+	// 2. Migrate test inputs -> conversation_messages
+	db.exec(`
     INSERT INTO conversation_messages (conversation_id, sequence, role, content, created_at)
     SELECT c.id, 1, 'user', t.input, t.created_at
-    FROM conversations c 
+    FROM conversations c
     JOIN tests t ON c.name = t.name AND c.created_at = t.created_at;
   `);
 
-  // 3. Migrate results -> execution_sessions
-  db.exec(`
+	// 3. Migrate results -> execution_sessions
+	db.exec(`
     INSERT INTO execution_sessions (
-      conversation_id, agent_id, status, started_at, completed_at, 
+      conversation_id, agent_id, status, started_at, completed_at,
       success, metadata
     )
-    SELECT 
-      c.id, 
-      r.agent_id, 
+    SELECT
+      c.id,
+      r.agent_id,
       'completed',
       r.created_at,
-      CASE 
+      CASE
         WHEN r.execution_time IS NOT NULL AND r.execution_time > 0 THEN
-          datetime(r.created_at, '+' || 
-            CASE 
+          datetime(r.created_at, '+' ||
+            CASE
               WHEN r.execution_time > 1000 THEN r.execution_time / 1000.0
-              ELSE r.execution_time 
+              ELSE r.execution_time
             END || ' seconds')
         ELSE r.created_at
       END,
@@ -303,26 +303,26 @@ if (!conversationTablesInfo.some(col => col.name === 'id')) {
     JOIN conversations c ON c.name = t.name AND c.created_at = t.created_at;
   `);
 
-  // 4. Migrate result outputs -> session_messages (user input + agent output)
-  db.exec(`
+	// 4. Migrate result outputs -> session_messages (user input + agent output)
+	db.exec(`
     INSERT INTO session_messages (session_id, sequence, role, content, timestamp, metadata)
-    SELECT 
-      es.id, 
-      1, 
-      'user', 
+    SELECT
+      es.id,
+      1,
+      'user',
       cm.content,
       es.started_at,
       '{}'
     FROM execution_sessions es
     JOIN conversations c ON es.conversation_id = c.id
     JOIN conversation_messages cm ON cm.conversation_id = c.id AND cm.sequence = 1
-    
+
     UNION ALL
-    
-    SELECT 
-      es.id, 
-      2, 
-      'assistant', 
+
+    SELECT
+      es.id,
+      2,
+      'assistant',
       r.output,
       es.completed_at,
       JSON_OBJECT(
@@ -336,47 +336,47 @@ if (!conversationTablesInfo.some(col => col.name === 'id')) {
     JOIN results r ON r.test_id = t.id AND r.agent_id = es.agent_id AND r.created_at = es.started_at;
   `);
 
-  // 5. Add conversation_id and session_id columns to jobs table
-  db.exec(`
+	// 5. Add conversation_id and session_id columns to jobs table
+	db.exec(`
     ALTER TABLE jobs ADD COLUMN conversation_id INTEGER REFERENCES conversations(id);
     ALTER TABLE jobs ADD COLUMN session_id INTEGER REFERENCES execution_sessions(id);
   `);
 
-  // 6. Update jobs to reference conversations and sessions instead of tests and results
-  db.exec(`
+	// 6. Update jobs to reference conversations and sessions instead of tests and results
+	db.exec(`
     UPDATE jobs SET conversation_id = (
-      SELECT c.id FROM conversations c 
+      SELECT c.id FROM conversations c
       JOIN tests t ON c.name = t.name AND c.created_at = t.created_at
       WHERE jobs.test_id = t.id
     );
-    
+
     UPDATE jobs SET session_id = (
       SELECT es.id FROM execution_sessions es
-      WHERE es.conversation_id = jobs.conversation_id 
+      WHERE es.conversation_id = jobs.conversation_id
       AND es.agent_id = jobs.agent_id
       AND jobs.result_id IS NOT NULL
       AND EXISTS (
-        SELECT 1 FROM results r 
-        WHERE r.id = jobs.result_id 
+        SELECT 1 FROM results r
+        WHERE r.id = jobs.result_id
         AND r.agent_id = es.agent_id
       )
     );
   `);
 
-  // 7. Add conversation_id column to suite_entries if not exists
-  const suiteEntriesColumns = db.prepare("PRAGMA table_info('suite_entries')").all() as Array<{ name: string }>;
-  if (!suiteEntriesColumns.some(col => col.name === 'conversation_id')) {
-    db.exec(`ALTER TABLE suite_entries ADD COLUMN conversation_id INTEGER REFERENCES conversations(id);`);
-  }
+	// 7. Add conversation_id column to suite_entries if not exists
+	const suiteEntriesColumns = db.prepare("PRAGMA table_info('suite_entries')").all() as Array<{ name: string }>;
+	if (!suiteEntriesColumns.some(col => col.name === 'conversation_id')) {
+		db.exec(`ALTER TABLE suite_entries ADD COLUMN conversation_id INTEGER REFERENCES conversations(id);`);
+	}
 
-  // 8. Update suite structure
-  db.exec(`
+	// 8. Update suite structure
+	db.exec(`
     -- Update test_suites description to mark migration
     UPDATE test_suites SET description = COALESCE(description, '') || ' [Migrated to conversation testing]';
-    
+
     -- Update suite_entries to reference conversations
     UPDATE suite_entries SET conversation_id = (
-      SELECT c.id FROM conversations c 
+      SELECT c.id FROM conversations c
       JOIN tests t ON c.name = t.name AND c.created_at = t.created_at
       WHERE suite_entries.test_id = t.id
     ) WHERE test_id IS NOT NULL;
@@ -428,86 +428,86 @@ try {
 }
 
 function dropLegacyTablesIfSafe() {
-  try {
-    // Check if legacy tables still exist
-    const legacyTables = db.prepare(`
-      SELECT name FROM sqlite_master 
+	try {
+		// Check if legacy tables still exist
+		const legacyTables = db.prepare(`
+      SELECT name FROM sqlite_master
       WHERE type='table' AND name IN ('tests', 'results')
     `).all() as { name: string }[];
 
-    if (legacyTables.length === 0) {
-      return;
-    }
+		if (legacyTables.length === 0) {
+			return;
+		}
 
-    // Check that no jobs depend exclusively on legacy fields
-    const legacyJobsResult = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM jobs 
+		// Check that no jobs depend exclusively on legacy fields
+		const legacyJobsResult = db.prepare(`
+      SELECT COUNT(*) as count
+      FROM jobs
       WHERE test_id IS NOT NULL AND conversation_id IS NULL
     `).get() as { count: number };
 
-    if (legacyJobsResult.count > 0) {
-      return;
-    }
+		if (legacyJobsResult.count > 0) {
+			return;
+		}
 
-    // Check and fix suite entries that depend exclusively on legacy fields
-    const legacySuiteEntriesResult = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM suite_entries 
+		// Check and fix suite entries that depend exclusively on legacy fields
+		const legacySuiteEntriesResult = db.prepare(`
+      SELECT COUNT(*) as count
+      FROM suite_entries
       WHERE test_id IS NOT NULL AND conversation_id IS NULL
     `).get() as { count: number };
 
-    if (legacySuiteEntriesResult.count > 0) {
-      // Since the original tests table is gone, we need to map test_id to conversation_id
-      // The safest approach is to assume test_id == conversation_id for the migration
-      // and remove entries where no corresponding conversation exists
-      
-      // First, update suite entries where a conversation with matching ID exists
-      const updatedEntries = db.prepare(`
-        UPDATE suite_entries 
+		if (legacySuiteEntriesResult.count > 0) {
+			// Since the original tests table is gone, we need to map test_id to conversation_id
+			// The safest approach is to assume test_id == conversation_id for the migration
+			// and remove entries where no corresponding conversation exists
+
+			// First, update suite entries where a conversation with matching ID exists
+			const updatedEntries = db.prepare(`
+        UPDATE suite_entries
         SET conversation_id = test_id, test_id = NULL
-        WHERE test_id IS NOT NULL 
-        AND conversation_id IS NULL 
+        WHERE test_id IS NOT NULL
+        AND conversation_id IS NULL
         AND EXISTS (SELECT 1 FROM conversations WHERE id = suite_entries.test_id)
       `).run();
-      
-      // Remove orphaned suite entries that reference non-existent conversations
-      const orphanedEntries = db.prepare(`
-        DELETE FROM suite_entries 
-        WHERE test_id IS NOT NULL 
+
+			// Remove orphaned suite entries that reference non-existent conversations
+			const orphanedEntries = db.prepare(`
+        DELETE FROM suite_entries
+        WHERE test_id IS NOT NULL
         AND conversation_id IS NULL
       `).run();
 
-      // Double-check that all suite entries are now migrated
-      const remainingLegacyEntries = db.prepare(`
-        SELECT COUNT(*) as count 
-        FROM suite_entries 
+			// Double-check that all suite entries are now migrated
+			const remainingLegacyEntries = db.prepare(`
+        SELECT COUNT(*) as count
+        FROM suite_entries
         WHERE test_id IS NOT NULL AND conversation_id IS NULL
       `).get() as { count: number };
-      
-      if (remainingLegacyEntries.count > 0) {
-        return;
-      }
-    }
 
-    // Create backup first
-    db.exec(`
+			if (remainingLegacyEntries.count > 0) {
+				return;
+			}
+		}
+
+		// Create backup first
+		db.exec(`
       ATTACH DATABASE 'data/agent-testing.db.before-drop-legacy' AS backup;
       CREATE TABLE IF NOT EXISTS backup.tests AS SELECT * FROM tests;
       CREATE TABLE IF NOT EXISTS backup.results AS SELECT * FROM results;
       DETACH DATABASE backup;
     `);
 
-    // Recreate affected tables without legacy foreign key constraints
-    // Get current record counts for validation
-    const preCounts = {
-      jobs: (db.prepare('SELECT COUNT(*) as count FROM jobs').get() as { count: number }).count,
-      suite_entries: (db.prepare('SELECT COUNT(*) as count FROM suite_entries').get() as { count: number }).count
-    };
+		// Recreate affected tables without legacy foreign key constraints
+		// Get current record counts for validation
+		const preCounts = {
+			jobs: (db.prepare('SELECT COUNT(*) as count FROM jobs').get() as { count: number }).count,
+			suite_entries: (db.prepare('SELECT COUNT(*) as count FROM suite_entries').get() as { count: number }).count
+		};
 
-    db.transaction(() => {
-      // Recreate jobs table without FK constraints to legacy tables
-      db.exec(`
+		db.transaction(() => {
+			// Recreate jobs table without FK constraints to legacy tables
+			db.exec(`
         CREATE TABLE jobs_new (
           id TEXT PRIMARY KEY,
           agent_id INTEGER NOT NULL,
@@ -530,14 +530,14 @@ function dropLegacyTablesIfSafe() {
           FOREIGN KEY (session_id) REFERENCES execution_sessions(id),
           FOREIGN KEY (suite_run_id) REFERENCES suite_runs(id)
         );
-        
+
         INSERT INTO jobs_new SELECT * FROM jobs;
         DROP TABLE jobs;
         ALTER TABLE jobs_new RENAME TO jobs;
       `);
 
-      // Recreate suite_entries table without FK constraint to tests
-      db.exec(`
+			// Recreate suite_entries table without FK constraint to tests
+			db.exec(`
         CREATE TABLE suite_entries_new (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           parent_suite_id INTEGER NOT NULL,
@@ -550,29 +550,29 @@ function dropLegacyTablesIfSafe() {
           FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
           FOREIGN KEY (child_suite_id) REFERENCES test_suites(id) ON DELETE CASCADE
         );
-        
+
         INSERT INTO suite_entries_new SELECT * FROM suite_entries;
         DROP TABLE suite_entries;
         ALTER TABLE suite_entries_new RENAME TO suite_entries;
       `);
 
-      // Now drop the legacy tables
-      db.exec(`
+			// Now drop the legacy tables
+			db.exec(`
         DROP TABLE results;
         DROP TABLE tests;
       `);
-    })();
+		})();
 
-    // Validate the migration
-    const postCounts = {
-      jobs: (db.prepare('SELECT COUNT(*) as count FROM jobs').get() as { count: number }).count,
-      suite_entries: (db.prepare('SELECT COUNT(*) as count FROM suite_entries').get() as { count: number }).count
-    };
+		// Validate the migration
+		const postCounts = {
+			jobs: (db.prepare('SELECT COUNT(*) as count FROM jobs').get() as { count: number }).count,
+			suite_entries: (db.prepare('SELECT COUNT(*) as count FROM suite_entries').get() as { count: number }).count
+		};
 
-    if (postCounts.jobs !== preCounts.jobs || postCounts.suite_entries !== preCounts.suite_entries) {
-      throw new Error('Record counts changed during migration');
-    }
-  } catch (error) {}
+		if (postCounts.jobs !== preCounts.jobs || postCounts.suite_entries !== preCounts.suite_entries) {
+			throw new Error('Record counts changed during migration');
+		}
+	} catch (error) { }
 }
 
 // Create indexes for better performance (only for tables that will remain)
@@ -589,7 +589,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_llm_configs_provider ON llm_configs(provider);
   CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
   CREATE INDEX IF NOT EXISTS idx_suite_runs_status_suite ON suite_runs(status, suite_id);
-  
+
   -- New conversation indexes
   CREATE INDEX IF NOT EXISTS idx_conversations_name ON conversations(name);
   CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);
