@@ -10,9 +10,12 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "../",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*",
+    "../types/**/*.ts"
+  ],
   "exclude": ["node_modules", "**/*.test.ts"]
 }
