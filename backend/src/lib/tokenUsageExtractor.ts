@@ -1,21 +1,11 @@
 /**
  * Token usage extraction utility
- * 
+ *
  * This module provides functions to extract token usage information from API responses.
  * It supports both explicit token mapping and automatic detection using popular formats.
  */
 
-export interface TokenUsage {
-	input_tokens?: number;
-	output_tokens?: number;
-	total_tokens?: number; // Computed field
-}
-
-export interface TokenMapping {
-	input_tokens?: string;
-	output_tokens?: string;
-	total_tokens?: string; // Optional - will use computed value if not provided
-}
+import type { TokenUsage, TokenMapping } from '../../../types';
 
 /**
  * Popular token usage formats for automatic detection
