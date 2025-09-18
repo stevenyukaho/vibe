@@ -1,9 +1,4 @@
-import { TokenMapping } from '../types';
-
-export interface TokenUsage {
-	input_tokens?: number;
-	output_tokens?: number;
-}
+import type { TokenMapping, TokenUsage } from '../../../types';
 
 /**
  * Popular token usage formats for automatic detection
