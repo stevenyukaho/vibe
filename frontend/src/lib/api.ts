@@ -1,4 +1,5 @@
 import type { Agent, Test, TestResult } from '../../../backend/src/exports';
+import type { PaginatedResponse, StatsResponse, LLMRequestOptions, LLMResponse } from '../../../types';
 
 // Re-export types for use in components
 export type { Agent, Test, TestResult };
@@ -55,21 +56,6 @@ export interface LLMConfig {
 	priority: number;
 	created_at?: string;
 	updated_at?: string;
-}
-
-export interface LLMRequestOptions {
-	prompt: string;
-	max_tokens?: number;
-	temperature?: number;
-	stop?: string[];
-}
-
-export interface LLMResponse {
-	text: string;
-	provider: string;
-	model: string;
-	config_id: number;
-	error?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -133,18 +119,6 @@ export interface SuiteEntry {
 	test_id?: number;
 	child_suite_id?: number;
 	agent_id_override?: number;
-}
-
-export interface PaginatedResponse<T> {
-	data: T[];
-	total: number;
-	limit?: number;
-	offset?: number;
-}
-
-export interface StatsResponse {
-	agents_total: number;
-	tests_total: number;
 }
 
 export const api = {

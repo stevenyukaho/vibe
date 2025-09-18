@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { LLMConfig } from '../types';
-import { getLLMConfigs, getLLMConfigById } from '../db/queries';
 
 export interface LLMRequestOptions {
 	prompt: string;
@@ -16,6 +15,7 @@ export interface LLMResponse {
 	config_id: number;
 	error?: string;
 }
+import { getLLMConfigs, getLLMConfigById } from '../db/queries';
 
 /**
  * Service for managing LLM configs and making LLM requests

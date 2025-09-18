@@ -1,15 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
-import {
-	api,
-	Agent,
-	Test,
-	LLMConfig,
-	LLMRequestOptions,
-	LLMResponse,
-	TestResult
-} from './api';
+import { api, Agent, Test, LLMConfig, TestResult } from './api';
+import type { LLMRequestOptions, LLMResponse } from '../../../types';
 
 // Define the context state shape
 interface AppDataContextState {
