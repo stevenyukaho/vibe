@@ -463,20 +463,19 @@ function dropLegacyTablesIfSafe() {
 			// and remove entries where no corresponding conversation exists
 
 			// First, update suite entries where a conversation with matching ID exists
-			const updatedEntries = db.prepare(`
+			db.exec(`
         UPDATE suite_entries
         SET conversation_id = test_id, test_id = NULL
         WHERE test_id IS NOT NULL
         AND conversation_id IS NULL
         AND EXISTS (SELECT 1 FROM conversations WHERE id = suite_entries.test_id)
-      `).run();
+      `);
 
-			// Remove orphaned suite entries that reference non-existent conversations
-			const orphanedEntries = db.prepare(`
+      db.exec(`
         DELETE FROM suite_entries
         WHERE test_id IS NOT NULL
         AND conversation_id IS NULL
-      `).run();
+      `);
 
 			// Double-check that all suite entries are now migrated
 			const remainingLegacyEntries = db.prepare(`
