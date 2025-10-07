@@ -89,11 +89,13 @@ export default function ConversationsPage() {
 		}
 	};
 
-	const conversationRows = conversations.map((conversation) => ({
+	const conversationRows = conversations.map((conversation: Conversation & { message_count?: number }) => ({
 		id: conversation.id?.toString() || `conversation-${Date.now()}`,
 		name: conversation.name,
 		description: conversation.description || '',
-		messageCount: conversation.messages?.length || 0,
+        messageCount: typeof conversation.message_count === 'number'
+            ? conversation.message_count
+            : (conversation.messages?.length || 0),
 		tags: formatTags(conversation.tags),
 		createdAt: conversation.created_at ? new Date(conversation.created_at).toLocaleDateString() : ''
 	}));
