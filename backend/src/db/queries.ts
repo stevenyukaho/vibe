@@ -673,7 +673,6 @@ export const getTestSuiteById = (id: number) => {
 	return db.prepare('SELECT * FROM test_suites WHERE id = ?').get(id) as TestSuite;
 };
 
-
 export const getEntriesInSuite = (parentSuiteId: number): SuiteEntry[] => {
 	const stmt = db.prepare(`
         SELECT *
@@ -683,8 +682,6 @@ export const getEntriesInSuite = (parentSuiteId: number): SuiteEntry[] => {
     `);
 	return stmt.all(parentSuiteId) as SuiteEntry[];
 };
-
-
 
 export const addSuiteEntry = (entry: {
 	parent_suite_id: number;
@@ -1266,6 +1263,31 @@ export const reorderConversationMessages = (_conversationId: number, newOrder: {
 };
 
 export const createExecutionSession = (session: ExecutionSession) => {
+	// Normalize required fields so named parameters are always provided
+	const nowIso = new Date().toISOString();
+	const status = session.status || 'pending';
+	let metadataString = '{}';
+	if (typeof session.metadata === 'string') {
+		metadataString = session.metadata;
+	} else if (session.metadata) {
+		try {
+			metadataString = JSON.stringify(session.metadata as unknown as any);
+		} catch {
+			metadataString = '{}';
+		}
+	}
+
+	const normalizedSession = {
+		conversation_id: session.conversation_id,
+		agent_id: session.agent_id,
+		status,
+		started_at: session.started_at ?? nowIso,
+		completed_at: session.completed_at ?? (status === 'completed' ? nowIso : null),
+		success: (typeof session.success === 'boolean') ? (session.success ? 1 : 0) : null,
+		error_message: session.error_message ?? null,
+		metadata: metadataString
+	};
+
 	const statement = db.prepare(`
 		INSERT INTO execution_sessions (
 			conversation_id, agent_id, status, started_at, completed_at,
@@ -1277,7 +1299,7 @@ export const createExecutionSession = (session: ExecutionSession) => {
 		)
 		RETURNING *
 	`);
-	return statement.get(session) as ExecutionSession;
+	return statement.get(normalizedSession) as ExecutionSession;
 };
 
 export const getExecutionSessions = (filters?: { conversation_id?: number; agent_id?: number; limit?: number; offset?: number }) => {
@@ -1381,12 +1403,35 @@ export const updateExecutionSession = (id: number, session: Partial<ExecutionSes
 };
 
 export const addSessionMessage = (message: SessionMessage) => {
-	const statement = db.prepare(`
-		INSERT INTO session_messages (session_id, sequence, role, content, timestamp, metadata)
-		VALUES (@session_id, @sequence, @role, @content, @timestamp, @metadata)
-		RETURNING *
-	`);
-	return statement.get(message) as SessionMessage;
+    // Ensure all named parameters are bound and of acceptable types
+    let metadataString: string | null = null;
+    if ((message as any).metadata === null || (message as any).metadata === undefined) {
+        metadataString = null;
+    } else if (typeof (message as any).metadata === 'string') {
+        metadataString = (message as any).metadata as string;
+    } else {
+        try {
+            metadataString = JSON.stringify((message as any).metadata);
+        } catch {
+            metadataString = null;
+        }
+    }
+
+    const statement = db.prepare(`
+        INSERT INTO session_messages (session_id, sequence, role, content, timestamp, metadata)
+        VALUES (@session_id, @sequence, @role, @content, CURRENT_TIMESTAMP, @metadata)
+        RETURNING *
+    `);
+
+    const payload = {
+        session_id: message.session_id,
+        sequence: message.sequence,
+        role: message.role,
+        content: message.content,
+        metadata: metadataString
+    } as const;
+
+    return statement.get(payload) as SessionMessage;
 };
 
 export const getSessionMessages = (sessionId: number) => {
