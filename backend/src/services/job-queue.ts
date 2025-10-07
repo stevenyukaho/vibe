@@ -407,10 +407,36 @@ export class JobQueueService {
 		if (!createdSuiteRun.id) {
 			throw new Error('Failed to create suite run');
 		}
-		// Create jobs for each leaf test in the suite
-		const jobPromises = leaves.map(({ test_id, agent_id: jobAgentId }: { test_id: number; agent_id: number }) =>
-			this.createJobForSuiteRun(jobAgentId, test_id, createdSuiteRun.id!)
-		);
+        // Create jobs for each leaf test in the suite
+        const jobPromises = leaves.map(async (leaf: { agent_id: number; conversation_id?: number; test_id?: number }) => {
+            const jobAgentId = leaf.agent_id;
+
+            // Determine agent job type to decide which job creator to use
+            const agent = await dbQueries.getAgentById(jobAgentId);
+            if (!agent) {
+                throw new Error(`Agent ${jobAgentId} not found`);
+            }
+            const jobType = getAgentJobType(agent.settings);
+
+            if (jobType === 'external_api') {
+                // Prefer conversation-first jobs
+                const conversationId = leaf.conversation_id ?? leaf.test_id;
+                if (!conversationId) {
+                    throw new Error('Missing conversation identifier for external_api job');
+                }
+                return this.createConversationJob(jobAgentId, conversationId, createdSuiteRun.id!);
+            }
+
+            // CrewAI path (legacy tests still supported)
+            if (leaf.test_id) {
+                return this.createJobForSuiteRun(jobAgentId, leaf.test_id, createdSuiteRun.id!);
+            }
+            // If only conversation_id is present, fallback to conversation job
+            if (leaf.conversation_id) {
+                return this.createConversationJob(jobAgentId, leaf.conversation_id, createdSuiteRun.id!);
+            }
+            throw new Error('Leaf has neither test_id nor conversation_id');
+        });
 		await Promise.all(jobPromises);
 		// Immediately mark suite run as RUNNING
 		await dbQueries.updateSuiteRun(createdSuiteRun.id, { status: JobStatus.RUNNING });
