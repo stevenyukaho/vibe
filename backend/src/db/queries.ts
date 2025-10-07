@@ -1118,16 +1118,28 @@ export const createConversation = (conversation: Conversation) => {
 };
 
 export const getConversations = () => {
-	return db.prepare('SELECT * FROM conversations ORDER BY created_at DESC').all() as Conversation[];
+    return db.prepare(`
+        SELECT c.*, (
+            SELECT COUNT(*) FROM conversation_messages m WHERE m.conversation_id = c.id
+        ) AS message_count
+        FROM conversations c
+        ORDER BY c.created_at DESC
+    `).all() as (Conversation & { message_count?: number })[];
 };
 
 export const getConversationById = (id: number) => {
 	return db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as Conversation;
 };
 
-export const getConversationsWithCount = (params: { limit?: number; offset?: number } = {}): { data: Conversation[]; total: number } => {
+export const getConversationsWithCount = (params: { limit?: number; offset?: number } = {}): { data: (Conversation & { message_count?: number })[]; total: number } => {
 	const { limit, offset } = params;
-	let query = 'SELECT * FROM conversations ORDER BY created_at DESC';
+    let query = `
+        SELECT c.*, (
+            SELECT COUNT(*) FROM conversation_messages m WHERE m.conversation_id = c.id
+        ) AS message_count
+        FROM conversations c
+        ORDER BY c.created_at DESC
+    `;
 	const queryParams: any[] = [];
 
 	if (limit !== undefined) {
