@@ -88,22 +88,53 @@ router.get('/', (async (req: Request, res: Response) => {
 
 // Get result by ID (from execution session)
 router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
-	try {
-		const sessionId = Number(req.params.id);
-		const session = await getExecutionSessionById(sessionId);
+    try {
+        const idNum = Number(req.params.id);
+        if (isNaN(idNum)) {
+            return res.status(400).json({ error: 'Invalid result ID' });
+        }
 
-		if (!session) {
-			return res.status(404).json({ error: 'Result not found' });
-		}
+        // Primary: treat id as session_id (tests -> conversations)
+        const session = await getExecutionSessionById(idNum);
+        if (session) {
+            const sessionMessages = await getSessionMessages(idNum);
+            const legacyResult = sessionToLegacyResult(session, sessionMessages);
+            return res.json(legacyResult);
+        }
 
-		const sessionMessages = await getSessionMessages(sessionId);
-		const legacyResult = sessionToLegacyResult(session, sessionMessages);
+        // Fallback: legacy results.id -> transform on the fly
+		// TODO deprecate this
+        // Note: access directly through queries to avoid route circular deps
+        const legacy = (await import('../db/queries')) as typeof import('../db/queries');
+        const legacyResultRow = legacy.getResultById?.(idNum);
+        if (legacyResultRow) {
+            // Build a minimal legacy result response compatible with frontend expectations
+            // This mirrors the TestResult shape; scoring fields may be undefined
+            const minimalLegacyResult: TestResult = {
+                id: legacyResultRow.id,
+                agent_id: legacyResultRow.agent_id,
+                test_id: legacyResultRow.test_id,
+                output: legacyResultRow.output,
+                intermediate_steps: legacyResultRow.intermediate_steps,
+                success: legacyResultRow.success,
+                execution_time: legacyResultRow.execution_time,
+                created_at: legacyResultRow.created_at,
+                similarity_score: (legacyResultRow as any).similarity_score,
+                similarity_scoring_status: (legacyResultRow as any).similarity_scoring_status,
+                similarity_scoring_error: (legacyResultRow as any).similarity_scoring_error,
+                similarity_scoring_metadata: (legacyResultRow as any).similarity_scoring_metadata,
+                input_tokens: (legacyResultRow as any).input_tokens,
+                output_tokens: (legacyResultRow as any).output_tokens,
+                token_mapping_metadata: (legacyResultRow as any).token_mapping_metadata
+            } as any;
+            return res.json(minimalLegacyResult);
+        }
 
-		return res.json(legacyResult);
-	} catch (error) {
-		console.error('Error fetching result:', error);
-		return res.status(500).json({ error: 'Failed to fetch result' });
-	}
+        return res.status(404).json({ error: 'Result not found' });
+    } catch (error) {
+        console.error('Error fetching result:', error);
+        return res.status(500).json({ error: 'Failed to fetch result' });
+    }
 }) as any);
 
 // Create new result (as execution session)
@@ -144,6 +175,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 		}
 
 		// Resolve legacy id mapping and fetch conversation for the test input
+		// TODO deprecate this
 		const conversationId = testIdToConversationId(processedBody.test_id) ?? processedBody.test_id;
 		const conversation = await getConversationById(conversationId);
 		if (!conversation) {
