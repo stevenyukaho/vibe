@@ -108,13 +108,15 @@ export default function JobsManager({
 		}
 	};
 
-	// View result when available
-	const handleViewResult = () => {
-		if (selectedJob && selectedJob.result_id) {
-			onResultView(selectedJob.result_id);
-			setJobModalOpen(false);
-		}
-	};
+    // View result when available (prefer session_id, fallback to result_id)
+    const handleViewResult = () => {
+        if (!selectedJob) return;
+        const id = selectedJob.session_id ?? selectedJob.result_id;
+        if (id) {
+            onResultView(id);
+            setJobModalOpen(false);
+        }
+    };
 
 	// Refresh job list
 	const handleRefresh = () => {
@@ -224,7 +226,8 @@ export default function JobsManager({
 		return jobs.map(job => {
 			const agent = agentMap.get(job.agent_id);
 			const test = testMap.get(job.test_id);
-			const result = job.result_id ? getResultById(job.result_id) : null;
+            const preferredId = job.session_id ?? job.result_id;
+            const result = preferredId ? getResultById(preferredId) : null;
 
 			const isPendingOrRunning = job.status === 'pending' || job.status === 'running';
 
@@ -405,8 +408,8 @@ export default function JobsManager({
 					open={jobModalOpen}
 					onRequestClose={() => setJobModalOpen(false)}
 					modalHeading={`Job #${selectedJob.id} Details`}
-					primaryButtonText={selectedJob.result_id ? 'View Result' : null}
-					primaryButtonDisabled={!selectedJob.result_id}
+                    primaryButtonText={(selectedJob.session_id || selectedJob.result_id) ? 'View Result' : null}
+                    primaryButtonDisabled={!(selectedJob.session_id || selectedJob.result_id)}
 					onRequestSubmit={handleViewResult}
 					secondaryButtonText="Close"
 					onSecondarySubmit={() => setJobModalOpen(false)}
@@ -454,10 +457,10 @@ export default function JobsManager({
 											{new Date(selectedJob.updated_at).toLocaleString()}
 										</TableCell>
 									</TableRow>
-									{selectedJob.result_id && (
+                                    {(selectedJob.session_id || selectedJob.result_id) && (
 										<TableRow>
-											<TableCell>Result ID</TableCell>
-											<TableCell>{selectedJob.result_id}</TableCell>
+                                            <TableCell>Result ID</TableCell>
+                                            <TableCell>{selectedJob.session_id ?? selectedJob.result_id}</TableCell>
 										</TableRow>
 									)}
 								</TableBody>
