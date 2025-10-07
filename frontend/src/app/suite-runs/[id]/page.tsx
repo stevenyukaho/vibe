@@ -39,6 +39,8 @@ export default function SuiteRunDetailPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [previousStatus, setPreviousStatus] = useState<string | null>(null);
 	const [freshResults, setFreshResults] = useState<Map<number, TestResult>>(new Map());
+	// Per-id skip counter to avoid hammering failing result ids across polling cycles
+	const [skipCounts, setSkipCounts] = useState<Map<number, number>>(new Map());
 
 	// Result modal state
 	const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
@@ -85,22 +87,19 @@ export default function SuiteRunDetailPage() {
 		}
 
 		if (suiteRunData.status === 'running') {
-			const newlyCompletedJobs = jobsData.filter(job =>
-				job.result_id && !freshResults.has(job.result_id),
-			);
+			const newlyCompletedJobs = jobsData.filter(job => {
+				const id = job.session_id ?? job.result_id;
+				return !!id && !freshResults.has(id);
+			});
 			return newlyCompletedJobs.length > 0;
 		}
 
 		if (suiteRunData.status === 'completed') {
 			const jobsWithActiveSimilarityScoring = jobsData.filter(job => {
-				if (!job.result_id) {
-					return false;
-				}
-				const result = freshResults.get(job.result_id);
-				if (!result) {
-					return true;
-				}
-
+				const id = job.session_id ?? job.result_id;
+				if (!id) return false;
+				const result = freshResults.get(id);
+				if (!result) return true;
 				const scoringStatus = result.similarity_scoring_status;
 				// Only fetch if scoring is actively in progress, not if it was never started (null)
 				return scoringStatus === 'pending' || scoringStatus === 'running';
@@ -113,34 +112,57 @@ export default function SuiteRunDetailPage() {
 	}, [freshResults]);
 
 	const fetchFreshResultsConditionally = useCallback(async (suiteRunData: SuiteRun, jobsData: Job[]) => {
+		// Determine which jobs to fetch this cycle and decrement skip counts for skipped ids
+		const toDecrement: number[] = [];
 		const jobsToFetch = jobsData.filter(job => {
-			if (!job.result_id) {
+			const id = job.session_id ?? job.result_id;
+			if (!id) {
+				return false;
+			}
+			const count = skipCounts.get(id) || 0;
+			if (count > 0) {
+				toDecrement.push(id);
 				return false;
 			}
 
-			const existingResult = freshResults.get(job.result_id);
+			const existingResult = freshResults.get(id);
 			if (!existingResult) {
 				return true;
 			}
 
 			if (suiteRunData.status === 'running') {
-				return !freshResults.has(job.result_id);
+				return !freshResults.has(id);
 			}
 
 			const scoringStatus = existingResult.similarity_scoring_status;
 			return scoringStatus === 'pending' || scoringStatus === 'running';
 		});
 
+		if (toDecrement.length > 0) {
+			setSkipCounts(prev => {
+				const next = new Map(prev);
+				for (const id of toDecrement) {
+					const c = next.get(id) || 0;
+					if (c > 0) next.set(id, c - 1);
+				}
+				return next;
+			});
+		}
+
 		if (jobsToFetch.length === 0) {
 			return;
 		}
 
 		const resultPromises = jobsToFetch.map(async (job) => {
+			const id = (job.session_id ?? job.result_id)!;
 			try {
-				const result = await getResultById(job.result_id!);
-				return [job.result_id!, result] as [number, TestResult];
+				const result = await getResultById(id);
+				return [id, result] as [number, TestResult];
 			} catch (err) {
-				console.error(`Failed to fetch result ${job.result_id}:`, err);
+				console.error(`Failed to fetch result ${id}:`, err);
+				// On failure, skip next N polling cycles for this id (e.g., ~10s at 2s interval)
+				const SKIP_POLLS = 5;
+				setSkipCounts(prev => new Map(prev).set(id, SKIP_POLLS));
 				return null;
 			}
 		});
@@ -148,8 +170,18 @@ export default function SuiteRunDetailPage() {
 		const results = await Promise.all(resultPromises);
 		const newResults = results.filter(Boolean) as [number, TestResult][];
 
-		setFreshResults(prev => new Map([...prev, ...newResults]));
-	}, [freshResults, getResultById]);
+		if (newResults.length > 0) {
+			setFreshResults(prev => new Map([...prev, ...newResults]));
+			// Clear skip counters for successfully fetched ids
+			setSkipCounts(prev => {
+				const next = new Map(prev);
+				for (const [id] of newResults) {
+					next.delete(id);
+				}
+				return next;
+			});
+		}
+	}, [freshResults, getResultById, skipCounts]);
 
 	const handleResultView = async (id: number) => {
 		try {
@@ -179,8 +211,6 @@ export default function SuiteRunDetailPage() {
 					api.getSuiteRunJobs(runId)
 				]);
 
-				await fetchResults();
-
 				if (shouldFetchFreshResults(runData, jobsData)) {
 					await fetchFreshResultsConditionally(runData, jobsData);
 				}
@@ -193,11 +223,12 @@ export default function SuiteRunDetailPage() {
 				}
 
 				// Check if any job got a new result_id (indicating it just completed)
-				const newlyCompletedJobs = jobsData.filter(job =>
-					job.result_id && !jobs.find(prevJob =>
-						prevJob.id === job.id && prevJob.result_id === job.result_id,
-					),
-				);
+				const newlyCompletedJobs = jobsData.filter(job => {
+					const id = job.session_id ?? job.result_id;
+					const prev = jobs.find(prevJob => prevJob.id === job.id);
+					const prevId = prev ? (prev.session_id ?? prev.result_id) : undefined;
+					return !!id && id !== prevId;
+				});
 
 				if (newlyCompletedJobs.length > 0) {
 					await fetchAllData();
@@ -231,7 +262,8 @@ export default function SuiteRunDetailPage() {
 			mounted = false;
 			if (interval) clearTimeout(interval);
 		};
-	}, [runId, previousStatus, fetchAllData, fetchResults, shouldPollData, shouldFetchFreshResults, fetchFreshResultsConditionally]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [runId, previousStatus, fetchAllData, shouldPollData, shouldFetchFreshResults, fetchFreshResultsConditionally]);
 
 	if (loading) {
 		return <InlineLoading description="Loading suite run details..." />;
@@ -253,8 +285,11 @@ export default function SuiteRunDetailPage() {
 		{ key: 'actions', header: 'Actions' }
 	];
 
-	const rows = jobs.map((job) => {
-		const testName = job.test_id ? getTestById(job.test_id)?.name || `Test #${job.test_id}` : `Conversation #${job.conversation_id}`;
+    const rows = jobs.map((job) => {
+        let testName = job.test_id ? getTestById(job.test_id)?.name : undefined;
+        if (!testName) {
+            testName = job.test_id ? `Test #${job.test_id}` : `Conversation #${job.conversation_id}`;
+        }
 		const agent = getAgentById(job.agent_id);
 		const agentName = agent ? `${agent.name} (v${agent.version})` : `Agent #${job.agent_id}`;
 		// Use fresh results if available, otherwise fall back to cache
