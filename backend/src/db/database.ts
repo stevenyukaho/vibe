@@ -259,13 +259,29 @@ if (!conversationTablesInfo.some(col => col.name === 'id')) {
     SELECT name, description, expected_output, created_at, updated_at FROM tests;
   `);
 
-	// 2. Migrate test inputs -> conversation_messages
+	// 1b. For each migrated test, insert a single user message so conversations are single-turn
+	// Only insert when the conversation has no messages yet
 	db.exec(`
     INSERT INTO conversation_messages (conversation_id, sequence, role, content, created_at)
-    SELECT c.id, 1, 'user', t.input, t.created_at
-    FROM conversations c
-    JOIN tests t ON c.name = t.name AND c.created_at = t.created_at;
+    SELECT c.id, 1, 'user', t.input, COALESCE(t.created_at, CURRENT_TIMESTAMP)
+    FROM tests t
+    JOIN conversations c
+      ON c.name = t.name AND c.created_at = t.created_at
+    WHERE NOT EXISTS (
+      SELECT 1 FROM conversation_messages m WHERE m.conversation_id = c.id
+    );
   `);
+
+	// 2. Migrate test inputs -> conversation_messages
+	db.exec(`
+		INSERT INTO conversation_messages (conversation_id, sequence, role, content, created_at)
+		SELECT c.id, 1, 'user', t.input, t.created_at
+		FROM conversations c
+		JOIN tests t ON c.name = t.name AND c.created_at = t.created_at
+		WHERE NOT EXISTS (
+			SELECT 1 FROM conversation_messages m WHERE m.conversation_id = c.id AND m.sequence = 1
+		);
+	`);
 
 	// 3. Migrate results -> execution_sessions
 	db.exec(`
@@ -383,6 +399,190 @@ if (!conversationTablesInfo.some(col => col.name === 'id')) {
   `);
 }
 
+// Post-migration guards for partially migrated databases
+// Ensure conversation-era tables exist even if conversations already existed from a prior partial migration
+try {
+	// 1) Ensure conversation_messages exists
+	const convMsgInfo = db.prepare("PRAGMA table_info('conversation_messages')").all() as Array<{ name: string }>;
+	if (!convMsgInfo.some(col => col.name === 'id')) {
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS conversation_messages (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				conversation_id INTEGER NOT NULL,
+				sequence INTEGER NOT NULL,
+				role TEXT NOT NULL CHECK (role IN ('user', 'system')),
+				content TEXT NOT NULL,
+				metadata TEXT,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+				UNIQUE(conversation_id, sequence)
+			);
+		`);
+	}
+
+	// 2) Ensure execution_sessions exists
+	const execSessInfo = db.prepare("PRAGMA table_info('execution_sessions')").all() as Array<{ name: string }>;
+	if (!execSessInfo.some(col => col.name === 'id')) {
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS execution_sessions (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				conversation_id INTEGER NOT NULL,
+				agent_id INTEGER NOT NULL,
+				status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+				started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				completed_at TIMESTAMP,
+				success BOOLEAN,
+				error_message TEXT,
+				metadata TEXT,
+				FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+				FOREIGN KEY (agent_id) REFERENCES agents(id)
+			);
+		`);
+	}
+
+	// 3) Ensure session_messages exists
+	const sessMsgInfo = db.prepare("PRAGMA table_info('session_messages')").all() as Array<{ name: string }>;
+	if (!sessMsgInfo.some(col => col.name === 'id')) {
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS session_messages (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				session_id INTEGER NOT NULL,
+				sequence INTEGER NOT NULL,
+				role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system', 'tool')),
+				content TEXT NOT NULL,
+				timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				metadata TEXT,
+				FOREIGN KEY (session_id) REFERENCES execution_sessions(id) ON DELETE CASCADE
+			);
+		`);
+	}
+
+	// 4) Ensure jobs has conversation_id and session_id columns
+	const jobsCols = db.prepare("PRAGMA table_info('jobs')").all() as Array<{ name: string }>;
+	if (!jobsCols.some(col => col.name === 'conversation_id')) {
+		db.exec("ALTER TABLE jobs ADD COLUMN conversation_id INTEGER REFERENCES conversations(id)");
+	}
+	if (!jobsCols.some(col => col.name === 'session_id')) {
+		db.exec("ALTER TABLE jobs ADD COLUMN session_id INTEGER REFERENCES execution_sessions(id)");
+	}
+
+	// 4b) Note: jobs rebuild moved to a standalone guard executed after this try block
+
+	// 5) Ensure suite_entries has conversation_id column
+	const suiteEntryCols = db.prepare("PRAGMA table_info('suite_entries')").all() as Array<{ name: string }>;
+	if (suiteEntryCols.length > 0 && !suiteEntryCols.some(col => col.name === 'conversation_id')) {
+		db.exec("ALTER TABLE suite_entries ADD COLUMN conversation_id INTEGER REFERENCES conversations(id)");
+	}
+
+	// 6) Idempotent backfills where legacy tables still exist
+	const testsTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = 'tests'").get() as { name?: string } | undefined;
+	const resultsTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = 'results'").get() as { name?: string } | undefined;
+
+	if (suiteEntryCols.length > 0 && testsTable) {
+		db.exec(`
+      UPDATE suite_entries SET conversation_id = (
+        SELECT c.id FROM conversations c
+        JOIN tests t ON c.name = t.name AND c.created_at = t.created_at
+        WHERE suite_entries.test_id = t.id
+      )
+      WHERE test_id IS NOT NULL AND conversation_id IS NULL;
+    `);
+
+		// After mapping, null out legacy pointer to avoid mixed references
+		db.exec(`
+      UPDATE suite_entries
+      SET test_id = NULL
+      WHERE conversation_id IS NOT NULL;
+    `);
+	}
+
+	if (jobsCols.length > 0 && testsTable) {
+		db.exec(`
+      UPDATE jobs SET conversation_id = (
+        SELECT c.id FROM conversations c
+        JOIN tests t ON c.name = t.name AND c.created_at = t.created_at
+        WHERE jobs.test_id = t.id
+      )
+      WHERE conversation_id IS NULL AND test_id IS NOT NULL;
+    `);
+	}
+
+	if (jobsCols.length > 0 && resultsTable) {
+		db.exec(`
+			UPDATE jobs SET session_id = (
+				SELECT es.id FROM execution_sessions es
+				WHERE es.conversation_id = jobs.conversation_id
+				AND es.agent_id = jobs.agent_id
+				AND jobs.result_id IS NOT NULL
+				AND EXISTS (
+					SELECT 1 FROM results r
+					WHERE r.id = jobs.result_id AND r.agent_id = es.agent_id
+				)
+			)
+			WHERE session_id IS NULL;
+		`);
+	}
+} catch (e) {
+	console.error('Post-migration guard failed', e);
+}
+
+// ensure jobs.test_id is nullable even if earlier guarded migration didn't run
+try {
+	const jobsColsDetailedFinal = db.prepare("PRAGMA table_info('jobs')").all() as Array<{ name: string; notnull: number }>;
+	const testIdColFinal = jobsColsDetailedFinal.find(c => c.name === 'test_id');
+	if (testIdColFinal && Number(testIdColFinal.notnull) === 1) {
+		db.transaction(() => {
+			db.exec(`
+        CREATE TABLE jobs_new (
+          id TEXT PRIMARY KEY,
+          agent_id INTEGER NOT NULL,
+          test_id INTEGER,
+			  status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled', 'timeout')),
+          progress INTEGER DEFAULT 0,
+          partial_result TEXT,
+          result_id INTEGER,
+          error TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          suite_run_id INTEGER,
+          job_type TEXT DEFAULT 'crewai',
+          claimed_by TEXT,
+          claimed_at DATETIME,
+          conversation_id INTEGER,
+          session_id INTEGER,
+          FOREIGN KEY (agent_id) REFERENCES agents(id),
+          FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+          FOREIGN KEY (session_id) REFERENCES execution_sessions(id),
+          FOREIGN KEY (suite_run_id) REFERENCES suite_runs(id)
+        );
+      `);
+
+			// Copy data using explicit column list while validating FK targets
+			db.exec(`
+			INSERT INTO jobs_new (
+			  id, agent_id, test_id, status, progress, partial_result, result_id,
+			  error, created_at, updated_at, suite_run_id, job_type, claimed_by, claimed_at,
+			  conversation_id, session_id
+			)
+			SELECT
+			  j.id, j.agent_id, j.test_id, j.status, j.progress, j.partial_result, j.result_id,
+			  j.error, j.created_at, j.updated_at,
+			  CASE WHEN j.suite_run_id IS NOT NULL AND EXISTS (SELECT 1 FROM suite_runs s WHERE s.id = j.suite_run_id) THEN j.suite_run_id ELSE NULL END AS suite_run_id,
+			  j.job_type, j.claimed_by, j.claimed_at,
+			  CASE WHEN j.conversation_id IS NOT NULL AND EXISTS (SELECT 1 FROM conversations c WHERE c.id = j.conversation_id) THEN j.conversation_id ELSE NULL END AS conversation_id,
+			  CASE WHEN j.session_id IS NOT NULL AND EXISTS (SELECT 1 FROM execution_sessions es WHERE es.id = j.session_id) THEN j.session_id ELSE NULL END AS session_id
+			FROM jobs j;
+			`);
+
+			// Swap tables
+			db.exec(`DROP TABLE jobs;`);
+			db.exec(`ALTER TABLE jobs_new RENAME TO jobs;`);
+		})();
+	}
+} catch (e) {
+	console.error('Jobs test_id nullable guard failed', e);
+}
+
 // Migration: ensure suite_entries.conversation_id has ON DELETE CASCADE
 try {
 	const suiteEntriesForeignKeys = db.prepare("PRAGMA foreign_key_list('suite_entries')").all() as Array<{
@@ -423,8 +623,9 @@ try {
       `);
 		})();
 	}
-} catch (_e) {
+} catch (e) {
 	// Best-effort migration; ignore if PRAGMA not available
+	console.error('Ensure suite_entries cascade migration failed', e);
 }
 
 function dropLegacyTablesIfSafe() {
@@ -471,7 +672,7 @@ function dropLegacyTablesIfSafe() {
         AND EXISTS (SELECT 1 FROM conversations WHERE id = suite_entries.test_id)
       `);
 
-      db.exec(`
+			db.exec(`
         DELETE FROM suite_entries
         WHERE test_id IS NOT NULL
         AND conversation_id IS NULL
@@ -571,7 +772,9 @@ function dropLegacyTablesIfSafe() {
 		if (postCounts.jobs !== preCounts.jobs || postCounts.suite_entries !== preCounts.suite_entries) {
 			throw new Error('Record counts changed during migration');
 		}
-	} catch (error) { }
+	} catch (error) {
+		console.error('Drop legacy tables migration failed', error);
+	}
 }
 
 // Create indexes for better performance (only for tables that will remain)
@@ -601,8 +804,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_session_messages_sequence ON session_messages(session_id, sequence);
   CREATE INDEX IF NOT EXISTS idx_jobs_conversation ON jobs(conversation_id);
   CREATE INDEX IF NOT EXISTS idx_jobs_session ON jobs(session_id);
-  CREATE INDEX IF NOT EXISTS idx_suite_entries_conversation ON suite_entries(conversation_id);
 `);
+
+// Minimal guard: ensure suite_entries.conversation_id exists, then create its index
+try {
+	const suiteEntriesColsForIndex = db.prepare("PRAGMA table_info('suite_entries')").all() as Array<{ name: string }>;
+	if (suiteEntriesColsForIndex.length > 0 && !suiteEntriesColsForIndex.some(col => col.name === 'conversation_id')) {
+		// Try to add the column if it's missing (idempotent)
+		db.exec("ALTER TABLE suite_entries ADD COLUMN conversation_id INTEGER REFERENCES conversations(id)");
+	}
+	const suiteEntriesColsAfter = db.prepare("PRAGMA table_info('suite_entries')").all() as Array<{ name: string }>;
+	if (suiteEntriesColsAfter.some(col => col.name === 'conversation_id')) {
+		db.exec("CREATE INDEX IF NOT EXISTS idx_suite_entries_conversation ON suite_entries(conversation_id)");
+	}
+} catch (e) {
+	console.error('Minimal guard for suite_entries index failed', e);
+}
 
 // Check if we can safely drop legacy tables on every startup
 dropLegacyTablesIfSafe();
