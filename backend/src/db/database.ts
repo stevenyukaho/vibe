@@ -175,6 +175,31 @@ if (!suiteEntriesInfo.some(col => col.name === 'id')) {
   `);
 }
 
+// Migration: conversation turn targets (finalized schema pre-deploy)
+try {
+    const hasTurnTargetsTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversation_turn_targets'").get() as { name?: string } | undefined;
+    if (!hasTurnTargetsTable) {
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS conversation_turn_targets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL,
+                user_sequence INTEGER NOT NULL,
+                target_reply TEXT NOT NULL,
+                threshold INTEGER,
+                weight REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (conversation_id, user_sequence),
+                FOREIGN KEY (conversation_id, user_sequence)
+                    REFERENCES conversation_messages(conversation_id, sequence)
+                    ON DELETE CASCADE
+            );
+        `);
+    }
+} catch (e) {
+    console.error('Ensure conversation_turn_targets table failed', e);
+}
+
 // Migration: add similarity scoring columns to results table if missing
 const resultsInfo = db.prepare("PRAGMA table_info('results')").all() as Array<{ name: string }>;
 if (!resultsInfo.some(col => col.name === 'similarity_score')) {
@@ -524,6 +549,25 @@ try {
 	}
 } catch (e) {
 	console.error('Post-migration guard failed', e);
+}
+
+// Migration: Add per-turn scoring columns to session_messages (after ensuring base table exists)
+try {
+    const sessMsgCols = db.prepare("PRAGMA table_info('session_messages')").all() as Array<{ name: string }>;
+    if (!sessMsgCols.some(col => col.name === 'similarity_score')) {
+        db.exec("ALTER TABLE session_messages ADD COLUMN similarity_score REAL");
+    }
+    if (!sessMsgCols.some(col => col.name === 'similarity_scoring_status')) {
+        db.exec("ALTER TABLE session_messages ADD COLUMN similarity_scoring_status TEXT");
+    }
+    if (!sessMsgCols.some(col => col.name === 'similarity_scoring_error')) {
+        db.exec("ALTER TABLE session_messages ADD COLUMN similarity_scoring_error TEXT");
+    }
+    if (!sessMsgCols.some(col => col.name === 'similarity_scoring_metadata')) {
+        db.exec("ALTER TABLE session_messages ADD COLUMN similarity_scoring_metadata TEXT");
+    }
+} catch (e) {
+    console.error('Add scoring columns to session_messages failed', e);
 }
 
 // ensure jobs.test_id is nullable even if earlier guarded migration didn't run
