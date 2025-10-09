@@ -14,7 +14,8 @@ import {
 	Conversation,
 	ConversationMessage,
 	ExecutionSession,
-	SessionMessage
+	SessionMessage,
+	ConversationTurnTarget
 } from '../types';
 import { normalizeConversationMessageInsert, normalizeSuiteEntryInsert } from './normalizers';
 
@@ -1447,3 +1448,55 @@ export const getFullSessionTranscript = (sessionId: number) => {
 		messages
 	};
 };
+
+// --- Scoring helpers ---
+
+/**
+ * Count user messages up to and including a given sequence number.
+ * Used to compute turn index k for the assistant reply (ignore system/tool).
+ */
+export function countUserTurnsUpTo(sessionId: number, sequenceInclusive: number): number {
+	const row = db.prepare(`
+    SELECT COUNT(*) as cnt
+    FROM session_messages
+    WHERE session_id = ?
+		AND sequence <= ?
+		AND role = 'user'
+	`).get(sessionId, sequenceInclusive) as { cnt: number };
+	return row?.cnt ?? 0;
+}
+
+/**
+ * Fetch target reply config for a conversation + user_sequence.
+ */
+export function getConversationTurnTarget(conversationId: number, userSequence: number): ConversationTurnTarget | undefined {
+	const row = db.prepare(`
+	SELECT * FROM conversation_turn_targets
+	WHERE conversation_id = ? AND user_sequence = ?
+	`).get(conversationId, userSequence) as ConversationTurnTarget | undefined;
+	return row;
+}
+
+/**
+ * Update per-turn scoring fields on a session_message row
+ */
+export function updateSessionMessageScoring(
+	id: number,
+	updates: Partial<Pick<SessionMessage,
+		'similarity_score' | 'similarity_scoring_status' | 'similarity_scoring_error' | 'similarity_scoring_metadata'>>
+): void {
+	const filtered = Object.fromEntries(
+		Object.entries(updates).filter(([, v]) => v !== undefined)
+	);
+	if (Object.keys(filtered).length === 0) {
+		return;
+	}
+
+	const fields = Object.keys(filtered).map(k => `${k} = @${k}`);
+	const stmt = db.prepare(`
+		UPDATE session_messages
+		SET ${fields.join(', ')}
+		WHERE id = @id
+	`);
+	stmt.run({ id, ...filtered });
+}
