@@ -70,6 +70,17 @@ export interface ConversationMessage {
 	created_at?: string;
 }
 
+export interface ConversationTurnTarget {
+    id?: number;
+    conversation_id: number;
+    user_sequence: number; // matches conversation_messages(sequence) for role='user'
+    target_reply: string;
+    threshold?: number | null; // 0 - 100
+    weight?: number | null; // default 1.0
+    created_at?: string;
+    updated_at?: string;
+}
+
 export interface ExecutionSession {
 	id?: number;
 	conversation_id: number;
