@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, listSuiteRunsWithCount, getExecutionSessionsByIds } from '../db/queries';
-import { computeSessionDurationMs, parseSessionMetadata } from '../lib/sessionMetadata';
+import { getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, listSuiteRunsWithCount, getExecutionSessionsByIds, getSessionMessages } from '../db/queries';
+import { computeSessionDurationMs } from '../lib/sessionMetadata';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { JobStatus } from '../types';
@@ -53,18 +53,29 @@ async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
 		suiteRun.total_execution_time = 0;
 	}
 
-	// Calculate average similarity score (server-side from execution session metadata)
+	// Calculate average similarity score from per-turn assistant messages (source of truth)
 	try {
 		const sessionIds = jobs
 			.map(j => j.session_id)
 			.filter((id): id is number => id !== undefined && id !== null);
-		const sessions = getExecutionSessionsByIds(sessionIds);
-		const scores = sessions
-			.map(s => parseSessionMetadata(s.metadata))
-			.filter(meta => meta && meta.similarity_scoring_status === 'completed' && typeof meta.similarity_score === 'number')
-			.map(meta => meta.similarity_score as number);
-		if (scores.length > 0) {
-			suiteRun.avg_similarity_score = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+		const allScores: number[] = [];
+		for (const sid of sessionIds) {
+			const messages = await getSessionMessages(sid);
+			for (const m of messages) {
+				if (m.role === 'assistant'
+					&& m.similarity_scoring_status === 'completed'
+					&& typeof m.similarity_score === 'number'
+				) {
+					allScores.push(m.similarity_score);
+				}
+			}
+		}
+
+		if (allScores.length > 0) {
+			suiteRun.avg_similarity_score = allScores.reduce((a, b) => a + b, 0) / allScores.length;
+		} else {
+			suiteRun.avg_similarity_score = undefined;
 		}
 	} catch (err) {
 		console.error('Failed to compute average similarity score for suite run', suiteRun.id, err);
