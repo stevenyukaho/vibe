@@ -1435,6 +1435,28 @@ export const addSessionMessage = (message: SessionMessage) => {
     return statement.get(payload) as SessionMessage;
 };
 
+export function updateSessionMessage(
+	id: number,
+	updates: Partial<Pick<SessionMessage,
+		'content' | 'metadata' | 'similarity_score' | 'similarity_scoring_status' | 'similarity_scoring_error' | 'similarity_scoring_metadata'>>
+): void {
+	const filtered = Object.fromEntries(
+		Object.entries(updates).filter(([, v]) => v !== undefined)
+	);
+
+	if (Object.keys(filtered).length === 0) {
+		return;
+	}
+
+	const fields = Object.keys(filtered).map(k => `${k} = @${k}`);
+	const stmt = db.prepare(`
+		UPDATE session_messages
+		SET ${fields.join(', ')}
+		WHERE id = @id
+	`);
+	stmt.run({ id, ...filtered });
+}
+
 export const getSessionMessages = (sessionId: number) => {
 	return db.prepare('SELECT * FROM session_messages WHERE session_id = ? ORDER BY sequence').all(sessionId) as SessionMessage[];
 };
