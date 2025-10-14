@@ -1,10 +1,10 @@
 import type { Agent, Test, TestResult } from '../../../backend/src/exports';
 import type { PaginatedResponse, StatsResponse, LLMRequestOptions, LLMResponse } from '../../../types';
-import type { Conversation, ConversationMessage, ExecutionSession, SessionMessage } from '../../../types';
+import type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget } from '../../../types';
 
 // Re-export types for use in components
 export type { Agent, Test, TestResult };
-export type { Conversation, ConversationMessage, ExecutionSession, SessionMessage };
+export type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget };
 
 export interface LLMConfig {
 	id: number;
@@ -934,5 +934,38 @@ export const api = {
 			session: data.session,
 			messages: data.messages || []
 		};
+	},
+
+	// Conversation turn targets
+	async getConversationTurnTargets(conversationId: number): Promise<ConversationTurnTarget[]> {
+		const response = await fetch(`${API_URL}/api/conversation-turn-targets/conversation/${conversationId}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch turn targets');
+		}
+		return response.json();
+	},
+
+	async saveConversationTurnTarget(target: Omit<ConversationTurnTarget, 'id' | 'created_at' | 'updated_at'>): Promise<ConversationTurnTarget> {
+		const response = await fetch(`${API_URL}/api/conversation-turn-targets`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(target)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to save turn target');
+		}
+		return response.json();
+	},
+
+	async deleteConversationTurnTarget(id: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/conversation-turn-targets/${id}`, {
+			method: 'DELETE'
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete turn target');
+		}
 	}
 };
