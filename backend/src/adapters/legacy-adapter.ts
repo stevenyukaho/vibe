@@ -1,24 +1,24 @@
 /**
  * Legacy API Adapter
- * 
+ *
  * Provides transformation functions between legacy API formats and the new
  * conversation-based data structures. This allows legacy endpoints to work with
  * the new table structure while maintaining API compatibility.
  */
 
-import type { 
-	Test, 
-	TestResult, 
-	Conversation, 
-	ConversationMessage, 
-	ExecutionSession, 
-	SessionMessage 
+import type {
+	Test,
+	TestResult,
+	Conversation,
+	ConversationMessage,
+	ExecutionSession,
+	SessionMessage
 } from '../types';
 
 export function conversationToLegacyTest(conversation: Conversation, messages?: ConversationMessage[]): Test {
 	// Get the first user message as the test input
 	const firstUserMessage = messages?.find(m => m.role === 'user');
-	
+
 	return {
 		id: conversation.id,
 		name: conversation.name,
@@ -54,12 +54,12 @@ export function legacyTestToConversation(test: Omit<Test, 'id' | 'created_at' | 
  * Transform ExecutionSession + SessionMessages back to legacy TestResult format
  */
 export function sessionToLegacyResult(
-	session: ExecutionSession, 
+	session: ExecutionSession,
 	sessionMessages?: SessionMessage[]
 ): TestResult {
 	// Find the assistant's response (output)
-	const assistantMessage = sessionMessages?.find(m => m.role === 'assistant');
-	
+    const assistantMessage = sessionMessages?.find(m => m.role === 'assistant');
+
 	// Parse metadata from session for legacy fields
 	let sessionMetadata: any = {};
 	try {
@@ -71,25 +71,35 @@ export function sessionToLegacyResult(
 	// Extract intermediate steps from metadata
 	const intermediateSteps = sessionMetadata.intermediate_steps || '';
 
-	return {
+    // Prefer per-turn similarity scoring stored on the assistant session_message
+    const similarityFromAssistant = assistantMessage && typeof (assistantMessage as any).similarity_scoring_status === 'string'
+        ? {
+            similarity_score: (assistantMessage as any).similarity_score as number | undefined,
+            similarity_scoring_status: (assistantMessage as any).similarity_scoring_status as any,
+            similarity_scoring_error: (assistantMessage as any).similarity_scoring_error as string | undefined,
+            similarity_scoring_metadata: (assistantMessage as any).similarity_scoring_metadata as string | undefined
+        }
+        : undefined;
+
+    return {
 		id: session.id,
 		agent_id: session.agent_id,
 		test_id: session.conversation_id!, // Map conversation_id to test_id for legacy compatibility
 		output: assistantMessage?.content || '',
-		intermediate_steps: typeof intermediateSteps === 'string' 
-			? intermediateSteps 
+		intermediate_steps: typeof intermediateSteps === 'string'
+			? intermediateSteps
 			: JSON.stringify(intermediateSteps),
 		success: session.success ?? false,
-		execution_time: session.started_at && session.completed_at 
+		execution_time: session.started_at && session.completed_at
 			? Math.round((new Date(session.completed_at).getTime() - new Date(session.started_at).getTime()))
 			: undefined,
 		created_at: session.started_at,
-		
-		// Extract token usage and similarity data from metadata
-		similarity_score: sessionMetadata.similarity_score,
-		similarity_scoring_status: sessionMetadata.similarity_scoring_status,
-		similarity_scoring_error: sessionMetadata.similarity_scoring_error,
-		similarity_scoring_metadata: sessionMetadata.similarity_scoring_metadata,
+
+        // Similarity: source of truth is per-turn assistant message only
+        similarity_score: similarityFromAssistant?.similarity_score,
+        similarity_scoring_status: similarityFromAssistant?.similarity_scoring_status,
+        similarity_scoring_error: similarityFromAssistant?.similarity_scoring_error,
+        similarity_scoring_metadata: similarityFromAssistant?.similarity_scoring_metadata,
 		input_tokens: sessionMetadata.input_tokens,
 		output_tokens: sessionMetadata.output_tokens,
 		token_mapping_metadata: sessionMetadata.token_mapping_metadata
@@ -146,10 +156,10 @@ export function legacyResultToSession(
  */
 export function isSingleTurnConversation(_conversation: Conversation, messages?: ConversationMessage[]): boolean {
 	if (!messages) return false;
-	
+
 	// A single-turn conversation should have exactly one user message
 	const userMessages = messages.filter(m => m.role === 'user');
-	
+
 	// Allow 1 user message and optionally system messages
 	// Note: ConversationMessage role is 'user' | 'system', assistant messages are in SessionMessage
 	return userMessages.length === 1;
