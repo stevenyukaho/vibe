@@ -82,3 +82,14 @@ export interface ExecutionSession {
 	error_message?: string;
 	metadata?: string;
 }
+
+export interface ConversationTurnTarget {
+	id?: number;
+	conversation_id: number;
+	user_sequence: number; // matches conversation_messages(sequence) for role='user'
+	target_reply: string;
+	threshold?: number | null; // 0 - 100
+	weight?: number | null; // default 1.0
+	created_at?: string;
+	updated_at?: string;
+}
