@@ -13,6 +13,7 @@ import conversationRoutes from './routes/conversations';
 import sessionRoutes from './routes/sessions';
 import statsRoutes from './routes/stats';
 import sessionMessageRoutes from './routes/session-messages';
+import conversationTurnTargetsRoutes from './routes/conversation-turn-targets';
 import { serverConfig } from './config';
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/session-messages', sessionMessageRoutes);
+app.use('/api/conversation-turn-targets', conversationTurnTargetsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (_req: Request, res: Response) => {
