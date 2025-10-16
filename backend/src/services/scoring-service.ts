@@ -3,7 +3,6 @@ import { llmConfigService } from './llm-config-service';
 import { parseScoringResponse } from '../lib/parseScoringResponse';
 import { updateResult, getAgentById } from '../db/queries';
 import db from '../db/database';
-import { updateSessionMetadata } from '../lib/sessionMetadata';
 
 /**
  * Generate scoring prompt for similarity evaluation
@@ -176,20 +175,11 @@ export class ScoringService {
 					}
 					await updateResult(result.id, updateData);
 				}
-			} catch {}
-
-			// Also update the corresponding session metadata if a session with same id exists (adapter path)
-			// This maintains compatibility where legacy result id maps to session id in adapters
-			await updateSessionMetadata(result.id!, {
-				similarity_score: scoringResult.score,
-				similarity_scoring_status: 'completed',
-				similarity_scoring_error: undefined,
-				similarity_scoring_metadata: scoringMetadata
-			});
+			} catch { }
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred during scoring';
 
-			// Attempt to update both legacy result and session metadata with failure
+			// Attempt to update legacy result with failure (compatibility only)
 			try {
 				const hasResults = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='results'").all() as { name: string }[];
 				if (hasResults.length > 0) {
@@ -198,11 +188,7 @@ export class ScoringService {
 						similarity_scoring_error: errorMessage
 					});
 				}
-			} catch {}
-			await updateSessionMetadata(result.id!, {
-				similarity_scoring_status: 'failed',
-				similarity_scoring_error: errorMessage
-			});
+			} catch { }
 
 			console.error(`Scoring failed for result ${result.id}:`, error);
 		}
