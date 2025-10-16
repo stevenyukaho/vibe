@@ -1,0 +1,59 @@
+@use "@carbon/react/scss/colors" as *;
+@use "@carbon/react/scss/theme" as *;
+@use "@carbon/react/scss/spacing" as *;
+
+.tokenBreakdown {
+	margin-bottom: $spacing-06;
+}
+
+.tokenTile {
+	padding: $spacing-05;
+	border: 1px solid $border-subtle;
+	background: $layer-01;
+}
+
+.sectionTitle {
+	margin: 0;
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: $text-primary;
+	display: flex;
+	align-items: center;
+	gap: $spacing-03;
+	margin-bottom: $spacing-04;
+}
+
+.tokenStats {
+	display: flex;
+	gap: $spacing-06;
+	margin-bottom: $spacing-04;
+}
+
+.tokenStat {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.tokenLabel {
+	font-size: 0.875rem;
+	color: $text-secondary;
+	margin-bottom: $spacing-02;
+}
+
+.tokenValue {
+	font-size: 1.25rem;
+	font-weight: 600;
+	color: $text-primary;
+}
+
+.tokenRatio {
+	margin-top: $spacing-04;
+}
+
+@media (max-width: 768px) {
+	.tokenStats {
+		flex-direction: column;
+		gap: $spacing-04;
+	}
+}
