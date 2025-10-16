@@ -69,6 +69,11 @@ export interface SessionMessage {
 	content: string;
 	timestamp: string;
 	metadata?: string;
+	// Per-turn similarity scoring (source of truth)
+	similarity_score?: number; // 0 - 100
+	similarity_scoring_status?: 'pending' | 'running' | 'completed' | 'failed';
+	similarity_scoring_error?: string;
+	similarity_scoring_metadata?: string; // JSON metadata
 }
 
 export interface ExecutionSession {
