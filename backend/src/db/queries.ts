@@ -1522,3 +1522,10 @@ export function updateSessionMessageScoring(
 	`);
 	stmt.run({ id, ...filtered });
 }
+
+export function getSessionMessageById(id: number): SessionMessage | undefined {
+	const stmt = db.prepare(`
+		SELECT * FROM session_messages WHERE id = ?
+	`);
+	return stmt.get(id) as SessionMessage | undefined;
+}
