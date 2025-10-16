@@ -179,6 +179,8 @@ export class JobPollerService {
 	 */
 	private async executeConversationJob(job: Job, agent: Agent, settings: any): Promise<void> {
 		try {
+			const startTime = new Date().toISOString();
+
 			// Get conversation and messages
 			const conversationResponse = await axios.get(`${this.backendUrl}/api/conversations/${job.conversation_id}`);
 			const conversation: Conversation & { messages: ConversationMessage[] } = conversationResponse.data;
@@ -201,13 +203,15 @@ export class JobPollerService {
 
 			await this.updateJobStatus(job.id, 'running', 80);
 
+			const completionTime = new Date().toISOString();
+
 			// Create execution session
 			const sessionResponse = await axios.post(`${this.backendUrl}/api/sessions`, {
 				conversation_id: conversation.id!,
 				agent_id: agent.id!,
 				status: 'completed',
-				started_at: new Date().toISOString(),
-				completed_at: new Date().toISOString(),
+				started_at: startTime,
+				completed_at: completionTime,
 				success: result.success,
 				metadata: JSON.stringify({
 					input_tokens: result.metrics.input_tokens,
