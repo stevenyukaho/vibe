@@ -39,6 +39,49 @@ Provide your analysis and reasoning, then return your evaluation as a JSON objec
 `;
 }
 
+// Exported helper for turn-level similarity prompts
+export function generateTurnSimilarityPrompt(targetReply: string, actualReply: string): string {
+	return generateScoringPrompt(targetReply, actualReply);
+}
+
+// Lightweight similarity scorer for arbitrary expected/actual pairs
+export async function scoreSimilarityText(expected: string, actual: string, llmConfigId?: number): Promise<{
+	score: number;
+	metadata: {
+		provider: string;
+		model: string;
+		config_id: number | undefined;
+		execution_time_ms: number;
+		raw_response: string;
+		reasoning?: string;
+	};
+}> {
+	const startTime = Date.now();
+	const prompt = generateTurnSimilarityPrompt(expected, actual);
+	const llmResponse = llmConfigId
+		? await llmConfigService.callLLM(llmConfigId, { prompt })
+		: await llmConfigService.callLLMWithFallback({ prompt });
+
+	if (llmResponse.error) {
+		throw new Error(`LLM call failed: ${llmResponse.error}`);
+	}
+
+	const scoringResult = parseScoringResponse(llmResponse.text);
+	const endTime = Date.now();
+
+	return {
+		score: scoringResult.score,
+		metadata: {
+			provider: llmResponse.provider,
+			model: llmResponse.model,
+			config_id: llmResponse.config_id,
+			execution_time_ms: endTime - startTime,
+			raw_response: llmResponse.text,
+			reasoning: scoringResult.reasoning
+		}
+	};
+}
+
 /**
  * Check if an external API agent has explicit success criteria configured
  */
