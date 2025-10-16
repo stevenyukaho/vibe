@@ -936,6 +936,16 @@ export const api = {
 		};
 	},
 
+	async regenerateSimilarityScore(messageId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/session-messages/${messageId}/regenerate-score`, {
+			method: 'POST'
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to regenerate similarity score');
+		}
+	},
+
 	// Conversation turn targets
 	async getConversationTurnTargets(conversationId: number): Promise<ConversationTurnTarget[]> {
 		const response = await fetch(`${API_URL}/api/conversation-turn-targets/conversation/${conversationId}`);
