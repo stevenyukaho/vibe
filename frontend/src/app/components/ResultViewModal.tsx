@@ -44,7 +44,7 @@ export default function ResultViewModal({
 				setTestData(null);
 				return;
 			}
-			
+
 			setLoadingTest(true);
 			setTestError(null);
 			try {
@@ -64,11 +64,11 @@ export default function ResultViewModal({
 
 	const handleRescore = async () => {
 		if (!result?.id) return;
-		
+
 		setRescoring(true);
 		setRescoreError(null);
 		setRescoreSuccess(false);
-		
+
 		try {
 			await api.scoreResult(result.id);
 			setRescoreSuccess(true);
@@ -125,7 +125,7 @@ export default function ResultViewModal({
 							{error}
 						</div>
 					)}
-					
+
 					{rescoreSuccess && (
 						<InlineNotification
 							kind="success"
@@ -134,7 +134,7 @@ export default function ResultViewModal({
 							hideCloseButton
 						/>
 					)}
-					
+
 					{rescoreError && (
 						<InlineNotification
 							kind="error"
@@ -152,7 +152,7 @@ export default function ResultViewModal({
 							hideCloseButton
 						/>
 					)}
-					
+
 					{result && (
 						<>
 							{/* Edit Test Button */}
@@ -209,7 +209,7 @@ export default function ResultViewModal({
 									</div>
 								)}
 							</div>
-							
+
 							{/* Similarity score section */}
 							{canScore && (
 								<div className="similarity-score-section">
