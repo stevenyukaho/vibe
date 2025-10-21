@@ -1,26 +1,154 @@
-.backButtonRow {
-	margin-bottom: 2rem;
+@use "@carbon/react/scss/colors" as *;
+@use "@carbon/react/scss/theme" as *;
+@use "@carbon/react/scss/spacing" as *;
+
+.container {
+	padding: $spacing-06;
+	max-width: 1400px;
+	margin: 0 auto;
 }
 
-.statusPanel {
-	margin-bottom: 2rem;
+.headerRow {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: $spacing-06;
+	gap: $spacing-05;
 }
 
-.statusCardContent {
+.headerLeft {
+	flex: 1;
+}
+
+.title {
+	margin: 0 0 $spacing-03 0;
+	color: $text-primary;
+	font-size: 2rem;
+	font-weight: 600;
+}
+
+.suiteInfo {
+	display: flex;
+	flex-wrap: wrap;
+	gap: $spacing-02;
+	margin-bottom: $spacing-04;
+}
+
+.metadata {
 	display: flex;
 	flex-direction: column;
-	gap: 1rem;
+	gap: $spacing-02;
 }
 
-.label {
-	margin-bottom: 0.5rem;
+.metaItem {
+	color: $text-secondary;
+	font-size: 0.875rem;
 }
 
-.fullWidth {
-	width: 100%;
-}
-
-.tokenRow {
+.headerRight {
 	display: flex;
-	gap: 1rem;
+	align-items: center;
+	gap: $spacing-03;
+}
+
+.statsGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: $spacing-04;
+	margin-bottom: $spacing-06;
+}
+
+.statCard {
+	padding: $spacing-05;
+	display: flex;
+	align-items: center;
+	gap: $spacing-04;
+	border: 1px solid $border-subtle;
+	background: $layer-01;
+	transition: all 0.2s ease;
+}
+
+.statCard:hover {
+	border-color: $focus;
+	box-shadow: 0 2px 8px rgba($focus, 0.1);
+}
+
+.statIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 3rem;
+	height: 3rem;
+	background: $layer-02;
+	border-radius: 50%;
+	color: $focus;
+}
+
+.statContent {
+	flex: 1;
+}
+
+.statValue {
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: $text-primary;
+	margin-bottom: $spacing-02;
+}
+
+.statLabel {
+	font-size: 0.875rem;
+	color: $text-secondary;
+}
+
+.progressSection {
+	margin-bottom: $spacing-06;
+}
+
+.progressTile {
+	padding: $spacing-05;
+	background: $layer-01;
+	border: 1px solid $border-subtle;
+	border-radius: 4px;
+}
+
+.progressHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: $spacing-04;
+}
+
+.progressTitle {
+	margin: 0;
+	color: $text-primary;
+	font-size: 1.125rem;
+	font-weight: 600;
+}
+
+.progressText {
+	color: $text-secondary;
+	font-size: 0.875rem;
+}
+
+
+.jobsSection {
+	margin-bottom: $spacing-06;
+}
+
+.sectionHeader {
+	margin-bottom: $spacing-04;
+}
+
+.sectionTitle {
+	margin: 0;
+	color: $text-primary;
+	font-size: 1.25rem;
+	font-weight: 600;
+}
+
+.tableContainer {
+	background: $layer-01;
+	border: 1px solid $border-subtle;
+	border-radius: 4px;
+	overflow: hidden;
 }
