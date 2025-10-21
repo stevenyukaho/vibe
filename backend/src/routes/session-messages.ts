@@ -1,7 +1,36 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { addSessionMessage } from '../db/queries';
+import {
+	addSessionMessage,
+	countUserTurnsUpTo,
+	getExecutionSessionById,
+	getConversationTurnTarget,
+	updateSessionMessage,
+	getSessionMessageById
+} from '../db/queries';
 import type { SessionMessage } from '../types';
+import { scoreSimilarityText } from '../services/scoring-service';
+
+/**
+ * Score similarity for a session message against its conversation target
+ * Runs asynchronously and updates the message with scoring results
+ */
+async function scoreSessionMessageSimilarity(messageId: number, targetReply: string, actualReply: string, turnIndex: number, targetId: number): Promise<void> {
+	try {
+		updateSessionMessage(messageId, { similarity_scoring_status: 'running' });
+		const { score, metadata } = await scoreSimilarityText(targetReply, actualReply);
+		updateSessionMessage(messageId, {
+			similarity_score: score,
+			similarity_scoring_status: 'completed',
+			similarity_scoring_metadata: JSON.stringify({ expectation_id: targetId, turn_index: turnIndex, ...metadata })
+		});
+	} catch (err: any) {
+		updateSessionMessage(messageId, {
+			similarity_scoring_status: 'failed',
+			similarity_scoring_error: err?.message || 'scoring failed'
+		});
+	}
+}
 
 const router = Router();
 
@@ -50,6 +79,27 @@ router.post('/', (async (req: Request<{}, {}, Omit<SessionMessage, 'id'>>, res: 
 		}
 
 		const message = await addSessionMessage(payload as SessionMessage);
+
+		// If this is an assistant message, kick off in-process similarity scoring
+		if (message.role === 'assistant') {
+			try {
+				const session = await getExecutionSessionById(message.session_id);
+				if (session?.conversation_id) {
+					// Determine user turn index k up to this assistant message
+					const k = countUserTurnsUpTo(message.session_id, message.sequence);
+					const target = getConversationTurnTarget(session.conversation_id, k);
+					if (target && message.id && target.id) {
+						// Mark pending immediately
+						updateSessionMessage(message.id, { similarity_scoring_status: 'pending' });
+						// Run in background (fire-and-forget)
+						scoreSessionMessageSimilarity(message.id, target.target_reply, message.content, k, target.id);
+					}
+				}
+			} catch (e) {
+				console.error('In-process scoring trigger failed:', e);
+			}
+		}
+
 		return res.status(201).json(message);
 	} catch (error) {
 		console.error('Error creating session message:', error);
