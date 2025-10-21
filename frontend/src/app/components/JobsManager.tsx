@@ -19,18 +19,20 @@ import {
 	Pagination
 } from '@carbon/react';
 import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
-import { api, Job, JobStatus } from '@/lib/api';
+import { api, Job } from '@/lib/api';
 import styles from './JobsManager.module.scss';
 import { useAgents, useTests, useAppData } from '@/lib/AppDataContext';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
 import { getJobId, getStatusTagType } from '@/lib/utils';
 
 interface JobsManagerProps {
-	onResultView: (resultId: number) => void;
+	onViewSession: (sessionId: number) => void;
+	onViewConversation: (conversationId: number) => void;
 }
 
 export default function JobsManager({
-	onResultView
+	onViewSession,
+	onViewConversation
 }: JobsManagerProps) {
 	const { agents, fetchAgents } = useAgents();
 	const { tests, fetchTests } = useTests();
@@ -98,25 +100,20 @@ export default function JobsManager({
 		}
 	};
 
-	// Get job status tag type
-	const getStatusTagType = (status: JobStatus) => {
-		switch (status) {
-			case 'pending': return 'purple';
-			case 'running': return 'blue';
-			case 'completed': return 'green';
-			case 'failed': return 'red';
-			default: return 'gray';
-		}
-	};
 
-    // View result when available (prefer session_id, fallback to result_id)
+    // View session or conversation when available
     const handleViewResult = () => {
         if (!selectedJob) return;
-        const id = selectedJob.session_id ?? selectedJob.result_id;
-        if (id) {
-            onResultView(id);
-            setJobModalOpen(false);
+
+        if (selectedJob.session_id) {
+            onViewSession(selectedJob.session_id);
+        } else if (selectedJob.conversation_id) {
+            onViewConversation(selectedJob.conversation_id);
+        } else if (selectedJob.result_id) {
+            // Legacy fallback - navigate to sessions page
+            onViewSession(selectedJob.result_id);
         }
+        setJobModalOpen(false);
     };
 
 	// Refresh job list
@@ -212,7 +209,7 @@ export default function JobsManager({
 	const headers = [
 		{ key: 'id', header: 'ID' },
 		{ key: 'agent', header: 'Agent' },
-		{ key: 'test', header: 'Test' },
+		{ key: 'test', header: 'Test/Conversation' },
 		{ key: 'status', header: 'Status' },
 		{ key: 'similarity_score', header: 'Similarity score' },
 		{ key: 'created_at', header: 'Created' },
@@ -235,7 +232,9 @@ export default function JobsManager({
 			return {
 				id: job.id.toString(),
 				agent: agent ? `${agent.name} (v${agent.version})` : `Agent ${job.agent_id}`,
-				test: test ? test.name : `Test ${job.test_id}`,
+				test: job.conversation_id
+					? `Conversation ${job.conversation_id}`
+					: test ? test.name : `Test ${job.test_id}`,
 				status: (
 					<Tag type={getStatusTagType(job.status)}>
 						{job.status.charAt(0).toUpperCase() + job.status.slice(1)}
@@ -433,9 +432,12 @@ export default function JobsManager({
 										</TableCell>
 									</TableRow>
 									<TableRow>
-										<TableCell>Test</TableCell>
+										<TableCell>Test/Conversation</TableCell>
 										<TableCell>
-											{tests.find(t => t.id === selectedJob.test_id)?.name || `Test ${selectedJob.test_id}`}
+											{selectedJob.conversation_id
+												? `Conversation ${selectedJob.conversation_id}`
+												: tests.find(t => t.id === selectedJob.test_id)?.name || `Test ${selectedJob.test_id}`
+											}
 										</TableCell>
 									</TableRow>
 									<TableRow>
