@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
 import TestFormModal from './TestFormModal';
 import { useTests } from '@/lib/AppDataContext';
+import { formatTokenUsageDetailed } from '@/lib/utils';
 import './ResultViewModal.scss';
 
 interface ResultViewModalProps {
@@ -199,22 +200,11 @@ export default function ResultViewModal({
 									</div>
 								)}
 								{/* Token usage section */}
-								{((result.input_tokens && result.input_tokens > 0) || (result.output_tokens && result.output_tokens > 0)) && (
+								{formatTokenUsageDetailed(result) && (
 									<div className="metadata-item">
 										<strong>Token usage:</strong>{' '}
 										<span className="token-details">
-											{result.input_tokens && result.input_tokens > 0 && (
-												<>Input: {result.input_tokens.toLocaleString()}</>
-											)}
-											{result.input_tokens && result.input_tokens > 0 && result.output_tokens && result.output_tokens > 0 && (
-												<> | </>
-											)}
-											{result.output_tokens && result.output_tokens > 0 && (
-												<>Output: {result.output_tokens.toLocaleString()}</>
-											)}
-											{result.input_tokens && result.output_tokens && (
-												<> | <strong>Total: {(result.input_tokens + result.output_tokens).toLocaleString()}</strong></>
-											)}
+											{formatTokenUsageDetailed(result)}
 										</span>
 									</div>
 								)}
