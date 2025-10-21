@@ -26,6 +26,8 @@ import { ChevronLeft, ViewFilled } from '@carbon/icons-react';
 import ResultViewModal from '../../components/ResultViewModal';
 import styles from './page.module.scss';
 import SimilarityScoreDisplay from '../../components/SimilarityScoreDisplay';
+import TokenUsageTile from '../../components/TokenUsageTile';
+import { getJobId, isScoringActive, getStatusTagType, formatTokenUsage } from '../../../lib/utils';
 
 export default function SuiteRunDetailPage() {
 	const params = useParams();
@@ -61,17 +63,18 @@ export default function SuiteRunDetailPage() {
 
 		if (suiteRunData.status === 'completed') {
 			const activeScoringJobs = jobsData.filter(job => {
-				if (!job.result_id) {
+				const jobId = getJobId(job);
+				if (!jobId) {
 					return false;
 				}
-				const result = freshResults.get(job.result_id);
+				const result = freshResults.get(jobId);
 				if (!result) {
 					return true;
 				}
 
 				const scoringStatus = result.similarity_scoring_status;
 				// Only poll if scoring is actively in progress, not if it was never started (null)
-				return scoringStatus === 'pending' || scoringStatus === 'running';
+				return isScoringActive(scoringStatus);
 			});
 
 			return activeScoringJobs.length > 0;
@@ -88,7 +91,7 @@ export default function SuiteRunDetailPage() {
 
 		if (suiteRunData.status === 'running') {
 			const newlyCompletedJobs = jobsData.filter(job => {
-				const id = job.session_id ?? job.result_id;
+				const id = getJobId(job);
 				return !!id && !freshResults.has(id);
 			});
 			return newlyCompletedJobs.length > 0;
@@ -96,13 +99,13 @@ export default function SuiteRunDetailPage() {
 
 		if (suiteRunData.status === 'completed') {
 			const jobsWithActiveSimilarityScoring = jobsData.filter(job => {
-				const id = job.session_id ?? job.result_id;
+				const id = getJobId(job);
 				if (!id) return false;
 				const result = freshResults.get(id);
 				if (!result) return true;
 				const scoringStatus = result.similarity_scoring_status;
 				// Only fetch if scoring is actively in progress, not if it was never started (null)
-				return scoringStatus === 'pending' || scoringStatus === 'running';
+				return isScoringActive(scoringStatus);
 			});
 
 			return jobsWithActiveSimilarityScoring.length > 0;
@@ -115,7 +118,7 @@ export default function SuiteRunDetailPage() {
 		// Determine which jobs to fetch this cycle and decrement skip counts for skipped ids
 		const toDecrement: number[] = [];
 		const jobsToFetch = jobsData.filter(job => {
-			const id = job.session_id ?? job.result_id;
+			const id = getJobId(job);
 			if (!id) {
 				return false;
 			}
@@ -135,7 +138,7 @@ export default function SuiteRunDetailPage() {
 			}
 
 			const scoringStatus = existingResult.similarity_scoring_status;
-			return scoringStatus === 'pending' || scoringStatus === 'running';
+			return isScoringActive(scoringStatus);
 		});
 
 		if (toDecrement.length > 0) {
@@ -224,9 +227,9 @@ export default function SuiteRunDetailPage() {
 
 				// Check if any job got a new result_id (indicating it just completed)
 				const newlyCompletedJobs = jobsData.filter(job => {
-					const id = job.session_id ?? job.result_id;
+					const id = getJobId(job);
 					const prev = jobs.find(prevJob => prevJob.id === job.id);
-					const prevId = prev ? (prev.session_id ?? prev.result_id) : undefined;
+					const prevId = prev ? getJobId(prev) : null;
 					return !!id && id !== prevId;
 				});
 
@@ -332,16 +335,6 @@ export default function SuiteRunDetailPage() {
 		};
 	});
 
-	// Determine tag color for suite run status
-	const getStatusTagType = (status: string) => {
-		switch (status.toLowerCase()) {
-			case 'completed': return 'green';
-			case 'running': return 'blue';
-			case 'failed': return 'red';
-			case 'queued': return 'purple';
-			default: return 'gray';
-		}
-	};
 
 	return (
 		<Grid>
