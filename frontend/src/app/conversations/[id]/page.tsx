@@ -66,9 +66,62 @@ export default function ConversationDetailPage() {
 		}
 	};
 
-	if (loading) return <InlineLoading description="loading conversation" />;
-	if (error) return <InlineNotification kind="error" title="Error" subtitle={error} hideCloseButton />;
-	if (!conversation) return <InlineNotification kind="error" title="Not found" subtitle="conversation not found" hideCloseButton />;
+	const handleEditSuccess = () => {
+		setEditModalOpen(false);
+		load();
+	};
+
+	const handleDuplicate = async () => {
+		if (!conversation) {
+			return;
+		}
+
+		setDuplicating(true);
+		setError(null);
+
+		try {
+			// Create a copy of the conversation with a new name
+			const duplicatedConversation = {
+				...conversation,
+				name: `${conversation.name} (Copy)`,
+				id: undefined // Remove ID to create new conversation
+			};
+
+			const newConversation = await api.createConversation(duplicatedConversation);
+			router.push(`/conversations/${newConversation.id}`);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : 'Failed to duplicate conversation');
+		} finally {
+			setDuplicating(false);
+		}
+	};
+
+	const handleDelete = async () => {
+		if (!conversation?.id) return;
+
+		setDeleting(true);
+		setError(null);
+
+		try {
+			await api.deleteConversation(conversation.id);
+			router.push('/conversations'); // Navigate back to conversations list
+		} catch (err) {
+			setError(err instanceof Error ? err.message : 'Failed to delete conversation');
+		} finally {
+			setDeleting(false);
+			setDeleteModalOpen(false);
+		}
+	};
+
+	if (loading) {
+		return <InlineLoading description="loading conversation" />;
+	}
+	if (error) {
+		return <InlineNotification kind="error" title="Error" subtitle={error} hideCloseButton />;
+	}
+	if (!conversation) {
+		return <InlineNotification kind="error" title="Not found" subtitle="conversation not found" hideCloseButton />;
+	}
 
 	return (
 		<div className={styles.container}>
