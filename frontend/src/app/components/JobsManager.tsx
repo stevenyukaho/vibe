@@ -23,6 +23,7 @@ import { api, Job, JobStatus } from '@/lib/api';
 import styles from './JobsManager.module.scss';
 import { useAgents, useTests, useAppData } from '@/lib/AppDataContext';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
+import { getJobId, getStatusTagType } from '@/lib/utils';
 
 interface JobsManagerProps {
 	onResultView: (resultId: number) => void;
@@ -226,7 +227,7 @@ export default function JobsManager({
 		return jobs.map(job => {
 			const agent = agentMap.get(job.agent_id);
 			const test = testMap.get(job.test_id);
-            const preferredId = job.session_id ?? job.result_id;
+            const preferredId = getJobId(job);
             const result = preferredId ? getResultById(preferredId) : null;
 
 			const isPendingOrRunning = job.status === 'pending' || job.status === 'running';
@@ -408,8 +409,8 @@ export default function JobsManager({
 					open={jobModalOpen}
 					onRequestClose={() => setJobModalOpen(false)}
 					modalHeading={`Job #${selectedJob.id} Details`}
-                    primaryButtonText={(selectedJob.session_id || selectedJob.result_id) ? 'View Result' : null}
-                    primaryButtonDisabled={!(selectedJob.session_id || selectedJob.result_id)}
+                    primaryButtonText={(getJobId(selectedJob) || selectedJob.conversation_id) ? 'View Session' : null}
+                    primaryButtonDisabled={!(getJobId(selectedJob) || selectedJob.conversation_id)}
 					onRequestSubmit={handleViewResult}
 					secondaryButtonText="Close"
 					onSecondarySubmit={() => setJobModalOpen(false)}
@@ -457,10 +458,10 @@ export default function JobsManager({
 											{new Date(selectedJob.updated_at).toLocaleString()}
 										</TableCell>
 									</TableRow>
-                                    {(selectedJob.session_id || selectedJob.result_id) && (
+                                    {getJobId(selectedJob) && (
 										<TableRow>
                                             <TableCell>Result ID</TableCell>
-                                            <TableCell>{selectedJob.session_id ?? selectedJob.result_id}</TableCell>
+                                            <TableCell>{getJobId(selectedJob)}</TableCell>
 										</TableRow>
 									)}
 								</TableBody>
