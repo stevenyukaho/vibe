@@ -26,6 +26,14 @@ interface ConversationFormModalProps {
     onSave: (conversation: Conversation) => void;
 }
 
+interface TurnTargetMap {
+	[userSequence: number]: {
+		target_reply: string;
+		threshold?: number | null;
+		weight?: number | null;
+	};
+}
+
 export default function ConversationFormModal({
 	open,
 	conversation,
@@ -39,6 +47,7 @@ export default function ConversationFormModal({
 		tags: [] as string[]
 	});
 	const [messages, setMessages] = useState<ConversationMessage[]>([]);
+	const [turnTargets, setTurnTargets] = useState<TurnTargetMap>({});
 	const [newTag, setNewTag] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -52,6 +61,23 @@ export default function ConversationFormModal({
 				tags: conversation.tags ? JSON.parse(conversation.tags) : []
 			});
 			setMessages(conversation.messages || []);
+
+			// Load turn targets
+			if (conversation.id) {
+				api.getConversationTurnTargets(conversation.id)
+					.then(targets => {
+						const targetMap: TurnTargetMap = {};
+						targets.forEach(t => {
+							targetMap[t.user_sequence] = {
+								target_reply: t.target_reply,
+								threshold: t.threshold,
+								weight: t.weight
+							};
+						});
+						setTurnTargets(targetMap);
+					})
+					.catch(err => console.error('Failed to load turn targets:', err));
+			}
 		} else {
 			setFormData({
 				name: '',
@@ -60,6 +86,7 @@ export default function ConversationFormModal({
 				tags: []
 			});
 			setMessages([]);
+			setTurnTargets({});
 		}
 		setError(null);
 	}, [conversation, open]);
@@ -91,6 +118,26 @@ export default function ConversationFormModal({
 				savedConversation = await api.updateConversation(conversation.id, conversationData);
 			} else {
 				savedConversation = await api.createConversation(conversationData);
+			}
+
+			// Save turn targets
+			if (savedConversation.id) {
+				const userMessages = messages
+					.map((msg, index) => ({ ...msg, sequence: index + 1 }))
+					.filter(msg => msg.role === 'user');
+
+				for (const userMsg of userMessages) {
+					const target = turnTargets[userMsg.sequence];
+					if (target && target.target_reply && target.target_reply.trim()) {
+						await api.saveConversationTurnTarget({
+							conversation_id: savedConversation.id,
+							user_sequence: userMsg.sequence,
+							target_reply: target.target_reply,
+							threshold: target.threshold,
+							weight: target.weight
+						});
+					}
+				}
 			}
 
 			onSave(savedConversation);
@@ -261,51 +308,110 @@ export default function ConversationFormModal({
 						</Tile>
 					)}
 
-					{messages.map((message, index) => (
-						<Tile key={index} className={styles.messageItem}>
-							<div className={styles.messageHeader}>
-								<Select
-									id={`role-${index}`}
-									labelText="Role"
-									value={message.role}
-									onChange={(e) => updateMessage(index, { role: e.target.value as 'user' | 'system' })}
-								>
-									<SelectItem value="user" text="User" />
-									<SelectItem value="system" text="System" />
-								</Select>
-								<div className={styles.messageActions}>
-									<IconButton
-										label="Move up"
-										disabled={index === 0}
-										onClick={() => moveMessage(index, 'up')}
+					{messages.map((message, index) => {
+						const messageSequence = index + 1;
+						const isUserMessage = message.role === 'user';
+						const turnTarget = turnTargets[messageSequence];
+
+						return (
+							<Tile key={index} className={styles.messageItem}>
+								<div className={styles.messageHeader}>
+									<Select
+										id={`role-${index}`}
+										labelText="Role"
+										value={message.role}
+										onChange={(e) => updateMessage(index, { role: e.target.value as 'user' | 'system' })}
 									>
-										<ArrowUp />
-									</IconButton>
-									<IconButton
-										label="Move down"
-										disabled={index === messages.length - 1}
-										onClick={() => moveMessage(index, 'down')}
-									>
-										<ArrowDown />
-									</IconButton>
-									<IconButton
-										label="Delete message"
-										onClick={() => removeMessage(index)}
-									>
-										<TrashCan />
-									</IconButton>
+										<SelectItem value="user" text="User" />
+										<SelectItem value="system" text="System" />
+									</Select>
+									<div className={styles.messageActions}>
+										<IconButton
+											label="Move up"
+											disabled={index === 0}
+											onClick={() => moveMessage(index, 'up')}
+										>
+											<ArrowUp />
+										</IconButton>
+										<IconButton
+											label="Move down"
+											disabled={index === messages.length - 1}
+											onClick={() => moveMessage(index, 'down')}
+										>
+											<ArrowDown />
+										</IconButton>
+										<IconButton
+											label="Delete message"
+											onClick={() => removeMessage(index)}
+										>
+											<TrashCan />
+										</IconButton>
+									</div>
 								</div>
-							</div>
-							<TextArea
-								id={`content-${index}`}
-								labelText="Content"
-								value={message.content}
-								onChange={(e) => updateMessage(index, { content: e.target.value })}
-								placeholder="Enter message content"
-								rows={3}
-							/>
-						</Tile>
-					))}
+								<TextArea
+									id={`content-${index}`}
+									labelText="Content"
+									value={message.content}
+									onChange={(e) => updateMessage(index, { content: e.target.value })}
+									placeholder="Enter message content"
+									rows={3}
+								/>
+								{isUserMessage && (
+									<div className={styles.targetSection}>
+										<h6 className={styles.targetTitle}>Expected assistant reply (optional)</h6>
+										<TextArea
+											id={`target-${index}`}
+											labelText=""
+											value={turnTarget?.target_reply || ''}
+											onChange={(e) => setTurnTargets(prev => ({
+												...prev,
+												[messageSequence]: {
+													...prev[messageSequence],
+													target_reply: e.target.value
+												}
+											}))}
+											placeholder="Enter the expected assistant response for similarity scoring"
+											rows={2}
+										/>
+										<div className={styles.targetOptions}>
+											<TextInput
+												id={`threshold-${index}`}
+												labelText="Similarity threshold (0-100)"
+												type="number"
+												min={0}
+												max={100}
+												value={turnTarget?.threshold?.toString() || ''}
+												onChange={(e) => setTurnTargets(prev => ({
+													...prev,
+													[messageSequence]: {
+														...prev[messageSequence],
+														threshold: e.target.value ? Number(e.target.value) : null
+													}
+												}))}
+												placeholder="70"
+											/>
+											<TextInput
+												id={`weight-${index}`}
+												labelText="Weight"
+												type="number"
+												min={0}
+												step={0.1}
+												value={turnTarget?.weight?.toString() || ''}
+												onChange={(e) => setTurnTargets(prev => ({
+													...prev,
+													[messageSequence]: {
+														...prev[messageSequence],
+														weight: e.target.value ? Number(e.target.value) : null
+													}
+												}))}
+												placeholder="1.0"
+											/>
+										</div>
+									</div>
+								)}
+							</Tile>
+						);
+					})}
 				</div>
 			</div>
 		</Modal>
