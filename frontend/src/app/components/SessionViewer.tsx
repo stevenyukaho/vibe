@@ -5,6 +5,7 @@ import { Tag, Tile, CodeSnippet } from '@carbon/react';
 import { ExpandableText } from './ExpandableText';
 import type { ExecutionSession, SessionMessage } from '../../lib/api';
 import styles from './SessionViewer.module.scss';
+import { getStatusTagType } from '../../lib/utils';
 
 interface SessionViewerProps {
 	session: ExecutionSession;
@@ -41,7 +42,7 @@ export default function SessionViewer({ session, messages }: SessionViewerProps)
 		<div className={styles.container}>
 			<div className={styles.header}>
 				<div className={styles.meta}>
-					<Tag type={session.status === 'completed' ? 'green' : session.status === 'running' ? 'blue' : session.status === 'failed' ? 'red' : 'cool-gray'}>
+					<Tag type={getStatusTagType(session.status)}>
 						{session.status}
 					</Tag>
 					{typeof session.success === 'boolean' && (
