@@ -1,0 +1,176 @@
+@use "@carbon/react/scss/colors" as *;
+@use "@carbon/react/scss/theme" as *;
+@use "@carbon/react/scss/spacing" as *;
+
+.container {
+	padding: $spacing-06;
+	max-width: 1400px;
+	margin: 0 auto;
+}
+
+.headerRow {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: $spacing-06;
+	padding-bottom: $spacing-05;
+	border-bottom: 1px solid $border-subtle;
+}
+
+.headerLeft {
+	flex: 1;
+}
+
+.headerRight {
+	display: flex;
+	gap: $spacing-03;
+	align-items: center;
+}
+
+.title {
+	margin: 0 0 $spacing-03 0;
+	font-size: 2rem;
+	font-weight: 600;
+	color: $text-primary;
+}
+
+.sessionInfo {
+	display: flex;
+	gap: $spacing-03;
+	flex-wrap: wrap;
+	margin-bottom: $spacing-04;
+}
+
+.metadata {
+	display: flex;
+	flex-direction: column;
+	gap: $spacing-02;
+}
+
+.metaItem {
+	font-size: 0.875rem;
+	color: $text-secondary;
+}
+
+.metricsGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: $spacing-04;
+	margin-bottom: $spacing-06;
+}
+
+.metricCard {
+	padding: $spacing-05;
+	display: flex;
+	align-items: center;
+	gap: $spacing-04;
+	border: 1px solid $border-subtle;
+	background: $layer-01;
+	transition: all 0.2s ease;
+}
+
+.metricCard:hover {
+	border-color: $focus;
+	box-shadow: 0 2px 8px rgba($focus, 0.1);
+}
+
+.metricIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 3rem;
+	height: 3rem;
+	background: $layer-02;
+	border-radius: 50%;
+	color: $focus;
+}
+
+.metricContent {
+	flex: 1;
+}
+
+.metricValue {
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: $text-primary;
+	margin-bottom: $spacing-02;
+}
+
+.metricLabel {
+	font-size: 0.875rem;
+	color: $text-secondary;
+}
+
+
+.errorTile {
+	padding: $spacing-05;
+	border: 1px solid $support-error;
+	background: $support-error-inverse;
+	margin-bottom: $spacing-06;
+}
+
+.errorIcon {
+	color: $support-error;
+	margin-right: $spacing-03;
+}
+
+.transcriptTile {
+	padding: $spacing-05;
+	border: 1px solid $border-subtle;
+	background: $layer-01;
+	margin-bottom: $spacing-06;
+}
+
+.analysisTile {
+	padding: $spacing-05;
+	border: 1px solid $border-subtle;
+	background: $layer-01;
+}
+
+.sectionHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: $spacing-04;
+}
+
+.sectionTitle {
+	margin: 0;
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: $text-primary;
+	display: flex;
+	align-items: center;
+}
+
+.transcriptStats {
+	display: flex;
+	gap: $spacing-03;
+}
+
+@media (max-width: 768px) {
+	.container {
+		padding: $spacing-04;
+	}
+
+	.headerRow {
+		flex-direction: column;
+		gap: $spacing-04;
+	}
+
+	.metricsGrid {
+		grid-template-columns: repeat(2, 1fr);
+		gap: $spacing-03;
+	}
+
+	.tokenStats {
+		flex-direction: column;
+		gap: $spacing-04;
+	}
+
+	.sectionHeader {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: $spacing-03;
+	}
+}
