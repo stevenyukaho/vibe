@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api, SuiteRun, Job, TestResult } from '../../../lib/api';
+import { api, SuiteRun, Job, TestResult, Conversation } from '../../../lib/api';
 import { useAppData } from '@/lib/AppDataContext';
 import { useResultOperations } from '@/lib/AppDataContext';
 import {
@@ -15,15 +15,20 @@ import {
 	TableCell,
 	InlineLoading,
 	InlineNotification,
-	Grid,
-	Column,
 	Tag,
 	Button,
 	ProgressBar,
-	Tile
+	Tile,
+	OverflowMenu,
+	OverflowMenuItem
 } from '@carbon/react';
-import { ChevronLeft, ViewFilled } from '@carbon/icons-react';
-import ResultViewModal from '../../components/ResultViewModal';
+import {
+	ViewFilled,
+	ChartLine,
+	CheckmarkFilled,
+	Warning,
+	ArrowLeft
+} from '@carbon/icons-react';
 import styles from './page.module.scss';
 import SimilarityScoreDisplay from '../../components/SimilarityScoreDisplay';
 import TokenUsageTile from '../../components/TokenUsageTile';
@@ -37,6 +42,7 @@ export default function SuiteRunDetailPage() {
 
 	const [suiteRun, setSuiteRun] = useState<SuiteRun | null>(null);
 	const [jobs, setJobs] = useState<Job[]>([]);
+	const [conversations, setConversations] = useState<Map<number, Conversation>>(new Map());
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [previousStatus, setPreviousStatus] = useState<string | null>(null);
@@ -44,12 +50,17 @@ export default function SuiteRunDetailPage() {
 	// Per-id skip counter to avoid hammering failing result ids across polling cycles
 	const [skipCounts, setSkipCounts] = useState<Map<number, number>>(new Map());
 
-	// Result modal state
-	const [selectedResult, setSelectedResult] = useState<TestResult | null>(null);
-	const [modalOpen, setModalOpen] = useState(false);
-	const [resultError, setResultError] = useState<string | null>(null);
+	const [metrics, setMetrics] = useState({
+		totalJobs: 0,
+		completedJobs: 0,
+		failedJobs: 0,
+		successRate: 0,
+		avgSimilarityScore: 0,
+		totalTokens: 0,
+		totalDuration: 0
+	});
 
-	const { getTestById, getResultById: getResultByIdFromCache, getAgentById, fetchAllData, fetchResults } = useAppData();
+	const { getTestById, getResultById: getResultByIdFromCache, getAgentById, fetchAllData } = useAppData();
 	const { getResultById } = useResultOperations();
 
 	const shouldPollData = useCallback((suiteRunData?: SuiteRun, jobsData?: Job[]) => {
@@ -157,9 +168,55 @@ export default function SuiteRunDetailPage() {
 		}
 
 		const resultPromises = jobsToFetch.map(async (job) => {
-			const id = (job.session_id ?? job.result_id)!;
+			const id = getJobId(job)!;
 			try {
-				const result = await getResultById(id);
+				let result: TestResult;
+				if (job.session_id) {
+					// For session-based jobs, fetch session data and convert to legacy result format
+					const sessionData = await api.getExecutionSessionById(id);
+					const sessionMessages = await api.getSessionTranscript(id);
+					// Convert session to legacy result format for compatibility
+					result = {
+						id: sessionData.id!,
+						test_id: sessionData.conversation_id,
+						agent_id: sessionData.agent_id,
+						output: '', // Will be populated from messages
+						success: sessionData.success || false,
+						similarity_score: 0, // Will be calculated from messages
+						similarity_scoring_status: 'completed',
+						input_tokens: 0, // Will be calculated from messages
+						output_tokens: 0, // Will be calculated from messages
+						created_at: sessionData.started_at || new Date().toISOString()
+					};
+
+					// Calculate tokens and similarity from messages
+					const assistantMessages = sessionMessages.filter(m => m.role === 'assistant');
+					if (assistantMessages.length > 0) {
+						const scoredMessage = assistantMessages.find(m =>
+							m.similarity_scoring_status === 'completed' &&
+							typeof m.similarity_score === 'number'
+						);
+						if (scoredMessage) {
+							result.similarity_score = scoredMessage.similarity_score!;
+						}
+
+						// Calculate tokens from all messages
+						const totalInputTokens = sessionMessages.reduce((sum, m) => {
+							const metadata = m.metadata ? JSON.parse(m.metadata) : {};
+							return sum + (metadata.input_tokens || 0);
+						}, 0);
+						const totalOutputTokens = sessionMessages.reduce((sum, m) => {
+							const metadata = m.metadata ? JSON.parse(m.metadata) : {};
+							return sum + (metadata.output_tokens || 0);
+						}, 0);
+
+						result.input_tokens = totalInputTokens;
+						result.output_tokens = totalOutputTokens;
+					}
+				} else {
+					// For legacy result-based jobs
+					result = await getResultById(id);
+				}
 				return [id, result] as [number, TestResult];
 			} catch (err) {
 				console.error(`Failed to fetch result ${id}:`, err);
@@ -186,14 +243,40 @@ export default function SuiteRunDetailPage() {
 		}
 	}, [freshResults, getResultById, skipCounts]);
 
-	const handleResultView = async (id: number) => {
+	const handleViewSession = (sessionId: number) => {
+		router.push(`/sessions/${sessionId}`);
+	};
+
+	const handleViewConversation = (conversationId: number) => {
+		router.push(`/conversations/${conversationId}`);
+	};
+
+	// Fetch conversations referenced by jobs
+	const fetchConversationsForJobs = async (jobsData: Job[]) => {
+		const conversationIds = jobsData
+			.filter(job => job.conversation_id)
+			.map(job => job.conversation_id!)
+			.filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
+
+		if (conversationIds.length === 0) return;
+
 		try {
-			setResultError(null);
-			const result = await getResultById(id);
-			setSelectedResult(result);
-			setModalOpen(true);
+			const conversationPromises = conversationIds.map(async (id) => {
+				try {
+					const conversation = await api.getConversationById(id);
+					return [id, conversation] as [number, Conversation];
+				} catch (err) {
+					console.warn(`Failed to fetch conversation ${id}:`, err);
+					return null;
+				}
+			});
+
+			const conversationResults = await Promise.all(conversationPromises);
+			const validConversations = conversationResults.filter(Boolean) as [number, Conversation][];
+
+			setConversations(new Map(validConversations));
 		} catch (err) {
-			setResultError(err instanceof Error ? err.message : 'Failed to fetch result');
+			console.warn('Failed to fetch conversations:', err);
 		}
 	};
 
@@ -213,6 +296,9 @@ export default function SuiteRunDetailPage() {
 					api.getSuiteRun(runId),
 					api.getSuiteRunJobs(runId)
 				]);
+
+				// Fetch conversations for jobs
+				await fetchConversationsForJobs(jobsData);
 
 				if (shouldFetchFreshResults(runData, jobsData)) {
 					await fetchFreshResultsConditionally(runData, jobsData);
@@ -240,6 +326,39 @@ export default function SuiteRunDetailPage() {
 				setPreviousStatus(runData.status);
 				setSuiteRun(runData);
 				setJobs(jobsData);
+
+				// Calculate metrics
+				const completedJobs = jobsData.filter(job => job.status === 'completed').length;
+				const failedJobs = jobsData.filter(job => job.status === 'failed').length;
+				const totalJobs = jobsData.length;
+				const successRate = totalJobs > 0 ? (completedJobs / totalJobs) * 100 : 0;
+
+				// Calculate average similarity score from fresh results
+				const scoredResults = Array.from(freshResults.values()).filter(result =>
+					result.similarity_scoring_status === 'completed' &&
+					typeof result.similarity_score === 'number'
+				);
+				const avgSimilarityScore = scoredResults.length > 0
+					? scoredResults.reduce((sum, result) => sum + (result.similarity_score || 0), 0) / scoredResults.length
+					: 0;
+
+				// Calculate total tokens
+				const totalTokens = Array.from(freshResults.values()).reduce((sum, result) => {
+					return sum + (result.input_tokens || 0) + (result.output_tokens || 0);
+				}, 0);
+
+				// Calculate total duration (estimate from suite run data)
+				const totalDuration = runData.average_execution_time || 0;
+
+				setMetrics({
+					totalJobs,
+					completedJobs,
+					failedJobs,
+					successRate,
+					avgSimilarityScore,
+					totalTokens,
+					totalDuration
+				});
 
 				// Setup next interval based on whether we still need polling
 				if (mounted && shouldPollData(runData, jobsData)) {
@@ -279,7 +398,7 @@ export default function SuiteRunDetailPage() {
 	}
 
 	const headers = [
-		{ key: 'test', header: 'Test' },
+		{ key: 'test', header: 'Conversation' },
 		{ key: 'agent', header: 'Agent' },
 		{ key: 'status', header: 'Status' },
 		{ key: 'progress', header: 'Progress' },
@@ -291,28 +410,24 @@ export default function SuiteRunDetailPage() {
     const rows = jobs.map((job) => {
         let testName = job.test_id ? getTestById(job.test_id)?.name : undefined;
         if (!testName) {
-            testName = job.test_id ? `Test #${job.test_id}` : `Conversation #${job.conversation_id}`;
+            if (job.conversation_id) {
+                const conversation = conversations.get(job.conversation_id);
+                testName = conversation
+                    ? `${conversation.name} (#${conversation.id})`
+                    : `Conversation #${job.conversation_id}`;
+            } else {
+                testName = `Test #${job.test_id}`;
+            }
         }
 		const agent = getAgentById(job.agent_id);
 		const agentName = agent ? `${agent.name} (v${agent.version})` : `Agent #${job.agent_id}`;
 		// Use fresh results if available, otherwise fall back to cache
-		const result = job.result_id ? (freshResults.get(job.result_id) || getResultByIdFromCache(job.result_id)) : null;
+		// Check both session_id and result_id for backwards compatibility
+		const resultId = getJobId(job);
+		const result = resultId ? (freshResults.get(resultId) || getResultByIdFromCache(resultId)) : null;
 
 		// Calculate token usage display
-		let tokenDisplay = '-';
-		if (result && (result.input_tokens || result.output_tokens)) {
-			const inputTokens = result.input_tokens || 0;
-			const outputTokens = result.output_tokens || 0;
-			const totalTokens = inputTokens + outputTokens;
-
-			if (totalTokens > 0) {
-				if (inputTokens > 0 && outputTokens > 0) {
-					tokenDisplay = `${inputTokens} + ${outputTokens} = ${totalTokens}`;
-				} else {
-					tokenDisplay = totalTokens.toString();
-				}
-			}
-		}
+		const tokenDisplay = formatTokenUsage(result || null);
 
 		return {
 			id: String(job.id),
@@ -322,67 +437,165 @@ export default function SuiteRunDetailPage() {
 			progress: job.progress,
 			token_usage: tokenDisplay,
 			similarity_score: result,
-			actions: job.result_id ? (
+			actions: job.session_id ? (
 				<Button
 					kind="ghost"
 					size="sm"
 					renderIcon={ViewFilled}
-					onClick={() => handleResultView(job.result_id!)}
-				>
-					View Result
-				</Button>
+					iconDescription="View session details"
+					hasIconOnly
+					onClick={() => handleViewSession(job.session_id!)}
+				/>
+			) : job.conversation_id ? (
+				<Button
+					kind="ghost"
+					size="sm"
+					renderIcon={ViewFilled}
+					iconDescription="View conversation details"
+					hasIconOnly
+					onClick={() => handleViewConversation(job.conversation_id!)}
+				/>
+			) : job.result_id ? (
+				<Button
+					kind="ghost"
+					size="sm"
+					renderIcon={ViewFilled}
+					iconDescription="View session details"
+					hasIconOnly
+					onClick={() => handleViewSession(job.result_id!)}
+				/>
 			) : null
 		};
 	});
 
 
 	return (
-		<Grid>
-			<Column sm={4} md={8} lg={16}>
-				<div className={styles.backButtonRow}>
-					<Button
-						kind="ghost"
-						onClick={() => router.push('/suite-runs')}
-						renderIcon={ChevronLeft}
-					>
-						Back to suite runs
-					</Button>
-				</div>
-
-				<h1>Suite run {suiteRun.id}</h1>
-
-				<Tile className={styles.statusPanel}>
-					<div className={styles.statusCardContent}>
-						<div>
-							<p className={styles.label}>Status:</p>
-							<Tag type={getStatusTagType(suiteRun.status)}>{suiteRun.status}</Tag>
-						</div>
-						{(suiteRun.status === 'running') && (
-							<div>
-								<p className={styles.label}>Progress:</p>
-								<div className={styles.fullWidth}>
-									<ProgressBar
-										value={suiteRun.progress}
-										max={100}
-										label="Progress"
-										helperText={`${suiteRun.completed_tests}/${suiteRun.total_tests} tests completed`}
-									/>
-								</div>
-							</div>
-						)}
-						{/* Token usage summary */}
-						{((suiteRun.total_input_tokens || 0) + (suiteRun.total_output_tokens || 0)) > 0 && (
-							<div>
-								<p className={styles.label}>Token Usage:</p>
-								<div className={styles.tokenRow}>
-									<span>Input: {(suiteRun.total_input_tokens || 0).toLocaleString()}</span>
-									<span>Output: {(suiteRun.total_output_tokens || 0).toLocaleString()}</span>
-									<strong>Total: {((suiteRun.total_input_tokens || 0) + (suiteRun.total_output_tokens || 0)).toLocaleString()}</strong>
-								</div>
-							</div>
+		<div className={styles.container}>
+			{/* Enhanced Header */}
+			<div className={styles.headerRow}>
+				<div className={styles.headerLeft}>
+					<h2 className={styles.title}>Suite run #{suiteRun.id}</h2>
+					<div className={styles.suiteInfo}>
+						<Tag type={getStatusTagType(suiteRun.status)} size="sm">
+							{suiteRun.status}
+						</Tag>
+						<Tag type="blue" size="sm">
+							{metrics.totalJobs} jobs
+						</Tag>
+						<Tag type={metrics.successRate >= 80 ? 'green' : metrics.successRate >= 60 ? 'cool-gray' : 'red'} size="sm">
+							{metrics.successRate.toFixed(0)}% success
+						</Tag>
+						{metrics.avgSimilarityScore > 0 && (
+							<Tag type="purple" size="sm">
+								{metrics.avgSimilarityScore.toFixed(1)}% avg score
+							</Tag>
 						)}
 					</div>
+					<div className={styles.metadata}>
+						<span className={styles.metaItem}>
+							<strong>Started:</strong> {suiteRun.started_at ? new Date(suiteRun.started_at).toLocaleString() : 'Unknown'}
+						</span>
+						{suiteRun.completed_at && (
+							<span className={styles.metaItem}>
+								<strong>Completed:</strong> {new Date(suiteRun.completed_at).toLocaleString()}
+							</span>
+						)}
+						{metrics.totalDuration > 0 && (
+							<span className={styles.metaItem}>
+								<strong>Duration:</strong> {(metrics.totalDuration / 1000).toFixed(1)}s
+							</span>
+						)}
+					</div>
+				</div>
+				<div className={styles.headerRight}>
+					<OverflowMenu flipped>
+						<OverflowMenuItem itemText="Export results" disabled />
+						<OverflowMenuItem itemText="Download logs" disabled />
+						<OverflowMenuItem itemText="Compare with others" disabled />
+					</OverflowMenu>
+					<Button kind="tertiary" onClick={() => router.push('/suite-runs')} renderIcon={ArrowLeft}>
+						Back
+					</Button>
+				</div>
+			</div>
+
+			{/* Statistics Cards */}
+			<div className={styles.statsGrid}>
+				<Tile className={styles.statCard}>
+					<div className={styles.statIcon}>
+						<ChartLine />
+					</div>
+					<div className={styles.statContent}>
+						<div className={styles.statValue}>{metrics.totalJobs}</div>
+						<div className={styles.statLabel}>Total jobs</div>
+					</div>
 				</Tile>
+				<Tile className={styles.statCard}>
+					<div className={styles.statIcon}>
+						<CheckmarkFilled />
+					</div>
+					<div className={styles.statContent}>
+						<div className={styles.statValue}>{metrics.completedJobs}</div>
+						<div className={styles.statLabel}>Completed</div>
+					</div>
+				</Tile>
+				<Tile className={styles.statCard}>
+					<div className={styles.statIcon}>
+						<Warning />
+					</div>
+					<div className={styles.statContent}>
+						<div className={styles.statValue}>{metrics.successRate.toFixed(0)}%</div>
+						<div className={styles.statLabel}>Success rate</div>
+					</div>
+				</Tile>
+				{metrics.avgSimilarityScore > 0 && (
+					<Tile className={styles.statCard}>
+						<div className={styles.statIcon}>
+							<ChartLine />
+						</div>
+						<div className={styles.statContent}>
+							<div className={styles.statValue}>{metrics.avgSimilarityScore.toFixed(1)}%</div>
+							<div className={styles.statLabel}>Avg similarity</div>
+						</div>
+					</Tile>
+				)}
+			</div>
+
+			{/* Progress Section */}
+			{(suiteRun.status === 'running') && (
+				<div className={styles.progressSection}>
+					<Tile className={styles.progressTile}>
+						<div className={styles.progressHeader}>
+							<h4 className={styles.progressTitle}>Execution progress</h4>
+							<span className={styles.progressText}>
+								{suiteRun.completed_tests}/{suiteRun.total_tests} tests completed
+							</span>
+						</div>
+						<ProgressBar
+							value={suiteRun.progress}
+							max={100}
+							label="Progress"
+							helperText={`${suiteRun.progress.toFixed(1)}% complete`}
+						/>
+					</Tile>
+				</div>
+			)}
+
+			{/* Token Usage Breakdown */}
+			{metrics.totalTokens > 0 && (
+				<TokenUsageTile
+					inputTokens={suiteRun.total_input_tokens || 0}
+					outputTokens={suiteRun.total_output_tokens || 0}
+					totalTokens={metrics.totalTokens}
+				/>
+			)}
+
+			{/* Jobs Table */}
+			<div className={styles.jobsSection}>
+				<div className={styles.sectionHeader}>
+					<h4 className={styles.sectionTitle}>Execution jobs</h4>
+				</div>
+
 				{/* If no jobs are present after a completed run, show warning */}
 				{jobs.length === 0 ? (
 					<InlineNotification
@@ -396,6 +609,7 @@ export default function SuiteRunDetailPage() {
 						hideCloseButton
 					/>
 				) : (
+					<div className={styles.tableContainer}>
 					<DataTable rows={rows} headers={headers}>
 						{({ rows, headers, getHeaderProps, getTableProps }) => (
 							<Table {...getTableProps()}>
@@ -468,15 +682,9 @@ export default function SuiteRunDetailPage() {
 							</Table>
 						)}
 					</DataTable>
+					</div>
 				)}
-
-				<ResultViewModal
-					isOpen={modalOpen}
-					result={selectedResult}
-					error={resultError}
-					onClose={() => setModalOpen(false)}
-				/>
-			</Column>
-		</Grid>
+			</div>
+		</div>
 	);
 }
