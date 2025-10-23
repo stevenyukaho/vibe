@@ -365,6 +365,7 @@ export default function ConversationDetailPage() {
 						limit={5}
 						sessionMessages={sessionMessages}
 						conversations={conversation ? [conversation] : []}
+						hiddenColumns={['conversation']}
 					/>
 				</Tile>
 			)}
