@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import db from '../db/database';
-import { 
-	createConversation, 
-	getConversations, 
-	getConversationById, 
-	updateConversation, 
-	deleteConversation, 
+import {
+	createConversation,
+	getConversations,
+	getConversationById,
+	updateConversation,
+	deleteConversation,
 	getConversationsWithCount,
 	addMessageToConversation,
 	getConversationMessages,
@@ -51,14 +51,14 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const conversation = await getConversationById(conversationId);
-		
+
 		if (!conversation) {
 			return res.status(404).json({ error: 'Conversation not found' });
 		}
 
 		// Get messages for this conversation
 		const messages = await getConversationMessages(conversationId);
-		
+
 		return res.json({
 			...conversation,
 			messages
@@ -72,7 +72,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 // Create new conversation
 router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created_at' | 'updated_at'> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
 	try {
-        const { name, description, tags, messages } = req.body;
+		const { name, description, tags, messages } = req.body;
 
 		// Validate required fields
 		if (!name) {
@@ -83,11 +83,11 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 		}
 
 		// Create conversation
-        const conversation = await createConversation({
-            name,
-            description,
-            tags
-        });
+		const conversation = await createConversation({
+			name,
+			description,
+			tags
+		});
 
 		// Add messages if provided
 		if (messages && messages.length > 0) {
@@ -103,7 +103,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 				});
 				createdMessages.push(createdMessage);
 			}
-			
+
 			return res.status(201).json({
 				...conversation,
 				messages: createdMessages
@@ -191,7 +191,7 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
-		
+
 		// Check if conversation exists
 		const conversation = await getConversationById(conversationId);
 		if (!conversation) {
@@ -318,7 +318,7 @@ router.put('/:id/messages/reorder', (async (req: Request<{ id: string }, {}, { m
 		}
 
 		await reorderConversationMessages(conversationId, messages);
-		
+
 		// Return updated messages
 		const updatedMessages = await getConversationMessages(conversationId);
 		return res.json(updatedMessages);
