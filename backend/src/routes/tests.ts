@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { 
-	createConversation, 
-	getConversations, 
-	getConversationById, 
-	updateConversation, 
-	deleteConversation, 
+import {
+	createConversation,
+	getConversations,
+	getConversationById,
+	updateConversation,
+	deleteConversation,
 	getConversationsWithCount,
 	addMessageToConversation,
 	getConversationMessages,
@@ -13,10 +13,10 @@ import {
 } from '../db/queries';
 import type { Test } from '../types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
-import { 
-	conversationToLegacyTest, 
-	legacyTestToConversation, 
-	isSingleTurnConversation 
+import {
+	conversationToLegacyTest,
+	legacyTestToConversation,
+	isSingleTurnConversation
 } from '../adapters/legacy-adapter';
 import db from '../db/database';
 
@@ -32,7 +32,7 @@ router.get('/', (async (req: Request, res: Response) => {
 			}
 
 			const { data } = getConversationsWithCount(queryParams);
-			
+
 			// Filter to single-turn conversations and transform to legacy test format
 			const legacyTests = await Promise.all(
 				data.map(async (conversation) => {
@@ -57,7 +57,7 @@ router.get('/', (async (req: Request, res: Response) => {
 		}
 
 		const conversations = await getConversations();
-		
+
 		// Transform conversations to legacy tests format
 		const legacyTests = await Promise.all(
 			conversations.map(async (conversation) => {
@@ -72,7 +72,7 @@ router.get('/', (async (req: Request, res: Response) => {
 
 		// Filter out null values (multi-turn conversations)
 		const filteredTests = legacyTests.filter(test => test !== null) as Test[];
-		
+
 		return res.json(filteredTests);
 	} catch (error) {
 		console.error('Error fetching tests:', error);
@@ -85,13 +85,13 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const conversation = await getConversationById(conversationId);
-		
+
 		if (!conversation) {
 			return res.status(404).json({ error: 'Test not found' });
 		}
 
 		const messages = await getConversationMessages(conversationId);
-		
+
 		// Ensure this is a single-turn conversation (valid as a "test")
 		if (!isSingleTurnConversation(conversation, messages)) {
 			return res.status(404).json({ error: 'Test not found (multi-turn conversation)' });
@@ -144,7 +144,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
 
 		// Transform back to legacy test format for response
 		const legacyTest = conversationToLegacyTest(createdConversation, [createdMessage]);
-		
+
 		return res.status(201).json(legacyTest);
 	} catch (error) {
 		console.error('Error creating test:', error);
@@ -159,7 +159,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
 router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
-		
+
 		// Check if conversation exists and is single-turn
 		const conversation = await getConversationById(conversationId);
 		if (!conversation) {
@@ -206,7 +206,7 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res:
 		// Get updated messages and return as legacy test
 		const updatedMessages = await getConversationMessages(conversationId);
 		const legacyTest = conversationToLegacyTest(updatedConversation, updatedMessages);
-		
+
 		return res.json(legacyTest);
 	} catch (error) {
 		console.error('Error updating test:', error);
@@ -241,4 +241,4 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	}
 }) as any);
 
-export default router; 
+export default router;
