@@ -34,20 +34,20 @@ export default function SuiteRunsPage() {
 	const [currentPage, setCurrentPage] = useState(0);
 	const [pageSize, setPageSize] = useState(50);
 	const [totalItems, setTotalItems] = useState(0);
-	
+
 	// Modal state
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 	const [deleteRunId, setDeleteRunId] = useState<number | null>(null);
 	const [isRerunModalOpen, setIsRerunModalOpen] = useState(false);
 	const [rerunRunId, setRerunRunId] = useState<number | null>(null);
-	
+
 	const router = useRouter();
 
 	const fetchRuns = async () => {
 		try {
-			const response = await api.getSuiteRunsWithCount({ 
-				limit: pageSize, 
-				offset: currentPage * pageSize 
+			const response = await api.getSuiteRunsWithCount({
+				limit: pageSize,
+				offset: currentPage * pageSize
 			});
 			setRuns(response.data);
 			setTotalItems(response.total);
@@ -61,7 +61,7 @@ export default function SuiteRunsPage() {
 
 	useEffect(() => {
 		fetchRuns();
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentPage, pageSize]);
 
 	// Periodically refresh runs until all are completed and have similarity scores
@@ -83,7 +83,7 @@ export default function SuiteRunsPage() {
 		}, 5000);
 
 		return () => clearInterval(interval);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [runs]);
 
 	const handleViewRun = (id: number) => {
@@ -97,11 +97,11 @@ export default function SuiteRunsPage() {
 
 	const handleRerunSuiteConfirm = async () => {
 		if (!rerunRunId) return;
-		
+
 		setRerunningId(rerunRunId);
 		setError(null);
 		setSuccessMessage(null);
-		
+
 		try {
 			const result = await api.rerunSuiteRun(rerunRunId);
 			setSuccessMessage(`Suite run started successfully with ID ${result.suite_run_id}`);
@@ -122,11 +122,11 @@ export default function SuiteRunsPage() {
 
 	const handleDeleteSuiteRunConfirm = async () => {
 		if (!deleteRunId) return;
-		
+
 		setDeletingId(deleteRunId);
 		setError(null);
 		setSuccessMessage(null);
-		
+
 		try {
 			await api.deleteSuiteRun(deleteRunId);
 			setSuccessMessage('Suite run deleted successfully');
@@ -140,8 +140,7 @@ export default function SuiteRunsPage() {
 		}
 	};
 
-	if (loading)
-	{
+	if (loading) {
 		return <InlineLoading description="Loading suite runs..." />;
 	}
 	if (error) {
@@ -163,30 +162,30 @@ export default function SuiteRunsPage() {
 	const getRowActions = (rowId: string) => {
 		const run = runs.find(run => String(run.id) === rowId);
 		if (!run) return null;
-		
+
 		return (
 			<div style={{ display: 'flex', gap: '0.5rem' }}>
-				<Button 
-					kind="ghost" 
-					size="sm" 
-					renderIcon={ViewFilled} 
+				<Button
+					kind="ghost"
+					size="sm"
+					renderIcon={ViewFilled}
 					onClick={() => handleViewRun(run.id)}
 					iconDescription="View suite run details"
 					hasIconOnly
 				/>
-				<Button 
-					kind="ghost" 
-					size="sm" 
-					renderIcon={PlayFilled} 
+				<Button
+					kind="ghost"
+					size="sm"
+					renderIcon={PlayFilled}
 					onClick={() => handleRerunSuiteOpen(run.id)}
 					iconDescription="Re-run this suite"
 					disabled={rerunningId === run.id}
 					hasIconOnly
 				/>
-				<Button 
-					kind="danger--ghost" 
-					size="sm" 
-					renderIcon={TrashCan} 
+				<Button
+					kind="danger--ghost"
+					size="sm"
+					renderIcon={TrashCan}
 					onClick={() => handleDeleteSuiteRunOpen(run.id)}
 					iconDescription="Delete this suite run"
 					disabled={deletingId === run.id}
@@ -199,7 +198,7 @@ export default function SuiteRunsPage() {
 	const rows = runs.map((run) => {
 		// Calculate Total Execution Time from suite clock time
 		// Note: Backend computes this dynamically from individual test execution times
-		const totalMs = (run.started_at && run.completed_at) 
+		const totalMs = (run.started_at && run.completed_at)
 			? (new Date(run.completed_at).getTime() - new Date(run.started_at).getTime())
 			: 0;
 		const totalExecutionTimeSec = totalMs / 1000;
@@ -214,7 +213,7 @@ export default function SuiteRunsPage() {
 		const inputTokens = run.total_input_tokens || 0;
 		const outputTokens = run.total_output_tokens || 0;
 		const totalTokens = inputTokens + outputTokens;
-		
+
 		let tokenUsageDisplay = '';
 		if (totalTokens > 0) {
 			if (inputTokens > 0 && outputTokens > 0) {
@@ -286,10 +285,10 @@ export default function SuiteRunsPage() {
 											<TableRow key={row.id}>
 												{row.cells.map((cell) => {
 													if (cell.info.header === 'status') {
-														const tagType = cell.value === 'completed' 
-															? 'green' 
-															: cell.value === 'running' 
-																? 'blue' 
+														const tagType = cell.value === 'completed'
+															? 'green'
+															: cell.value === 'running'
+																? 'blue'
 																: 'gray';
 														return (
 															<TableCell key={`${row.id}-${cell.id}`}>
@@ -330,7 +329,7 @@ export default function SuiteRunsPage() {
 							)}
 						</DataTable>
 					)}
-					
+
 					{/* Pagination */}
 					{totalItems > 0 && (
 						<Pagination
@@ -353,7 +352,7 @@ export default function SuiteRunsPage() {
 					)}
 				</Column>
 			</Grid>
-			
+
 			{/* Delete Confirmation Modal */}
 			<Modal
 				open={isDeleteModalOpen}
@@ -367,7 +366,7 @@ export default function SuiteRunsPage() {
 			>
 				<p>Are you sure you want to delete this suite run? This will permanently remove it and all associated data.</p>
 			</Modal>
-			
+
 			{/* Re-run Confirmation Modal */}
 			<Modal
 				open={isRerunModalOpen}
