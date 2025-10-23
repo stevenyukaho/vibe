@@ -26,7 +26,7 @@ export function conversationToLegacyTest(conversation: Conversation, messages?: 
 			const row = db.prepare(`
 				SELECT target_reply FROM conversation_turn_targets
 				WHERE conversation_id = ? AND user_sequence = 1
-            `).get(conversation.id) as { target_reply?: string } | undefined;
+			`).get(conversation.id) as { target_reply?: string } | undefined;
 			expectedOutput = row?.target_reply;
 		}
 	} catch { }
@@ -36,7 +36,7 @@ export function conversationToLegacyTest(conversation: Conversation, messages?: 
 		name: conversation.name,
 		description: conversation.description,
 		input: firstUserMessage?.content || '',
-        expected_output: expectedOutput,
+		expected_output: expectedOutput,
 		created_at: conversation.created_at,
 		updated_at: conversation.updated_at
 	};
