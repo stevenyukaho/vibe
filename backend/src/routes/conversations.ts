@@ -72,7 +72,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 // Create new conversation
 router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created_at' | 'updated_at'> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
 	try {
-		const { name, description, tags, expected_outcome, messages } = req.body;
+        const { name, description, tags, messages } = req.body;
 
 		// Validate required fields
 		if (!name) {
@@ -83,12 +83,11 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 		}
 
 		// Create conversation
-		const conversation = await createConversation({
-			name,
-			description,
-			tags,
-			expected_outcome
-		});
+        const conversation = await createConversation({
+            name,
+            description,
+            tags
+        });
 
 		// Add messages if provided
 		if (messages && messages.length > 0) {
