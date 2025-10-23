@@ -118,6 +118,7 @@ export class ScoringService {
 			throw new Error('Test result must have an ID');
 		}
 
+		// Deprecated path - kept for legacy compatibility only
 		if (!test.expected_output) {
 			throw new Error('Test must have expected_output to enable scoring');
 		}
