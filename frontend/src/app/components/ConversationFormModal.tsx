@@ -43,7 +43,6 @@ export default function ConversationFormModal({
 	const [formData, setFormData] = useState({
 		name: '',
 		description: '',
-		expected_outcome: '',
 		tags: [] as string[]
 	});
 	const [messages, setMessages] = useState<ConversationMessage[]>([]);
@@ -57,7 +56,6 @@ export default function ConversationFormModal({
 			setFormData({
 				name: conversation.name || '',
 				description: conversation.description || '',
-				expected_outcome: conversation.expected_outcome || '',
 				tags: conversation.tags ? JSON.parse(conversation.tags) : []
 			});
 			setMessages(conversation.messages || []);
@@ -82,7 +80,6 @@ export default function ConversationFormModal({
 			setFormData({
 				name: '',
 				description: '',
-				expected_outcome: '',
 				tags: []
 			});
 			setMessages([]);
@@ -242,16 +239,6 @@ export default function ConversationFormModal({
 							onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
 							placeholder="Describe what this conversation tests"
 							rows={3}
-						/>
-					</Column>
-					<Column sm={4} md={8} lg={16}>
-						<TextArea
-							id="expected_outcome"
-							labelText="Expected outcome"
-							value={formData.expected_outcome}
-							onChange={(e) => setFormData(prev => ({ ...prev, expected_outcome: e.target.value }))}
-							placeholder="Describe the expected results"
-							rows={2}
 						/>
 					</Column>
 					<Column sm={4} md={8} lg={16}>
