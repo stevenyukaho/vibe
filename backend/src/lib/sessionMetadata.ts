@@ -1,4 +1,11 @@
-import { getConversationById, getExecutionSessionById, getSessionMessages, updateExecutionSession } from '../db/queries';
+import {
+	getConversationById,
+	getExecutionSessionById,
+	getSessionMessages,
+	updateExecutionSession,
+	countUserTurnsUpTo,
+	getConversationTurnTarget
+} from '../db/queries';
 import type { ExecutionSession, SessionMessage } from '../types';
 
 export function parseSessionMetadata(metadata?: string | null): any {
@@ -71,11 +78,18 @@ export async function getSessionOutputAndExpected(sessionId: number): Promise<{ 
 	if (!session) {
 		return undefined;
 	}
-	const [conversation, messages] = await Promise.all([
-		getConversationById(session.conversation_id),
-		getSessionMessages(sessionId)
-	]);
-	const output = getAssistantOutputFromMessages(messages);
-	const expected = conversation?.expected_outcome || undefined;
-	return { output, expected };
+    const [conversation, messages] = await Promise.all([
+        getConversationById(session.conversation_id),
+        getSessionMessages(sessionId)
+    ]);
+    const output = getAssistantOutputFromMessages(messages);
+    // Determine the first assistant reply's matching user turn index (k)
+    const assistant = messages.find(m => m.role === 'assistant');
+    if (!assistant || !conversation) {
+        return { output, expected: undefined };
+    }
+    const k = countUserTurnsUpTo(sessionId, assistant.sequence);
+    const target = getConversationTurnTarget(conversation.id!, k);
+    const expected = target?.target_reply || undefined;
+    return { output, expected };
 }
