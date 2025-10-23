@@ -1103,13 +1103,12 @@ export const createConversation = (conversation: Conversation) => {
 		...conversation,
 		name: conversation.name || '',
 		description: conversation.description || '',
-		tags: conversation.tags || '[]',
-		expected_outcome: conversation.expected_outcome || ''
+		tags: conversation.tags || '[]'
 	};
 
 	const statement = db.prepare(`
-		INSERT INTO conversations (name, description, tags, expected_outcome)
-		VALUES (@name, @description, @tags, @expected_outcome)
+		INSERT INTO conversations (name, description, tags)
+		VALUES (@name, @description, @tags)
 		RETURNING *
 	`);
 	return statement.get(conversationWithDefaults) as Conversation;
