@@ -14,17 +14,29 @@ import type {
 	ExecutionSession,
 	SessionMessage
 } from '../types';
+import db from '../db/database';
 
 export function conversationToLegacyTest(conversation: Conversation, messages?: ConversationMessage[]): Test {
 	// Get the first user message as the test input
 	const firstUserMessage = messages?.find(m => m.role === 'user');
+	// Derive expected_output from turn target 1 if present
+	let expectedOutput: string | undefined = undefined;
+	try {
+		if (conversation.id) {
+			const row = db.prepare(`
+				SELECT target_reply FROM conversation_turn_targets
+				WHERE conversation_id = ? AND user_sequence = 1
+            `).get(conversation.id) as { target_reply?: string } | undefined;
+			expectedOutput = row?.target_reply;
+		}
+	} catch { }
 
 	return {
 		id: conversation.id,
 		name: conversation.name,
 		description: conversation.description,
 		input: firstUserMessage?.content || '',
-		expected_output: conversation.expected_outcome,
+        expected_output: expectedOutput,
 		created_at: conversation.created_at,
 		updated_at: conversation.updated_at
 	};
@@ -37,8 +49,7 @@ export function legacyTestToConversation(test: Omit<Test, 'id' | 'created_at' | 
 	return {
 		conversation: {
 			name: test.name,
-			description: test.description,
-			expected_outcome: test.expected_output
+			description: test.description
 		},
 		messages: [
 			{
