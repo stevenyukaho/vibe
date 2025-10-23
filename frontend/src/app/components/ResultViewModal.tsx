@@ -70,7 +70,13 @@ export default function ResultViewModal({
 		setRescoreSuccess(false);
 
 		try {
-			await api.scoreResult(result.id);
+			// Regenerate score for the assistant message within this session (legacy result id == session id)
+			// Fetch the transcript, then trigger per-message rescoring for assistant messages
+			const transcript = await api.getSessionTranscriptWithSession(result.id);
+			const assistantMessages = (transcript.messages || []).filter(m => m.role === 'assistant' && m.id);
+			for (const m of assistantMessages) {
+				await api.regenerateSimilarityScore(m.id!);
+			}
 			setRescoreSuccess(true);
 
 			setTimeout(() => setRescoreSuccess(false), 3000);
