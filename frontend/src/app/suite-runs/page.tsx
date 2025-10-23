@@ -20,6 +20,7 @@ import {
 	Modal,
 	Pagination
 } from '@carbon/react';
+import Link from 'next/link';
 import { ViewFilled, PlayFilled, TrashCan } from '@carbon/icons-react';
 import SimilarityScoreDisplay from '../components/SimilarityScoreDisplay';
 
@@ -293,6 +294,20 @@ export default function SuiteRunsPage() {
 														return (
 															<TableCell key={`${row.id}-${cell.id}`}>
 																<Tag type={tagType}>{cell.value}</Tag>
+															</TableCell>
+														);
+													}
+													if (cell.info.header === 'agent_name') {
+														const run = runs.find(r => String(r.id) === row.id);
+														return (
+															<TableCell key={`${row.id}-${cell.id}`}>
+																{run && run.agent_id ? (
+																	<Link href={`/agents/${run.agent_id}`}>
+																		{cell.value}
+																	</Link>
+																) : (
+																	cell.value
+																)}
 															</TableCell>
 														);
 													}
