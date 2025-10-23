@@ -8,17 +8,16 @@ import {
 	createExecutionSession,
 	addSessionMessage,
 	countUserTurnsUpTo,
-	getConversationTurnTarget
+	getConversationTurnTarget,
+	getConversationMessages
 } from '../db/queries';
 import type { TestResult } from '../types';
-import { scoringService } from '../services/scoring-service';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { extractTokenUsage, validateTokenUsage } from '../lib/tokenUsageExtractor';
 import {
 	sessionToLegacyResult,
-	legacyResultToSession,
-	conversationToLegacyTest
+	legacyResultToSession
 } from '../adapters/legacy-adapter';
 import { testIdToConversationId } from '../lib/legacyIdResolver';
 
@@ -211,8 +210,11 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 			return res.status(404).json({ error: 'Test not found' });
 		}
 
-		const legacyTest = conversationToLegacyTest(conversation, []);
-		const { session, messages } = legacyResultToSession({ ...processedBody, test_id: conversationId }, legacyTest.input);
+		// Use the authored first user message content as the legacy input
+		const authoredMessages = await getConversationMessages(conversationId);
+		const firstUser = authoredMessages.find(m => m.role === 'user');
+		const inputContent = firstUser?.content || '';
+		const { session, messages } = legacyResultToSession({ ...processedBody, test_id: conversationId }, inputContent);
 
 		const createdSession = await createExecutionSession(session);
 
@@ -235,60 +237,11 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 			output_tokens: legacyResult.output_tokens ?? undefined
 		};
 
-		// Trigger scoring if there's an expected output
-		if (conversation.expected_outcome) {
-			const testForScoring = conversationToLegacyTest(conversation, []);
-			scoringService.scoreTestResult(formattedResult, testForScoring).catch(error => {
-				console.error(`Failed to score result ${legacyResult.id}:`, error);
-			});
-		}
 
 		return res.status(201).json(formattedResult);
 	} catch (error) {
 		console.error('Error creating result:', error);
 		return res.status(500).json({ error: 'Failed to create result' });
-	}
-}) as any);
-
-router.post('/:id/score', (async (req: Request<{ id: string }, {}, { llm_config_id?: number }>, res: Response) => {
-	try {
-		const sessionId = Number(req.params.id);
-		if (isNaN(sessionId)) {
-			return res.status(400).json({ error: 'Invalid result ID' });
-		}
-
-		const session = await getExecutionSessionById(sessionId);
-		if (!session) {
-			return res.status(404).json({ error: 'Result not found' });
-		}
-
-		const conversation = await getConversationById(session.conversation_id);
-		if (!conversation) {
-			return res.status(404).json({ error: 'Associated test not found' });
-		}
-
-		if (!conversation.expected_outcome) {
-			return res.status(400).json({ error: 'Test has no expected output to score against' });
-		}
-
-		const { llm_config_id } = req.body;
-
-		// Transform session to legacy result for scoring
-		const sessionMessages = await getSessionMessages(sessionId);
-		const legacyResult = sessionToLegacyResult(session, sessionMessages);
-		const legacyTest = conversationToLegacyTest(conversation, []);
-
-		scoringService.scoreTestResult(legacyResult, legacyTest, llm_config_id).catch(error => {
-			console.error(`Failed to score result ${legacyResult.id}:`, error);
-		});
-
-		return res.status(202).json({
-			message: 'Scoring initiated',
-			result_id: sessionId
-		});
-	} catch (error) {
-		console.error('Error initiating scoring:', error);
-		return res.status(500).json({ error: 'Failed to initiate scoring' });
 	}
 }) as any);
 
