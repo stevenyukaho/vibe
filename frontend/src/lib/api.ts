@@ -321,21 +321,6 @@ export const api = {
 		return response.json();
 	},
 
-	async scoreResult(result_id: number, llm_config_id?: number): Promise<{ message: string; result_id: number }> {
-		const response = await fetch(`${API_URL}/api/results/${result_id}/score`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ llm_config_id })
-		});
-
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || 'Failed to initiate scoring');
-		}
-
-		return response.json();
-	},
-
 	// Test Suites
 	async getTestSuites(): Promise<(TestSuite & { test_count: number })[]> {
 		const response = await fetch(`${API_URL}/api/test-suites`);
