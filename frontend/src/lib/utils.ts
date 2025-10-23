@@ -1,4 +1,11 @@
-import type { Job, TestResult, SessionMessage, Agent } from './api';
+import type {
+	Job,
+	TestResult,
+	SessionMessage,
+	Agent,
+	ExecutionSession
+} from './api';
+import { api } from './api';
 
 /**
  * Get the primary ID for a job (session_id takes precedence over result_id)
@@ -87,7 +94,7 @@ export const formatTokenUsageDetailed = (result: TestResult | null): string => {
 /**
  * Parse message metadata safely
  */
-export const parseMessageMetadata = (message: SessionMessage): Record<string, any> => {
+export const parseMessageMetadata = (message: SessionMessage): Record<string, unknown> => {
 	try {
 		return message.metadata ? JSON.parse(message.metadata) : {};
 	} catch {
@@ -103,11 +110,19 @@ export const filterMessagesByRole = (messages: SessionMessage[], role: string): 
 };
 
 /**
+ * Helper to safely get a number from metadata
+ */
+const getNumberFromMetadata = (metadata: Record<string, unknown>, key: string): number => {
+	const value = metadata[key];
+	return typeof value === 'number' ? value : 0;
+};
+
+/**
  * Calculate total tokens from a message
  */
 export const calculateMessageTokens = (message: SessionMessage): number => {
 	const metadata = parseMessageMetadata(message);
-	return (metadata.input_tokens || 0) + (metadata.output_tokens || 0);
+	return getNumberFromMetadata(metadata, 'input_tokens') + getNumberFromMetadata(metadata, 'output_tokens');
 };
 
 /**
@@ -117,8 +132,8 @@ export const calculateTotalTokens = (messages: SessionMessage[]): { input: numbe
 	const totals = messages.reduce((acc, message) => {
 		const metadata = parseMessageMetadata(message);
 		return {
-			input: acc.input + (metadata.input_tokens || 0),
-			output: acc.output + (metadata.output_tokens || 0)
+			input: acc.input + getNumberFromMetadata(metadata, 'input_tokens'),
+			output: acc.output + getNumberFromMetadata(metadata, 'output_tokens')
 		};
 	}, { input: 0, output: 0 });
 
@@ -135,8 +150,9 @@ export const calculateTotalTokens = (messages: SessionMessage[]): { input: numbe
 export const calculateResponseTime = (message: SessionMessage, fallbackDuration?: number, totalAssistantMessages?: number): number => {
 	const metadata = parseMessageMetadata(message);
 
-	if (metadata.execution_time_ms) {
-		return metadata.execution_time_ms;
+	const executionTime = getNumberFromMetadata(metadata, 'execution_time_ms');
+	if (executionTime > 0) {
+		return executionTime;
 	}
 
 	// Fallback: estimate response time for assistant messages
@@ -217,4 +233,113 @@ export const agentToFormData = (agent: Agent | null | undefined): Record<string,
 	}
 
 	return data;
+};
+
+/**
+ * Load conversations by their IDs and return a map of id -> { name, id }
+ * Uses Promise.all for parallel loading
+ */
+export const loadConversationsByIds = async (conversationIds: number[]): Promise<Map<number, { name: string; id: number }>> => {
+	const conversationsMap = new Map<number, { name: string; id: number }>();
+
+	if (conversationIds.length === 0) {
+		return conversationsMap;
+	}
+
+	const conversationPromises = conversationIds.map(async (convId) => {
+		try {
+			const conv = await api.getConversationById(convId);
+			return [convId, { name: conv.name, id: convId }] as [number, { name: string; id: number }];
+		} catch (err) {
+			console.warn(`Failed to load conversation ${convId}:`, err);
+			return null;
+		}
+	});
+
+	const results = await Promise.all(conversationPromises);
+	results.forEach(result => {
+		if (result) {
+			conversationsMap.set(result[0], result[1]);
+		}
+	});
+
+	return conversationsMap;
+};
+
+/**
+ * Load session messages for multiple sessions and return a map of session_id -> messages[]
+ * Uses Promise.all for parallel loading
+ */
+export const loadSessionMessages = async (sessions: ExecutionSession[]): Promise<Map<number, SessionMessage[]>> => {
+	const messagesMap = new Map<number, SessionMessage[]>();
+
+	if (sessions.length === 0) {
+		return messagesMap;
+	}
+
+	const messagePromises = sessions.map(async (session) => {
+		if (session.id) {
+			try {
+				const messages = await api.getSessionTranscript(session.id);
+				return [session.id, messages] as [number, SessionMessage[]];
+			} catch (err) {
+				console.warn(`Failed to load messages for session ${session.id}:`, err);
+				return [session.id, []] as [number, SessionMessage[]];
+			}
+		}
+		return null;
+	});
+
+	const results = await Promise.all(messagePromises);
+	results.forEach(result => {
+		if (result) {
+			messagesMap.set(result[0], result[1]);
+		}
+	});
+
+	return messagesMap;
+};
+
+/**
+ * Calculate session statistics from a list of execution sessions
+ */
+export const calculateSessionStats = (sessions: ExecutionSession[]): {
+	totalRuns: number;
+	successRate: number;
+	avgDuration: number;
+	lastRun: string | null;
+} => {
+	if (sessions.length === 0) {
+		return {
+			totalRuns: 0,
+			successRate: 0,
+			avgDuration: 0,
+			lastRun: null
+		};
+	}
+
+	const totalRuns = sessions.length;
+	const successfulRuns = sessions.filter(s => s.success).length;
+	const successRate = totalRuns > 0 ? (successfulRuns / totalRuns) * 100 : 0;
+
+	// Calculate average duration
+	const sessionsWithTime = sessions.filter(s => s.started_at && s.completed_at);
+	const avgDuration = sessionsWithTime.length > 0
+		? sessionsWithTime.reduce((sum, s) => {
+			const duration = new Date(s.completed_at!).getTime() - new Date(s.started_at!).getTime();
+			return sum + duration;
+		}, 0) / sessionsWithTime.length
+		: 0;
+
+	// Get last run timestamp
+	const lastRun = sessions.length > 0 && sessions[0].started_at
+		? sessions[0].started_at
+		: null;
+
+	return {
+		totalRuns,
+		successRate,
+		avgDuration: avgDuration / 1000, // Convert to seconds
+		lastRun
+	};
 };
