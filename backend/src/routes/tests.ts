@@ -18,6 +18,7 @@ import {
 	legacyTestToConversation, 
 	isSingleTurnConversation 
 } from '../adapters/legacy-adapter';
+import db from '../db/database';
 
 const router = Router();
 
@@ -127,6 +128,20 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
 			...messages[0]
 		});
 
+		// If expected_output provided, upsert as turn target for user turn 1
+		try {
+			if (createdConversation.id && req.body.expected_output && String(req.body.expected_output).trim()) {
+				db.exec(`
+					INSERT INTO conversation_turn_targets (conversation_id, user_sequence, target_reply)
+					VALUES (${createdConversation.id}, 1, ${db.prepare('?').bind(String(req.body.expected_output).trim()).source})
+					ON CONFLICT (conversation_id, user_sequence)
+					DO UPDATE SET target_reply = excluded.target_reply, updated_at = CURRENT_TIMESTAMP;
+				`);
+			}
+		} catch (e) {
+			console.warn('Failed to set turn target from legacy expected_output on create', e);
+		}
+
 		// Transform back to legacy test format for response
 		const legacyTest = conversationToLegacyTest(createdConversation, [createdMessage]);
 		
@@ -160,7 +175,6 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res:
 		const conversationUpdates: any = {};
 		if (req.body.name) conversationUpdates.name = req.body.name;
 		if (req.body.description !== undefined) conversationUpdates.description = req.body.description;
-		if (req.body.expected_output !== undefined) conversationUpdates.expected_outcome = req.body.expected_output;
 
 		const updatedConversation = await updateConversation(conversationId, conversationUpdates);
 		if (!updatedConversation) {
@@ -173,6 +187,20 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res:
 			if (userMessage) {
 				await updateConversationMessage(userMessage.id!, { content: req.body.input });
 			}
+		}
+
+		// If expected_output provided, upsert as turn target for user turn 1
+		try {
+			if (req.body.expected_output && String(req.body.expected_output).trim()) {
+				db.exec(`
+					INSERT INTO conversation_turn_targets (conversation_id, user_sequence, target_reply)
+					VALUES (${conversationId}, 1, ${db.prepare('?').bind(String(req.body.expected_output).trim()).source})
+					ON CONFLICT (conversation_id, user_sequence)
+					DO UPDATE SET target_reply = excluded.target_reply, updated_at = CURRENT_TIMESTAMP;
+				`);
+			}
+		} catch (e) {
+			console.warn('Failed to set turn target from legacy expected_output on update', e);
 		}
 
 		// Get updated messages and return as legacy test
