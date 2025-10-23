@@ -23,6 +23,7 @@ import {
 	ArrowLeft
 } from '@carbon/icons-react';
 import { api, Conversation, ExecutionSession, SessionMessage, Agent } from '../../../lib/api';
+import { loadSessionMessages, calculateSessionStats } from '../../../lib/utils';
 import SessionViewer from '../../components/SessionViewer';
 import ConversationFormModal from '../../components/ConversationFormModal';
 import SessionsTable from '../../components/SessionsTable';
@@ -67,21 +68,7 @@ export default function ConversationDetailPage() {
 			setSessions(allSessions || []);
 
 			// Load messages for all sessions to calculate accurate success status
-			const messagesMap = new Map<number, SessionMessage[]>();
-			if (allSessions && allSessions.length > 0) {
-				const messagePromises = allSessions.map(async (session) => {
-					if (session.id) {
-						try {
-							const messages = await api.getSessionTranscript(session.id);
-							messagesMap.set(session.id, messages);
-						} catch (err) {
-							console.warn(`Failed to load messages for session ${session.id}:`, err);
-							messagesMap.set(session.id, []);
-						}
-					}
-				});
-				await Promise.all(messagePromises);
-			}
+			const messagesMap = await loadSessionMessages(allSessions || []);
 			setSessionMessages(messagesMap);
 
 			// Get latest session details
@@ -111,19 +98,14 @@ export default function ConversationDetailPage() {
 					}
 					return success;
 				}).length;
-				const totalRuns = allSessions.length;
-				const avgDuration = allSessions.reduce((sum, s) => {
-					const duration = s.completed_at && s.started_at
-						? new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()
-						: 0;
-					return sum + duration;
-				}, 0) / totalRuns;
 
+				// Use utility function for base stats
+				const baseStats = calculateSessionStats(allSessions);
 				setStats({
-					totalRuns,
-					successRate: totalRuns > 0 ? (successfulRuns / totalRuns) * 100 : 0,
-					avgDuration: avgDuration / 1000, // Convert to seconds
-					lastRun: latest.started_at
+					totalRuns: baseStats.totalRuns,
+					successRate: baseStats.totalRuns > 0 ? (successfulRuns / baseStats.totalRuns) * 100 : 0,
+					avgDuration: baseStats.avgDuration,
+					lastRun: baseStats.lastRun
 				});
 			} else {
 				setLatestSession(null);
