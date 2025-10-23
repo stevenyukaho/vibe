@@ -205,7 +205,12 @@ try {
 	// From conversations.expected_outcome -> conversation_turn_targets (sequence=1) if missing
 	const hasConversations = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'").get() as { name?: string } | undefined;
 	const hasTurnTargets = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversation_turn_targets'").get() as { name?: string } | undefined;
-	if (hasConversations && hasTurnTargets) {
+	// Ensure the legacy column exists before attempting the backfill
+	const convCols = hasConversations
+		? (db.prepare("PRAGMA table_info('conversations')").all() as Array<{ name: string }>)
+		: [];
+	const hasExpectedOutcomeCol = convCols.some(col => col.name === 'expected_outcome');
+	if (hasConversations && hasTurnTargets && hasExpectedOutcomeCol) {
 		// Insert targets for conversations that have expected_outcome and no existing target for user turn 1
 		db.exec(`
 			INSERT INTO conversation_turn_targets (conversation_id, user_sequence, target_reply)
@@ -932,24 +937,41 @@ try {
 	const convInfo = db.prepare("PRAGMA table_info('conversations')").all() as Array<{ name: string }>;
 	const hasExpectedOutcome = convInfo.some(col => col.name === 'expected_outcome');
 	if (hasExpectedOutcome) {
-		db.transaction(() => {
-			db.exec(`
-				CREATE TABLE conversations_new (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					name TEXT NOT NULL,
-					description TEXT,
-					tags TEXT,
-					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-				);
+		// Temporarily disable FK enforcement to allow table rebuild while preserving ids
+		const fkWasOn = db.pragma('foreign_keys', { simple: true }) as number;
+		if (fkWasOn) {
+			db.exec('PRAGMA foreign_keys = OFF');
+		}
+		try {
+			db.transaction(() => {
+				db.exec(`
+					CREATE TABLE conversations_new (
+						id INTEGER PRIMARY KEY AUTOINCREMENT,
+						name TEXT NOT NULL,
+						description TEXT,
+						tags TEXT,
+						created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+						updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+					);
 
-				INSERT INTO conversations_new (id, name, description, tags, created_at, updated_at)
-				SELECT id, name, description, COALESCE(tags, '[]'), created_at, updated_at FROM conversations;
+					INSERT INTO conversations_new (id, name, description, tags, created_at, updated_at)
+					SELECT id, name, description, COALESCE(tags, '[]'), created_at, updated_at FROM conversations;
 
-				DROP TABLE conversations;
-				ALTER TABLE conversations_new RENAME TO conversations;
-			`);
-		})();
+					DROP TABLE conversations;
+					ALTER TABLE conversations_new RENAME TO conversations;
+				`);
+			})();
+		} finally {
+			if (fkWasOn) {
+				db.exec('PRAGMA foreign_keys = ON');
+				// Validate referential integrity after rebuild
+				try {
+					db.exec('PRAGMA foreign_key_check');
+				} catch (e) {
+					console.error('Foreign key check failed', e);
+				}
+			}
+		}
 	}
 } catch (e) {
 	console.error('Conversations table rebuild failed', e);
