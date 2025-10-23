@@ -234,19 +234,37 @@ export default function TableRenderer({
 											</TableCell>
 										);
 									}
-									if (cell.info.header === 'agent_name' && type === 'result' && agentIdMap) {
+									if (cell.info.header === 'name' && type === 'agent') {
+										const rowId = parseInt(row.id);
+										return (
+											<TableCell key={`${cell.id}-${cellIndex}`}>
+												<Link href={`/agents/${rowId}`}>
+													{String(cell.value)}
+												</Link>
+											</TableCell>
+										);
+									}
+									if (cell.info.header === 'agent_name' && agentIdMap) {
 										const rowId = parseInt(row.id);
 										const agentId = agentIdMap.get(rowId);
 
 										return (
 											<TableCell key={`${cell.id}-${cellIndex}`}>
 												{agentId ? (
-													<Link href="/agents">
+													<Link href={`/agents/${agentId}`}>
 														{String(cell.value)}
 													</Link>
 												) : (
 													String(cell.value)
 												)}
+											</TableCell>
+										);
+									}
+									if (cell.info.header === 'agent_name' && !agentIdMap) {
+										// Fallback: if no agentIdMap is provided, don't link
+										return (
+											<TableCell key={`${cell.id}-${cellIndex}`}>
+												{String(cell.value)}
 											</TableCell>
 										);
 									}
