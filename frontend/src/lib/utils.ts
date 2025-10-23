@@ -1,4 +1,4 @@
-import type { Job, TestResult, SessionMessage } from './api';
+import type { Job, TestResult, SessionMessage, Agent } from './api';
 
 /**
  * Get the primary ID for a job (session_id takes precedence over result_id)
@@ -156,4 +156,65 @@ export const findScoredAssistantMessage = (messages: SessionMessage[]): SessionM
 		m.similarity_scoring_status === 'completed' &&
 		typeof m.similarity_score === 'number'
 	) || null;
+};
+
+/**
+ * Convert an Agent object to form data format for AgentFormModal
+ */
+export const agentToFormData = (agent: Agent | null | undefined): Record<string, string> => {
+	if (!agent) {
+		return {};
+	}
+
+	// Start with top-level fields
+	const data: Record<string, string> = {
+		'agent-name': agent.name || '',
+		'agent-version': agent.version || '',
+		'agent-prompt': agent.prompt || '',
+		'agent-settings': agent.settings || ''
+	};
+
+	// Parse settings JSON and map to form fields
+	try {
+		const settings = agent.settings ? JSON.parse(agent.settings) : {};
+		if (settings.type) data['agent-type'] = settings.type;
+
+		// CrewAI fields
+		if (settings.type === 'crew_ai' || settings.type === 'crewai') {
+			data['agent-model'] = settings.model ?? '';
+			data['agent-temperature'] = settings.temperature?.toString() ?? '';
+			data['agent-max-tokens'] = settings.max_tokens?.toString() ?? '';
+			data['agent-ollama-url'] = settings.base_url ?? '';
+			data['agent-role'] = settings.role ?? '';
+			data['agent-goal'] = settings.goal ?? '';
+			data['agent-backstory'] = settings.backstory ?? '';
+		}
+
+		// External API fields
+		if (settings.type === 'external_api') {
+			data['agent-api-endpoint'] = settings.api_endpoint ?? '';
+			data['agent-api-key'] = settings.api_key ?? '';
+			data['agent-http-method'] = settings.http_method ?? 'POST';
+			data['agent-request-template'] = settings.request_template ?? '';
+			if (settings.response_mapping !== undefined) {
+				data['agent-response-mapping'] = typeof settings.response_mapping === 'string'
+					? settings.response_mapping
+					: JSON.stringify(settings.response_mapping);
+			}
+			if (settings.headers !== undefined) {
+				data['agent-headers'] = typeof settings.headers === 'string'
+					? settings.headers
+					: JSON.stringify(settings.headers);
+			}
+			if (settings.token_mapping !== undefined) {
+				data['agent-token-mapping'] = typeof settings.token_mapping === 'string'
+					? settings.token_mapping
+					: JSON.stringify(settings.token_mapping);
+			}
+		}
+	} catch {
+		// If settings are invalid, ignore and use defaults
+	}
+
+	return data;
 };
