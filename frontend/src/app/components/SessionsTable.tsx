@@ -24,6 +24,7 @@ interface SessionsTableProps {
 	sessionMessages?: Map<number, SessionMessage[]>; // Optional messages for accurate success calculation
 	conversations?: Conversation[]; // Optional conversations for displaying names
 	onViewSession?: (sessionId: number) => void;
+	hiddenColumns?: string[]; // Optional array of column keys to hide
 }
 
 export default function SessionsTable({
@@ -32,7 +33,8 @@ export default function SessionsTable({
 	limit,
 	sessionMessages,
 	conversations,
-	onViewSession
+	onViewSession,
+	hiddenColumns = []
 }: SessionsTableProps) {
 	const router = useRouter();
 
@@ -110,7 +112,7 @@ export default function SessionsTable({
 		{ key: 'similarity_score', header: 'Similarity score' },
 		{ key: 'started', header: 'Started' },
 		{ key: 'actions', header: 'Actions' }
-	];
+	].filter(header => !hiddenColumns.includes(header.key));
 
 	return (
 		<DataTable rows={sessionRows} headers={headers}>
