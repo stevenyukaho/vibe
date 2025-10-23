@@ -22,6 +22,7 @@ import {
 	OverflowMenu,
 	OverflowMenuItem
 } from '@carbon/react';
+import Link from 'next/link';
 import {
 	ViewFilled,
 	ChartLine,
@@ -432,7 +433,7 @@ export default function SuiteRunDetailPage() {
 		return {
 			id: String(job.id),
 			test: testName,
-			agent: agentName,
+			agent: { name: agentName, id: job.agent_id },
 			status: { value: job.status, error: job.error },
 			progress: job.progress,
 			token_usage: tokenDisplay,
@@ -638,6 +639,20 @@ export default function SuiteRunDetailPage() {
 														<TableCell key={cell.id}>
 															<Tag type={tagType}>{cell.value.value}</Tag>
 															{cell.value.error && cell.value.error}
+														</TableCell>
+													);
+												}
+												// Handle agent cell with link
+												if (cell.info.header === 'agent') {
+													return (
+														<TableCell key={cell.id}>
+															{cell.value && cell.value.id ? (
+																<Link href={`/agents/${cell.value.id}`}>
+																	{cell.value.name}
+																</Link>
+															) : (
+																cell.value?.name || cell.value
+															)}
 														</TableCell>
 													);
 												}
