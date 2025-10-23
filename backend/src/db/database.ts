@@ -200,6 +200,51 @@ try {
     console.error('Ensure conversation_turn_targets table failed', e);
 }
 
+// Backfill: move generic expected outcomes into first-turn targets
+try {
+	// From conversations.expected_outcome -> conversation_turn_targets (sequence=1) if missing
+	const hasConversations = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'").get() as { name?: string } | undefined;
+	const hasTurnTargets = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversation_turn_targets'").get() as { name?: string } | undefined;
+	if (hasConversations && hasTurnTargets) {
+		// Insert targets for conversations that have expected_outcome and no existing target for user turn 1
+		db.exec(`
+			INSERT INTO conversation_turn_targets (conversation_id, user_sequence, target_reply)
+			SELECT c.id, 1, c.expected_outcome
+			FROM conversations c
+			LEFT JOIN conversation_turn_targets t
+				ON t.conversation_id = c.id AND t.user_sequence = 1
+			WHERE c.expected_outcome IS NOT NULL
+				AND TRIM(c.expected_outcome) <> ''
+				AND t.id IS NULL;
+		`);
+	}
+} catch (e) {
+	console.error('Backfill from conversations.expected_outcome failed', e);
+}
+
+try {
+	// From legacy tests.expected_output -> turn targets (sequence=1) if missing
+	const hasTests = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='tests'").get() as { name?: string } | undefined;
+	const hasConversations = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'").get() as { name?: string } | undefined;
+	const hasTurnTargets = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversation_turn_targets'").get() as { name?: string } | undefined;
+	if (hasTests && hasConversations && hasTurnTargets) {
+		db.exec(`
+			INSERT INTO conversation_turn_targets (conversation_id, user_sequence, target_reply)
+			SELECT c.id, 1, t.expected_output
+			FROM tests t
+			JOIN conversations c
+				ON c.name = t.name AND c.created_at = t.created_at
+			LEFT JOIN conversation_turn_targets tt
+				ON tt.conversation_id = c.id AND tt.user_sequence = 1
+			WHERE t.expected_output IS NOT NULL
+				AND TRIM(t.expected_output) <> ''
+				AND tt.id IS NULL;
+		`);
+	}
+} catch (e) {
+	console.error('Backfill from tests.expected_output failed', e);
+}
+
 // Migration: add similarity scoring columns to results table if missing
 const resultsInfo = db.prepare("PRAGMA table_info('results')").all() as Array<{ name: string }>;
 if (!resultsInfo.some(col => col.name === 'similarity_score')) {
@@ -235,7 +280,6 @@ if (!conversationTablesInfo.some(col => col.name === 'id')) {
       name TEXT NOT NULL,
       description TEXT,
       tags TEXT, -- JSON array for flexible categorization
-      expected_outcome TEXT, -- High-level success criteria
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -280,8 +324,8 @@ if (!conversationTablesInfo.some(col => col.name === 'id')) {
 
 	// 1. Migrate tests -> conversations (without test_suite_id)
 	db.exec(`
-    INSERT INTO conversations (name, description, expected_outcome, created_at, updated_at)
-    SELECT name, description, expected_output, created_at, updated_at FROM tests;
+    INSERT INTO conversations (name, description, tags, created_at, updated_at)
+    SELECT name, description, '[]', created_at, updated_at FROM tests;
   `);
 
 	// 1b. For each migrated test, insert a single user message so conversations are single-turn
@@ -881,6 +925,34 @@ function dropLegacyTablesIfSafe() {
 	} catch (error) {
 		console.error('Drop legacy tables migration failed', error);
 	}
+}
+
+// After backfill, rebuild conversations to drop expected_outcome column if it still exists
+try {
+	const convInfo = db.prepare("PRAGMA table_info('conversations')").all() as Array<{ name: string }>;
+	const hasExpectedOutcome = convInfo.some(col => col.name === 'expected_outcome');
+	if (hasExpectedOutcome) {
+		db.transaction(() => {
+			db.exec(`
+				CREATE TABLE conversations_new (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					name TEXT NOT NULL,
+					description TEXT,
+					tags TEXT,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				);
+
+				INSERT INTO conversations_new (id, name, description, tags, created_at, updated_at)
+				SELECT id, name, description, COALESCE(tags, '[]'), created_at, updated_at FROM conversations;
+
+				DROP TABLE conversations;
+				ALTER TABLE conversations_new RENAME TO conversations;
+			`);
+		})();
+	}
+} catch (e) {
+	console.error('Conversations table rebuild failed', e);
 }
 
 // Create indexes for better performance (only for tables that will remain)
