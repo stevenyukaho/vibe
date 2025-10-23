@@ -55,7 +55,6 @@ export interface Conversation {
 	name: string;
 	description?: string;
 	tags?: string; // JSON array for flexible categorization
-	expected_outcome?: string; // High-level success criteria
 	created_at?: string;
 	updated_at?: string;
 }

@@ -55,7 +55,6 @@ export interface Conversation {
 	name: string;
 	description?: string;
 	tags?: string;
-	expected_outcome?: string;
 	created_at?: string;
 	updated_at?: string;
 	messages?: ConversationMessage[];
