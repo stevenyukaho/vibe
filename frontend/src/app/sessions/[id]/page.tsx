@@ -28,7 +28,7 @@ import {
 	ArrowLeft,
 	ArrowRight
 } from '@carbon/icons-react';
-import { api, ExecutionSession, SessionMessage, Conversation, Agent } from '../../../lib/api';
+import { api, ExecutionSession, SessionMessage, Conversation, Agent, ConversationTurnTarget } from '../../../lib/api';
 import SessionViewer from '../../components/SessionViewer';
 import TokenUsageTile from '../../components/TokenUsageTile';
 import SimilarityScoreDisplay from '../../components/SimilarityScoreDisplay';
@@ -118,9 +118,20 @@ export default function SessionDetailPage() {
 
 				if (scoredMessage) {
 					similarityScore = scoredMessage.similarity_score!;
-					// Default threshold is 70, but we'll use the session's success field for now
-					// TODO: Get threshold from conversation turn targets
-					success = similarityScore >= 70;
+					// Determine user turn index for this assistant message
+					const assistantIndex = scoredMessage.sequence;
+					const userTurnsBefore = messagesData.filter(m => m.role === 'user' && m.sequence <= assistantIndex).length;
+					let threshold = 70;
+					try {
+						if (sessionData.conversation_id) {
+							const targets: ConversationTurnTarget[] = await api.getConversationTurnTargets(sessionData.conversation_id);
+							const match = targets.find(t => t.user_sequence === userTurnsBefore);
+							if (match && typeof match.threshold === 'number') {
+								threshold = match.threshold;
+							}
+						}
+					} catch {}
+					success = similarityScore >= threshold;
 				} else {
 					success = sessionData.success || false;
 				}
