@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
 	Button,
 	InlineLoading,
@@ -228,12 +229,18 @@ export default function SessionDetailPage() {
 						)}
 						{agent && (
 							<span className={styles.metaItem}>
-								<strong>Agent:</strong> {agent.name} (v{agent.version})
+								<strong>Agent:</strong>{' '}
+								<Link href={`/agents/${agent.id}`}>
+									{agent.name} (v{agent.version})
+								</Link>
 							</span>
 						)}
 						{conversation && (
 							<span className={styles.metaItem}>
-								<strong>Conversation:</strong> {conversation.name}
+								<strong>Conversation:</strong>{' '}
+								<Link href={`/conversations/${conversation.id}`}>
+									{conversation.name}
+								</Link>
 							</span>
 						)}
 					</div>
