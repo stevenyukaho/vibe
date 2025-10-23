@@ -101,6 +101,17 @@ export const api = {
 		return response.json();
 	},
 
+	async getAgentById(id: number): Promise<Agent> {
+		const response = await fetch(`${API_URL}/api/agents/${id}`);
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch agent');
+		}
+
+		return response.json();
+	},
+
 	async createAgent(agent: Omit<Agent, 'id' | 'created_at'>): Promise<Agent> {
 		const response = await fetch(`${API_URL}/api/agents`, {
 			method: 'POST',
