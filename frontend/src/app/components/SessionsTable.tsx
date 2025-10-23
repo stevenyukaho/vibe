@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
 	DataTable,
 	Table,
@@ -86,8 +87,14 @@ export default function SessionsTable({
 		return {
 			id: session.id?.toString() || '',
 			status: success,
-			conversation: conversationName,
-			agent: agent?.name || `Agent ${session.agent_id}`,
+			conversation: {
+				name: conversationName,
+				id: session.conversation_id
+			},
+			agent: {
+				name: agent?.name || `Agent ${session.agent_id}`,
+				id: session.agent_id
+			},
 			duration,
 			similarity_score: similarityScore > 0 ? similarityScore : null,
 			started: session.started_at ? new Date(session.started_at).toLocaleString() : '-',
@@ -130,26 +137,54 @@ export default function SessionsTable({
 					<TableBody>
 						{rows.map(row => (
 							<TableRow {...getRowProps({ row })} key={row.id}>
-								{row.cells.map(cell => {
-									if (cell.info.header === 'status') {
-										return (
-											<TableCell key={cell.id}>
-												<Tag type={cell.value ? 'green' : 'red'} size="sm">
-													{cell.value ? 'Success' : 'Failed'}
-												</Tag>
-											</TableCell>
-										);
-									}
-									if (cell.info.header === 'similarity_score') {
-										const score = cell.value as number | null;
-										return (
-											<TableCell key={cell.id}>
-												<SimilarityScoreDisplay score={score || undefined} size="sm" />
-											</TableCell>
-										);
-									}
-									return <TableCell key={cell.id}>{cell.value}</TableCell>;
-								})}
+							{row.cells.map(cell => {
+								if (cell.info.header === 'status') {
+									return (
+										<TableCell key={cell.id}>
+											<Tag type={cell.value ? 'green' : 'red'} size="sm">
+												{cell.value ? 'Success' : 'Failed'}
+											</Tag>
+										</TableCell>
+									);
+								}
+								if (cell.info.header === 'conversation') {
+									const conversationData = cell.value as { name: string; id?: number };
+									return (
+										<TableCell key={cell.id}>
+											{conversationData.id ? (
+												<Link href={`/conversations/${conversationData.id}`}>
+													{conversationData.name}
+												</Link>
+											) : (
+												conversationData.name
+											)}
+										</TableCell>
+									);
+								}
+								if (cell.info.header === 'agent') {
+									const agentData = cell.value as { name: string; id?: number };
+									return (
+										<TableCell key={cell.id}>
+											{agentData.id ? (
+												<Link href={`/agents/${agentData.id}`}>
+													{agentData.name}
+												</Link>
+											) : (
+												agentData.name
+											)}
+										</TableCell>
+									);
+								}
+								if (cell.info.header === 'similarity_score') {
+									const score = cell.value as number | null;
+									return (
+										<TableCell key={cell.id}>
+											<SimilarityScoreDisplay score={score || undefined} size="sm" />
+										</TableCell>
+									);
+								}
+								return <TableCell key={cell.id}>{cell.value}</TableCell>;
+							})}
 							</TableRow>
 						))}
 					</TableBody>
