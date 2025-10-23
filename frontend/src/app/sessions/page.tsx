@@ -91,6 +91,27 @@ export default function SessionsPage() {
         });
     }, [results, agents, conversations]);
 
+	// Create maps for linking agent and conversation IDs
+	const agentIdMap = useMemo(() => {
+		const map = new Map<number, number>();
+		results.forEach(result => {
+			if (result.id && result.agent_id) {
+				map.set(result.id, result.agent_id);
+			}
+		});
+		return map;
+	}, [results]);
+
+	const conversationIdMap = useMemo(() => {
+		const map = new Map<number, number>();
+		results.forEach(result => {
+			if (result.id && result.test_id) {
+				map.set(result.id, result.test_id);
+			}
+		});
+		return map;
+	}, [results]);
+
 	const sessionHeaders = [
 		{ key: 'agent_name', header: 'Agent' },
 		{ key: 'conversation_name', header: 'Conversation' },
@@ -121,6 +142,8 @@ export default function SessionsPage() {
 						rows={sessionRows}
 						type="result"
 						onView={handleViewSession}
+						agentIdMap={agentIdMap}
+						conversationIdMap={conversationIdMap}
 					/>
 
 					{/* Pagination */}

@@ -7,7 +7,8 @@ import {
 	TableBody,
 	TableCell,
 	Tag,
-	Button
+	Button,
+	Link
 } from '@carbon/react';
 import { Edit, TrashCan, ViewFilled, AiGenerate } from '@carbon/icons-react';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
@@ -30,6 +31,8 @@ interface TableRendererProps {
 	onDelete?: (id: number) => void;
 	onView?: (id: number) => void;
 	onGenerate?: (id: number) => void;
+	agentIdMap?: Map<number, number>; // Maps row id to agent id for result type
+	conversationIdMap?: Map<number, number>; // Maps row id to conversation id for result type
 }
 
 export default function TableRenderer({
@@ -39,7 +42,9 @@ export default function TableRenderer({
 	onEdit,
 	onDelete,
 	onView,
-	onGenerate
+	onGenerate,
+	agentIdMap,
+	conversationIdMap
 }: TableRendererProps) {
 	return (
 		<DataTable rows={rows} headers={headers}>
@@ -226,6 +231,38 @@ export default function TableRenderer({
 														}}
 													/>
 												</div>
+											</TableCell>
+										);
+									}
+									if (cell.info.header === 'agent_name' && type === 'result' && agentIdMap) {
+										const rowId = parseInt(row.id);
+										const agentId = agentIdMap.get(rowId);
+
+										return (
+											<TableCell key={`${cell.id}-${cellIndex}`}>
+												{agentId ? (
+													<Link href="/agents">
+														{String(cell.value)}
+													</Link>
+												) : (
+													String(cell.value)
+												)}
+											</TableCell>
+										);
+									}
+									if (cell.info.header === 'conversation_name' && type === 'result' && conversationIdMap) {
+										const rowId = parseInt(row.id);
+										const conversationId = conversationIdMap.get(rowId);
+
+										return (
+											<TableCell key={`${cell.id}-${cellIndex}`}>
+												{conversationId ? (
+													<Link href={`/conversations/${conversationId}`}>
+														{String(cell.value)}
+													</Link>
+												) : (
+													String(cell.value)
+												)}
 											</TableCell>
 										);
 									}
