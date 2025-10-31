@@ -9,7 +9,7 @@ import './globals.scss';
 export default function RootLayout({
 	children
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
 	const instanceName = process.env.NEXT_PUBLIC_INSTANCE_NAME;
 	return (
