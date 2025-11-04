@@ -10,9 +10,13 @@
     "lint:fix": "next lint --fix"
   },
   "dependencies": {
+    "@carbon/charts-react": "^1.27.0",
     "@carbon/colors": "^11.29.0",
     "@carbon/react": "^1.75.0",
     "@carbon/styles": "^1.74.0",
+    "d3": "^7.9.0",
+    "d3-selection-multi": "^1.0.1",
+    "d3-transition": "^3.0.1",
     "lodash": "^4.17.21",
     "next": "14.2.23",
     "react": "^18.2.0",
