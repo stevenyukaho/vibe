@@ -357,10 +357,27 @@ export const api = {
 	},
 
 	// Suite runs
-	async getSuiteRuns(filters?: { limit?: number; offset?: number }): Promise<SuiteRun[]> {
+	async getSuiteRuns(filters?: { limit?: number; offset?: number; suite_id?: number; agent_id?: number; status?: JobStatus; after?: Date; before?: Date }): Promise<SuiteRun[]> {
 		const params = new URLSearchParams();
-		if (filters?.limit !== undefined) params.append('limit', filters.limit.toString());
+		if (filters?.limit !== undefined) {
+			params.append('limit', filters.limit.toString());
+		}
 		if (filters?.offset !== undefined) params.append('offset', filters.offset.toString());
+		if (filters?.suite_id !== undefined) {
+			params.append('suite_id', String(filters.suite_id));
+		}
+		if (filters?.agent_id !== undefined) {
+			params.append('agent_id', String(filters.agent_id));
+		}
+		if (filters?.status !== undefined) {
+			params.append('status', String(filters.status));
+		}
+		if (filters?.after !== undefined) {
+			params.append('after', filters.after.toISOString());
+		}
+		if (filters?.before !== undefined) {
+			params.append('before', filters.before.toISOString());
+		}
 
 		const response = await fetch(`${API_URL}/api/suite-runs?${params}`);
 		if (!response.ok) {
@@ -373,13 +390,28 @@ export const api = {
 		return Array.isArray(result) ? result : result.data;
 	},
 
-	async getSuiteRunsWithCount(filters?: { limit?: number; offset?: number }): Promise<PaginatedResponse<SuiteRun>> {
+	async getSuiteRunsWithCount(filters?: { limit?: number; offset?: number; suite_id?: number; agent_id?: number; status?: JobStatus; after?: Date; before?: Date }): Promise<PaginatedResponse<SuiteRun>> {
 		const params = new URLSearchParams();
 		if (filters?.limit !== undefined) {
 			params.append('limit', filters.limit.toString());
 		}
 		if (filters?.offset !== undefined) {
 			params.append('offset', filters.offset.toString());
+		}
+		if (filters?.suite_id !== undefined) {
+			params.append('suite_id', String(filters.suite_id));
+		}
+		if (filters?.agent_id !== undefined) {
+			params.append('agent_id', String(filters.agent_id));
+		}
+		if (filters?.status !== undefined) {
+			params.append('status', String(filters.status));
+		}
+		if (filters?.after !== undefined) {
+			params.append('after', filters.after.toISOString());
+		}
+        if (filters?.before !== undefined) {
+			params.append('before', filters.before.toISOString());
 		}
 
 		const response = await fetch(`${API_URL}/api/suite-runs?${params}`);
