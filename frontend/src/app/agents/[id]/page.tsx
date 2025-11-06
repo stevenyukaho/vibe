@@ -18,9 +18,11 @@ import {
 } from '@carbon/icons-react';
 import { api, Agent, ExecutionSession, SessionMessage } from '../../../lib/api';
 import { agentToFormData, loadConversationsByIds, loadSessionMessages, calculateSessionStats } from '../../../lib/utils';
+import { calculateExecutionTime, getSimilarityScore, sortSessionsByTime } from '../../components/AgentAnalytics/analyticsUtils';
 import AgentFormModal from '../../components/AgentFormModal';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import SessionsTable from '../../components/SessionsTable';
+import AgentAnalytics from '../../components/AgentAnalytics';
 import styles from './page.module.scss';
 
 export default function AgentDetailPage() {
@@ -32,13 +34,20 @@ export default function AgentDetailPage() {
 	const [editModalOpen, setEditModalOpen] = useState(false);
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [recentSessions, setRecentSessions] = useState<ExecutionSession[]>([]);
+	const [allSessions, setAllSessions] = useState<ExecutionSession[]>([]);
 	const [conversations, setConversations] = useState<Map<number, { name: string; id: number }>>(new Map());
 	const [sessionMessages, setSessionMessages] = useState<Map<number, SessionMessage[]>>(new Map());
 	const [stats, setStats] = useState({
 		totalRuns: 0,
 		successRate: 0,
 		avgExecutionTime: 0,
-		lastRun: null as string | null
+		avgSimilarity: null as number | null,
+		lastRun: null as string | null,
+		trends: {
+			successRate: 0,
+			similarity: null as number | null,
+			executionTime: null as number | null
+		}
 	});
 
 	const load = async () => {
@@ -61,16 +70,75 @@ export default function AgentDetailPage() {
 			const messagesMap = await loadSessionMessages(recentSessionsData.data);
 			setSessionMessages(messagesMap);
 
-			// Load all sessions for stats calculation
+			// Load all sessions for stats calculation and analytics
 			const allSessionsData = await api.getExecutionSessions({ agent_id: id, limit: 1000, offset: 0 });
+			setAllSessions(allSessionsData.data);
+
+			// Load messages for all sessions for similarity calculation
+			const allMessagesMap = await loadSessionMessages(allSessionsData.data);
+			setSessionMessages(allMessagesMap);
 
 			// Calculate stats from all sessions
 			const calculatedStats = calculateSessionStats(allSessionsData.data);
+
+			// Calculate performance metrics and trends
+			const sorted = sortSessionsByTime(allSessionsData.data);
+
+			const midpoint = Math.floor(sorted.length / 2);
+			const firstHalf = sorted.slice(0, midpoint);
+			const secondHalf = sorted.slice(midpoint);
+
+			const calculateMetrics = (sessions: typeof sorted) => {
+				let successCount = 0;
+				let totalSimilarity = 0;
+				let similarityCount = 0;
+				let totalExecutionTime = 0;
+				let executionTimeCount = 0;
+
+				sessions.forEach(session => {
+					if (session.success) {
+						successCount++;
+					}
+
+					const execTime = calculateExecutionTime(session);
+					if (execTime > 0) {
+						totalExecutionTime += execTime;
+						executionTimeCount++;
+					}
+
+					const { similarity, hasSimilarity } = getSimilarityScore(session.id, allMessagesMap);
+					if (hasSimilarity) {
+						totalSimilarity += similarity;
+						similarityCount++;
+					}
+				});
+
+				return {
+					successRate: sessions.length > 0 ? (successCount / sessions.length) * 100 : 0,
+					avgSimilarity: similarityCount > 0 ? totalSimilarity / similarityCount : null,
+					avgExecutionTime: executionTimeCount > 0 ? totalExecutionTime / executionTimeCount : null
+				};
+			};
+
+			const overall = calculateMetrics(sorted);
+			const first = firstHalf.length > 0 ? calculateMetrics(firstHalf) : overall;
+			const second = secondHalf.length > 0 ? calculateMetrics(secondHalf) : overall;
+
 			setStats({
 				totalRuns: allSessionsData.total,
-				successRate: calculatedStats.successRate,
-				avgExecutionTime: calculatedStats.avgDuration * 1000, // Convert back to ms for consistency
-				lastRun: calculatedStats.lastRun
+				successRate: overall.successRate,
+				avgExecutionTime: overall.avgExecutionTime ? overall.avgExecutionTime * 1000 : 0, // Convert to ms
+				avgSimilarity: overall.avgSimilarity,
+				lastRun: calculatedStats.lastRun,
+				trends: {
+					successRate: second.successRate - first.successRate,
+					similarity: overall.avgSimilarity && first.avgSimilarity && second.avgSimilarity
+						? second.avgSimilarity - first.avgSimilarity
+						: null,
+					executionTime: overall.avgExecutionTime && first.avgExecutionTime && second.avgExecutionTime
+						? second.avgExecutionTime - first.avgExecutionTime
+						: null
+				}
 			});
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to load agent');
@@ -172,24 +240,59 @@ export default function AgentDetailPage() {
 					<div className={styles.statsSection}>
 						<div className={styles.statsGrid}>
 							<Tile className={styles.statTile}>
-								<div className={styles.statValue}>{stats.totalRuns}</div>
-								<div className={styles.statLabel}>Total runs</div>
-							</Tile>
-							<Tile className={styles.statTile}>
+								<div className={styles.statHeader}>
+									<span className={styles.statLabel}>Success rate</span>
+									{stats.trends.successRate !== 0 && (
+										<span className={stats.trends.successRate > 0 ? styles.trendUp : styles.trendDown}>
+											{stats.trends.successRate > 0 ? '↑' : '↓'}
+											{Math.abs(stats.trends.successRate).toFixed(1)}%
+										</span>
+									)}
+								</div>
 								<div className={styles.statValue}>{stats.successRate.toFixed(1)}%</div>
-								<div className={styles.statLabel}>Success rate</div>
+								<div className={styles.statInfo}>Comparing first vs second half of sessions</div>
 							</Tile>
+
+							{stats.avgSimilarity !== null && (
+								<Tile className={styles.statTile}>
+									<div className={styles.statHeader}>
+										<span className={styles.statLabel}>Avg similarity</span>
+										{stats.trends.similarity !== null && stats.trends.similarity !== 0 && (
+											<span className={stats.trends.similarity > 0 ? styles.trendUp : styles.trendDown}>
+												{stats.trends.similarity > 0 ? '↑' : '↓'}
+												{Math.abs(stats.trends.similarity).toFixed(1)}
+											</span>
+										)}
+									</div>
+									<div className={styles.statValue}>{stats.avgSimilarity.toFixed(1)}</div>
+									<div className={styles.statInfo}>Maximum score per session</div>
+								</Tile>
+							)}
+
 							<Tile className={styles.statTile}>
+								<div className={styles.statHeader}>
+									<span className={styles.statLabel}>Avg exec time</span>
+									{stats.trends.executionTime !== null && stats.trends.executionTime !== 0 && (
+										<span className={stats.trends.executionTime < 0 ? styles.trendUp : styles.trendDown}>
+											{stats.trends.executionTime < 0 ? '↓' : '↑'}
+											{Math.abs(stats.trends.executionTime).toFixed(1)}s
+										</span>
+									)}
+								</div>
 								<div className={styles.statValue}>
 									{stats.avgExecutionTime > 0 ? (stats.avgExecutionTime / 1000).toFixed(2) : '0.00'}s
 								</div>
-								<div className={styles.statLabel}>Avg execution time</div>
+								<div className={styles.statInfo}>Time from start to completion</div>
 							</Tile>
+
 							<Tile className={styles.statTile}>
-								<div className={styles.statValue}>
-									{stats.lastRun ? new Date(stats.lastRun).toLocaleDateString() : 'Never'}
+								<div className={styles.statHeader}>
+									<span className={styles.statLabel}>Total sessions</span>
 								</div>
-								<div className={styles.statLabel}>Last run</div>
+								<div className={styles.statValue}>{stats.totalRuns}</div>
+								<div className={styles.statInfo}>
+									Last run: {stats.lastRun ? new Date(stats.lastRun).toLocaleDateString() : 'Never'}
+								</div>
 							</Tile>
 						</div>
 					</div>
@@ -314,6 +417,14 @@ export default function AgentDetailPage() {
 						</div>
 					</div>
 				</div>
+
+				{/* Analytics */}
+				{allSessions.length > 0 && (
+					<div className={styles.section}>
+						<h2 className={styles.sectionTitle}>Analytics</h2>
+						<AgentAnalytics sessions={allSessions} />
+					</div>
+				)}
 
 				{/* Recent sessions */}
 				{recentSessions.length > 0 && (
