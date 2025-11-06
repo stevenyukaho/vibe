@@ -74,7 +74,23 @@
 
 .statTile {
 	padding: 1.5rem;
-	text-align: center;
+	border-left: 3px solid var(--cds-border-interactive);
+}
+
+.statHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 0.75rem;
+	gap: 0.5rem;
+}
+
+.statLabel {
+	font-size: 0.75rem;
+	color: var(--cds-text-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	font-weight: 600;
 }
 
 .statValue {
@@ -84,9 +100,24 @@
 	margin-bottom: 0.5rem;
 }
 
-.statLabel {
-	font-size: 0.875rem;
+.statInfo {
+	font-size: 0.75rem;
 	color: var(--cds-text-secondary);
+	font-style: italic;
+}
+
+.trendUp {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--cds-support-success);
+	white-space: nowrap;
+}
+
+.trendDown {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--cds-support-error);
+	white-space: nowrap;
 }
 
 .section {
