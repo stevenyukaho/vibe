@@ -1,0 +1,238 @@
+.analyticsContainer {
+	padding: 1rem 0;
+}
+
+.controlsSection {
+	margin-bottom: 2rem;
+}
+
+.filtersRow {
+	display: flex;
+	gap: 1rem;
+	margin-bottom: 1rem;
+	flex-wrap: wrap;
+	align-items: flex-end;
+}
+
+.viewModeGroup {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.viewModeLabel {
+	font-size: 0.75rem;
+	font-weight: 400;
+	color: var(--cds-text-secondary);
+	margin-bottom: 0.25rem;
+}
+
+.viewModeSwitcher {
+	min-width: 240px;
+}
+
+.experimentCountWrapper {
+	width: 160px;
+}
+
+.conversationAccordion {
+	margin-bottom: 1rem;
+}
+
+.accordionTitle {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+}
+
+.conversationFilters {
+	padding: 1rem 0 0.5rem;
+}
+
+.conversationFilterHeader {
+	display: flex;
+	align-items: flex-end;
+	gap: 1rem;
+	margin-bottom: 1rem;
+
+	> :first-child {
+		flex: 1;
+	}
+}
+
+.conversationList {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	max-height: 250px;
+	overflow-y: auto;
+	padding: 0.5rem 0;
+}
+
+.conversationLabel {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	width: 100%;
+}
+
+.conversationName {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.conversationId {
+	font-size: 0.75rem;
+	color: var(--cds-text-secondary);
+	font-family: 'IBM Plex Mono', monospace;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.conversationCount {
+	font-size: 0.75rem;
+	color: var(--cds-text-secondary);
+	padding-top: 0.75rem;
+	border-top: 1px solid var(--cds-border-subtle-01);
+	margin-top: 0.5rem;
+}
+
+.noResults {
+	font-size: 0.875rem;
+	color: var(--cds-text-secondary);
+	padding: 1rem;
+	text-align: center;
+	font-style: italic;
+}
+
+.selectedConversations {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-bottom: 1rem;
+}
+
+.emptyState {
+	padding: 3rem 2rem;
+	text-align: center;
+
+	p {
+		font-size: 1rem;
+		color: var(--cds-text-primary);
+		margin-bottom: 0.5rem;
+	}
+}
+
+.emptyStateSubtext {
+	font-size: 0.875rem;
+	color: var(--cds-text-secondary);
+}
+
+.mainChartSection {
+	margin-bottom: 2rem;
+}
+
+.secondaryChartsGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+	gap: 1.5rem;
+
+	@media (max-width: 768px) {
+		grid-template-columns: 1fr;
+	}
+}
+
+.chartTile {
+	padding: 1.5rem;
+}
+
+.chartHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: 1rem;
+	gap: 1rem;
+
+	@media (max-width: 768px) {
+		flex-direction: column;
+	}
+}
+
+.chartTitle {
+	font-size: 1.125rem;
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+	color: var(--cds-text-primary);
+}
+
+.chartDescription {
+	font-size: 0.875rem;
+	color: var(--cds-text-secondary);
+	margin-bottom: 0;
+}
+
+
+.noData {
+	padding: 3rem 2rem;
+	text-align: center;
+	color: var(--cds-text-secondary);
+	font-size: 0.875rem;
+}
+
+.healthScoreStats {
+	display: flex;
+	justify-content: space-around;
+	gap: 1rem;
+	margin-top: 1.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--cds-border-subtle-01);
+}
+
+.statItem {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	text-align: center;
+}
+
+.statLabel {
+	font-size: 0.75rem;
+	color: var(--cds-text-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.statValue {
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: var(--cds-text-primary);
+}
+
+.heatmapControlsRow {
+	display: flex;
+	gap: 2rem;
+	margin: 1.5rem 0 1rem;
+	flex-wrap: wrap;
+	align-items: flex-end;
+}
+
+.heatmapControlGroup {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.heatmapControlLabel {
+	font-size: 0.75rem;
+	font-weight: 400;
+	color: var(--cds-text-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.heatmapSwitcher {
+	min-width: 200px;
+}
