@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api, TestSuite, Test, Agent, SuiteEntry } from '../../../lib/api';
+import { api, TestSuite, Test, Agent, SuiteEntry, SuiteRun } from '../../../lib/api';
 import {
 	Button,
 	Column,
@@ -28,8 +28,14 @@ import {
 	TabPanel,
 	TabPanels,
 	Tabs,
-	Tile
+	Tile,
+	ContentSwitcher,
+	Switch
 } from '@carbon/react';
+import { ComboChart } from '@carbon/charts-react';
+import '@carbon/charts/styles.css';
+import type { ChartOptions } from '@carbon/charts';
+import { CHART_COLORS } from '../../components/AgentAnalytics/chartOptions';
 import {
 	ChevronLeft,
 	Rocket,
@@ -53,6 +59,13 @@ interface AvailableItem {
 	type: 'test' | 'suite';
 	description?: string;
 }
+
+type SuitePerformancePoint = {
+	group: string;
+	key: string | Date;
+	value?: number;
+	tokens?: number;
+};
 
 export default function TestSuiteDetailPage({ params }: PageProps) {
 	const { id } = params;
@@ -78,6 +91,11 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+	// Suite runs for charts
+	const [suiteRuns, setSuiteRuns] = useState<SuiteRun[]>([]);
+	const [runsAgentFilter, setRunsAgentFilter] = useState<'all' | number>('all');
+	const [runsViewMode, setRunsViewMode] = useState<'runs' | 'time'>('runs');
+
 	const router = useRouter();
 
 	useEffect(() => {
@@ -91,15 +109,17 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 				setSuite(found);
 				setAllSuites(allSuitesData.filter(s => s.id !== suiteId));
 
-				const [agentsData, allTestsData, entriesData] = await Promise.all([
+				const [agentsData, allTestsData, entriesData, runsData] = await Promise.all([
 					api.getAgents(),
 					api.getTests(),
-					api.getSuiteEntries(suiteId)
+					api.getSuiteEntries(suiteId),
+					api.getSuiteRuns({ suite_id: suiteId, limit: 250 })
 				]);
 
 				setAgents(agentsData);
 				setAllTests(allTestsData);
 				setEntries(entriesData);
+				setSuiteRuns(runsData);
 
 				if (agentsData.length > 0) {
 					setSelectedAgentId(agentsData[0].id ?? null);
@@ -150,6 +170,47 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	const handleDeleteSuccess = async () => {
 		router.push('/test-suites');
 	};
+
+	// Derived run agents for filter
+	const runAgents = useMemo(() => {
+		const map = new Map<number, string>();
+		suiteRuns.forEach(r => map.set(r.agent_id, r.agent_name || `Agent #${r.agent_id}`));
+		return Array.from(map.entries());
+	}, [suiteRuns]);
+
+	const filteredRuns = useMemo(() => {
+		return suiteRuns.filter(r => runsAgentFilter === 'all' || r.agent_id === runsAgentFilter);
+	}, [suiteRuns, runsAgentFilter]);
+
+	// Chart data: success rate, avg similarity, and token usage across runs
+	const suitePerformanceData = useMemo(() => {
+		if (!filteredRuns || filteredRuns.length === 0) {
+			return [] as Array<SuitePerformancePoint>;
+		}
+		const runs = [...filteredRuns].sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
+
+		// Limit to most recent runs to match what the chart actually displays
+		// This ensures the scale is calculated from visible data only
+		const displayedRuns = runs.slice(-50);
+		const points: Array<SuitePerformancePoint> = [];
+		displayedRuns.forEach((run, idx) => {
+			const key = runsViewMode === 'time'
+				? new Date(run.started_at)
+				: `#${idx + 1}`;
+			const successRate = run.total_tests > 0 ? (run.successful_tests / run.total_tests) * 100 : 0;
+			if (!Number.isNaN(successRate)) {
+				points.push({ group: 'Success rate', key, value: Math.round(successRate) });
+			}
+			if (typeof run.avg_similarity_score === 'number') {
+				points.push({ group: 'Avg similarity', key, value: Math.round(run.avg_similarity_score) });
+			}
+			const totalTokens = (run.total_input_tokens || 0) + (run.total_output_tokens || 0);
+			if (totalTokens > 0) {
+				points.push({ group: 'Token usage', key, tokens: totalTokens });
+			}
+		});
+		return points;
+	}, [filteredRuns, runsViewMode]);
 
 	if (loading) {
 		return <InlineLoading description="Loading suite details..." />;
@@ -274,7 +335,9 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	// Filter items based on search and active tab
 	const getFilteredItems = () => {
 		const allItems = activeTab === 0 ? availableTests : availableSuites;
-		if (!searchTerm) return allItems;
+		if (!searchTerm) {
+			return allItems;
+		}
 		return allItems.filter(item =>
 			item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			(item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase())),
@@ -291,6 +354,64 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 			label: `${agent.name} v${agent.version}`
 		}))
 	];
+
+	// Chart options
+	const xTitle = runsViewMode === 'time' ? 'Date' : 'Run';
+	const bottomAxis = runsViewMode === 'time'
+		? { title: xTitle, mapsTo: 'key', scaleType: 'time' as const }
+		: { title: xTitle, mapsTo: 'key', scaleType: 'labels' as const };
+
+	// Calculate max token usage for proper scaling
+	const tokenDataPoints = suitePerformanceData.filter(d => d.group === 'Token usage') as SuitePerformancePoint[];
+	const getTokenValue = (p: SuitePerformancePoint): number => (typeof p.tokens === 'number' ? p.tokens : (p.value ?? 0));
+	const tokenValues = tokenDataPoints.map(getTokenValue);
+	const hasTokenBars = tokenValues.length > 0;
+	const maxTokens = hasTokenBars ? Math.max(...tokenValues) : 0;
+
+	const suitePerformanceOptions = {
+		title: '',
+		axes: {
+			bottom: bottomAxis,
+			left: {
+				title: 'Percentage / score',
+				mapsTo: 'value',
+				domain: [0, 100],
+				includeZero: true,
+				correspondingDatasets: ['Success rate', 'Avg similarity']
+			},
+			...(hasTokenBars ? {
+				right: {
+					title: 'Token usage',
+					mapsTo: 'tokens',
+					domain: [0, Math.ceil(maxTokens * 1.1)],
+					includeZero: true,
+					correspondingDatasets: ['Token usage']
+				}
+			} : {})
+		},
+		comboChartTypes: (
+			hasTokenBars
+				? [
+					{ type: 'line', options: {}, correspondingDatasets: ['Success rate', 'Avg similarity'] },
+					{ type: 'simple-bar', options: {}, correspondingDatasets: ['Token usage'] }
+				]
+				: [
+					{ type: 'line', options: {}, correspondingDatasets: ['Success rate', 'Avg similarity'] }
+				]
+		),
+		height: '400px',
+		legend: { enabled: true, alignment: 'center' },
+		curve: 'curveMonotoneX',
+		toolbar: { enabled: false },
+		color: {
+			scale: {
+				'Success rate': CHART_COLORS.SUCCESS_RATE,
+				'Avg similarity': CHART_COLORS.SIMILARITY_SCORE,
+				'Token usage': CHART_COLORS.EXECUTION_TIME
+			}
+		},
+		theme: 'g100'
+	} as ChartOptions;
 
 	return (
 		<Grid>
@@ -339,6 +460,44 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 
 					{suite.description && (
 						<p>{suite.description}</p>
+					)}
+
+					{/* Suite performance over runs */}
+					{suitePerformanceData.length > 0 && (
+						<Tile>
+							<h3 className={styles.sectionTitle}>Suite performance over runs</h3>
+							<div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', margin: '0.5rem 0 1rem' }}>
+								<div>
+									<FormLabel>Agent</FormLabel>
+									<Select
+										id="suite-run-agent-filter"
+										size="sm"
+										value={String(runsAgentFilter)}
+										onChange={(e) => {
+											const val = e.currentTarget.value;
+											setRunsAgentFilter(val === 'all' ? 'all' : Number(val));
+										}}
+									>
+										<SelectItem value="all" text="All agents" />
+										{runAgents.map(([id, name]) => (
+											<SelectItem key={id} value={String(id)} text={name} />
+										))}
+									</Select>
+								</div>
+								<div>
+									<FormLabel>View by</FormLabel>
+									<ContentSwitcher
+										size="sm"
+										selectedIndex={runsViewMode === 'runs' ? 0 : 1}
+										onChange={(d) => setRunsViewMode(d.index === 0 ? 'runs' : 'time')}
+									>
+										<Switch name="runs" text="Runs" />
+										<Switch name="time" text="Time" />
+									</ContentSwitcher>
+								</div>
+							</div>
+							<ComboChart key={`suite-perf-${runsViewMode}-${runsAgentFilter}-${hasTokenBars ? 'tokens' : 'no-tokens'}-${Math.ceil(maxTokens)}`} data={suitePerformanceData} options={suitePerformanceOptions} />
+						</Tile>
 					)}
 
 					<Tile className={styles.runConfigTile}>
