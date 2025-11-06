@@ -1,4 +1,9 @@
-import type { ChartOptions } from '@carbon/charts';
+import type {
+	ComboChartOptions,
+	BarChartOptions,
+	LineChartOptions,
+	ScatterChartOptions
+} from '@carbon/charts';
 
 // These match Carbon's semantic colors: blue (interactive), purple (support-04), red (danger), green (success)
 export const CHART_COLORS = {
@@ -61,7 +66,7 @@ export const timeChartOptions = {
 	color: {
 		scale: performanceColorScale
 	}
-} as ChartOptions;
+} as ComboChartOptions;
 
 export const experimentsChartOptions = {
 	title: '',
@@ -92,10 +97,10 @@ export const experimentsChartOptions = {
 	curve: 'curveLinear',
 	height: '400px',
 	...baseChartOptions,
-		color: {
-			scale: performanceColorScale
-		}
-	} as ChartOptions;
+	color: {
+		scale: performanceColorScale
+	}
+} as ComboChartOptions;
 
 export const histogramBarChartOptions = {
 	title: '',
@@ -115,7 +120,7 @@ export const histogramBarChartOptions = {
 	legend: {
 		enabled: false
 	}
-} as ChartOptions;
+} as BarChartOptions;
 
 export const recentTrendsChartOptions = {
 	title: '',
@@ -139,7 +144,7 @@ export const recentTrendsChartOptions = {
 		enabled: true,
 		alignment: 'center'
 	}
-} as ChartOptions;
+} as LineChartOptions;
 
 export const failureAnalysisChartOptions = {
 	title: '',
@@ -164,7 +169,7 @@ export const failureAnalysisChartOptions = {
 	legend: {
 		enabled: false
 	}
-} as ChartOptions;
+} as BarChartOptions;
 
 export const conversationDifficultyChartOptions = {
 	title: '',
@@ -190,7 +195,7 @@ export const conversationDifficultyChartOptions = {
 	legend: {
 		enabled: false
 	}
-} as ChartOptions;
+} as BarChartOptions;
 
 export const successSpeedScatterOptions = {
 	title: '',
@@ -216,4 +221,4 @@ export const successSpeedScatterOptions = {
 	legend: {
 		enabled: false
 	}
-} as ChartOptions;
+} as ScatterChartOptions;
