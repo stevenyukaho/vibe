@@ -223,3 +223,15 @@
 .entryName {
   font-weight: bold;
 }
+
+.sectionTitle {
+	font-size: 1.25rem;
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+}
+
+.sectionSubtitle {
+	font-size: 0.875rem;
+	color: $text-secondary;
+	margin-bottom: 1rem;
+}
