@@ -72,7 +72,16 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 // Create new conversation
 router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created_at' | 'updated_at'> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
 	try {
-		const { name, description, tags, messages } = req.body;
+		const {
+			name,
+			description,
+			tags,
+			default_request_template_id,
+			default_response_map_id,
+			variables,
+			stop_on_failure,
+			messages
+		} = req.body;
 
 		// Validate required fields
 		if (!name) {
@@ -86,7 +95,11 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 		const conversation = await createConversation({
 			name,
 			description,
-			tags
+			tags,
+			default_request_template_id,
+			default_response_map_id,
+			variables,
+			stop_on_failure
 		});
 
 		// Add messages if provided
@@ -99,7 +112,10 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 					sequence: message.sequence || i + 1,
 					role: message.role,
 					content: message.content,
-					metadata: message.metadata
+					metadata: message.metadata,
+					request_template_id: (message as any).request_template_id,
+					response_map_id: (message as any).response_map_id,
+					set_variables: (message as any).set_variables
 				});
 				createdMessages.push(createdMessage);
 			}
@@ -147,7 +163,10 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Conversation
 					sequence: message.sequence || i + 1,
 					role: message.role,
 					content: message.content,
-					metadata: message.metadata
+					metadata: message.metadata,
+					request_template_id: (message as any).request_template_id,
+					response_map_id: (message as any).response_map_id,
+					set_variables: (message as any).set_variables
 				});
 				updatedMessages.push(createdMessage);
 			}
@@ -238,7 +257,10 @@ router.post('/:id/messages', (async (req: Request<{ id: string }, {}, Omit<Conve
 			sequence: messageSequence,
 			role,
 			content,
-			metadata
+			metadata,
+			request_template_id: (req.body as any).request_template_id,
+			response_map_id: (req.body as any).response_map_id,
+			set_variables: (req.body as any).set_variables
 		});
 
 		return res.status(201).json(message);
