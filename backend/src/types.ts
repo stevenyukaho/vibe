@@ -19,6 +19,30 @@ export interface Agent {
 	created_at?: string;
 }
 
+export interface AgentRequestTemplate {
+	id?: number;
+	agent_id: number;
+	name: string;
+	description?: string;
+	engine?: string;
+	content_type?: string;
+	body: string;
+	tags?: string;
+	is_default?: number | boolean;
+	created_at?: string;
+}
+
+export interface AgentResponseMap {
+	id?: number;
+	agent_id: number;
+	name: string;
+	description?: string;
+	spec: string;
+	tags?: string;
+	is_default?: number | boolean;
+	created_at?: string;
+}
+
 // Legacy Test interface (kept for migration compatibility)
 export interface Test {
 	id?: number;
@@ -55,6 +79,10 @@ export interface Conversation {
 	name: string;
 	description?: string;
 	tags?: string; // JSON array for flexible categorization
+	default_request_template_id?: number;
+	default_response_map_id?: number;
+	variables?: string; // JSON of conversation-level variables
+	stop_on_failure?: boolean; // halt execution on per-turn failure
 	created_at?: string;
 	updated_at?: string;
 }
@@ -66,6 +94,9 @@ export interface ConversationMessage {
 	role: 'user' | 'system';
 	content: string;
 	metadata?: string; // JSON for message-specific config
+	request_template_id?: number;
+	response_map_id?: number;
+	set_variables?: string; // JSON for literal/bind variable assignments
 	created_at?: string;
 }
 
@@ -90,6 +121,7 @@ export interface ExecutionSession {
 	success?: boolean;
 	error_message?: string;
 	metadata?: string; // JSON for session-level metrics (similarity scores, token usage, etc)
+	variables?: string; // JSON snapshot of resolved variables during run
 }
 
 export interface SessionMessage {
