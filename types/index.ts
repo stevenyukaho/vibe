@@ -46,7 +46,7 @@ export interface ConversationMessage {
 	sequence: number;
 	role: 'user' | 'system';
 	content: string;
-	metadata?: string;
+	metadata?: any; // Can be JSON string or parsed object
 	created_at?: string;
 }
 
@@ -58,6 +58,10 @@ export interface Conversation {
 	created_at?: string;
 	updated_at?: string;
 	messages?: ConversationMessage[];
+	default_request_template_id?: number;
+	default_response_map_id?: number;
+	variables?: string;
+	stop_on_failure?: boolean;
 }
 
 export interface SessionMessage {
@@ -67,7 +71,7 @@ export interface SessionMessage {
 	role: 'user' | 'assistant' | 'system' | 'tool';
 	content: string;
 	timestamp: string;
-	metadata?: string;
+	metadata?: any; // Can be JSON string or parsed object
 	// Per-turn similarity scoring (source of truth)
 	similarity_score?: number; // 0 - 100
 	similarity_scoring_status?: 'pending' | 'running' | 'completed' | 'failed';
@@ -96,4 +100,118 @@ export interface ConversationTurnTarget {
 	weight?: number | null; // default 1.0
 	created_at?: string;
 	updated_at?: string;
+}
+
+// Core entities reused across services
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
+
+export interface Job {
+	id: string;  // UUID
+	agent_id: number;
+	test_id?: number; // Legacy field
+	conversation_id?: number; // New conversation-based execution
+	status: JobStatus;
+	progress?: number;  // 0-100 percentage
+	partial_result?: string;
+	result_id?: number; // Legacy field
+	session_id?: number; // Execution session id for conversation jobs
+	error?: string;
+	created_at?: string;
+	updated_at?: string;
+	suite_run_id?: number; // Reference to parent suite run
+	job_type?: string; // 'crewai' or 'external_api'
+	claimed_by?: string; // Service identifier that claimed this job
+	claimed_at?: string;
+}
+
+export interface Agent {
+	id?: number;
+	name: string;
+	version: string;
+	prompt: string;
+	settings: string; // JSON string containing configuration settings
+	created_at?: string;
+}
+
+export interface AgentSettings {
+	type: string;
+	api_endpoint: string;
+	http_method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+	headers?: Record<string, string>;
+	api_key?: string;
+	token_mapping?: string;
+	request_template?: string; // Legacy
+	response_mapping?: string; // Legacy
+	[key: string]: any;
+}
+
+export interface Test {
+	id?: number;
+	name: string;
+	description?: string;
+	input: string;
+	expected_output?: string;
+	created_at?: string;
+	updated_at?: string;
+}
+
+export interface TestExecutionRequest {
+	test_input: string;
+	test_id: number;
+	api_endpoint: string;
+	api_key?: string;
+	request_template?: string;
+	response_mapping?: string;
+	token_mapping?: string;
+	headers?: Record<string, string>;
+	http_method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+}
+
+export interface ConversationExecutionRequest {
+	conversation_id: number;
+	conversation_script: ConversationMessage[];
+	api_endpoint: string;
+	api_key?: string;
+	request_template?: string;
+	response_mapping?: string;
+	token_mapping?: string;
+	headers?: Record<string, string>;
+	http_method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+	stop_on_failure?: boolean; // if true, halt on per-turn failure
+}
+
+export interface IntermediateStep {
+	timestamp: string;
+	agent_id?: number;
+	action: string;
+	output: string;
+}
+
+export interface Metrics {
+	model_calls?: number;
+	tool_calls?: number;
+	execution_time: number;
+	input_tokens?: number;
+	output_tokens?: number;
+}
+
+export interface TestExecutionResponse {
+	agent_id?: number;
+	test_id: number;
+	output: string;
+	success: boolean;
+	execution_time: number;
+	intermediate_steps: IntermediateStep[];
+	metrics: Metrics;
+}
+
+export interface ConversationExecutionResponse {
+	agent_id?: number;
+	conversation_id: number;
+	transcript: SessionMessage[];
+	success: boolean;
+	execution_time: number;
+	intermediate_steps: IntermediateStep[];
+	variables?: Record<string, any>;
+	metrics: Metrics;
 }
