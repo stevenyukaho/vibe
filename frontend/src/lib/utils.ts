@@ -211,12 +211,6 @@ export const agentToFormData = (agent: Agent | null | undefined): Record<string,
 			data['agent-api-endpoint'] = settings.api_endpoint ?? '';
 			data['agent-api-key'] = settings.api_key ?? '';
 			data['agent-http-method'] = settings.http_method ?? 'POST';
-			data['agent-request-template'] = settings.request_template ?? '';
-			if (settings.response_mapping !== undefined) {
-				data['agent-response-mapping'] = typeof settings.response_mapping === 'string'
-					? settings.response_mapping
-					: JSON.stringify(settings.response_mapping);
-			}
 			if (settings.headers !== undefined) {
 				data['agent-headers'] = typeof settings.headers === 'string'
 					? settings.headers
