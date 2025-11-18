@@ -89,6 +89,110 @@ export const api = {
 		return response.json();
 	},
 
+	// Agent communication configs: Request Templates
+	async getAgentRequestTemplates(agentId: number): Promise<Array<{ id: number; name: string; body: string; is_default?: number }>> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch request templates');
+		}
+		return response.json();
+	},
+
+	async createAgentRequestTemplate(agentId: number, payload: { name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; is_default?: boolean }): Promise<any> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to create request template');
+		}
+		return response.json();
+	},
+
+	async updateAgentRequestTemplate(agentId: number, templateId: number, updates: Partial<{ name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; is_default?: boolean }>): Promise<any> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates/${templateId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updates)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update request template');
+		}
+		return response.json();
+	},
+
+	async deleteAgentRequestTemplate(agentId: number, templateId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates/${templateId}`, { method: 'DELETE' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete request template');
+		}
+	},
+
+	async setDefaultAgentRequestTemplate(agentId: number, templateId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates/${templateId}/default`, { method: 'POST' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to set default request template');
+		}
+	},
+
+	// Agent communication configs: Response Maps
+	async getAgentResponseMaps(agentId: number): Promise<Array<{ id: number; name: string; spec: string; is_default?: number }>> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch response maps');
+		}
+		return response.json();
+	},
+
+	async createAgentResponseMap(agentId: number, payload: { name: string; description?: string; spec: string; tags?: string; is_default?: boolean }): Promise<any> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to create response map');
+		}
+		return response.json();
+	},
+
+	async updateAgentResponseMap(agentId: number, mapId: number, updates: Partial<{ name: string; description?: string; spec: string; tags?: string; is_default?: boolean }>): Promise<any> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps/${mapId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updates)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update response map');
+		}
+		return response.json();
+	},
+
+	async deleteAgentResponseMap(agentId: number, mapId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps/${mapId}`, { method: 'DELETE' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete response map');
+		}
+	},
+
+	async setDefaultAgentResponseMap(agentId: number, mapId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps/${mapId}/default`, { method: 'POST' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to set default response map');
+		}
+	},
+
 	// Agents
 	async getAgents(): Promise<Agent[]> {
 		const response = await fetch(`${API_URL}/api/agents`);
