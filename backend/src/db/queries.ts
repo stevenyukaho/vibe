@@ -1,6 +1,8 @@
 import db from './database';
 import {
 	Agent,
+	AgentRequestTemplate,
+	AgentResponseMap,
 	Test,
 	TestResult,
 	Job,
@@ -79,6 +81,244 @@ export const deleteAgent = (id: number) => {
 	const statement = db.prepare('DELETE FROM agents WHERE id = ?');
 	return statement.run(id);
 };
+
+// Agent Request Templates
+export function listAgentRequestTemplates(agentId: number): AgentRequestTemplate[] {
+	const stmt = db.prepare(`
+		SELECT * FROM agent_request_templates
+		WHERE agent_id = ?
+		ORDER BY created_at DESC, id DESC
+	`);
+	return stmt.all(agentId) as AgentRequestTemplate[];
+}
+
+export function getAgentRequestTemplateById(id: number): AgentRequestTemplate | undefined {
+	const stmt = db.prepare(`SELECT * FROM agent_request_templates WHERE id = ?`);
+	return stmt.get(id) as AgentRequestTemplate | undefined;
+}
+
+export function createAgentRequestTemplate(agentId: number, payload: Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>): AgentRequestTemplate {
+	const hadDefaultStmt = db.prepare(`SELECT id FROM agent_request_templates WHERE agent_id = ? AND is_default = 1 LIMIT 1`);
+	const insertStmt = db.prepare(`
+		INSERT INTO agent_request_templates (agent_id, name, description, engine, content_type, body, tags, is_default)
+		VALUES (@agent_id, @name, @description, @engine, @content_type, @body, @tags, @is_default)
+		RETURNING *
+	`);
+	const clearDefaultStmt = db.prepare(`UPDATE agent_request_templates SET is_default = 0 WHERE agent_id = ?`);
+	const setDefaultStmt = db.prepare(`UPDATE agent_request_templates SET is_default = 1 WHERE id = ?`);
+
+	const tx = db.transaction(() => {
+		const hadDefault = !!hadDefaultStmt.get(agentId);
+		const wantsDefault = payload.is_default ? 1 : 0;
+
+		if (wantsDefault) {
+			clearDefaultStmt.run(agentId);
+		}
+		const row = insertStmt.get({
+			agent_id: agentId,
+			name: payload.name,
+			description: payload.description ?? null,
+			engine: payload.engine ?? 'handlebars',
+			content_type: payload.content_type ?? 'application/json',
+			body: payload.body,
+			tags: payload.tags ?? null,
+			is_default: wantsDefault
+		}) as AgentRequestTemplate;
+
+		if (!hadDefault && !wantsDefault && row?.id) {
+			setDefaultStmt.run(row.id);
+			row.is_default = 1;
+		}
+		return row;
+	});
+	return tx();
+}
+
+export function updateAgentRequestTemplate(id: number, updates: Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>): AgentRequestTemplate | undefined {
+	// Handle default toggle inside a transaction
+	const clearDefaultStmt = db.prepare(`UPDATE agent_request_templates SET is_default = 0 WHERE agent_id = (SELECT agent_id FROM agent_request_templates WHERE id = ?)`);
+	const setDefaultStmt = db.prepare(`UPDATE agent_request_templates SET is_default = 1 WHERE id = ?`);
+
+	const current = getAgentRequestTemplateById(id);
+	if (!current) return undefined;
+
+	const fields = Object.entries(updates)
+		.filter(([k, v]) => v !== undefined && k !== 'is_default')
+		.map(([k]) => `${k} = @${k}`);
+
+	const updateStmt = db.prepare(`
+		UPDATE agent_request_templates
+		SET ${fields.length ? fields.join(', ') : 'name = name'}
+		WHERE id = @id
+		RETURNING *
+	`);
+
+	const tx = db.transaction(() => {
+		let row = updateStmt.get({ id, ...updates }) as AgentRequestTemplate;
+		if (updates.is_default) {
+			clearDefaultStmt.run(id);
+			setDefaultStmt.run(id);
+			row.is_default = 1;
+		}
+		return row;
+	});
+	return tx();
+}
+
+export function deleteAgentRequestTemplate(id: number): void {
+	const getAgentStmt = db.prepare(`SELECT agent_id, is_default FROM agent_request_templates WHERE id = ?`);
+	const delStmt = db.prepare(`DELETE FROM agent_request_templates WHERE id = ?`);
+	const ensureDefaultStmt = db.prepare(`
+		UPDATE agent_request_templates
+		SET is_default = 1
+		WHERE id = (
+			SELECT id FROM agent_request_templates
+			WHERE agent_id = ?
+			ORDER BY created_at DESC, id DESC
+			LIMIT 1
+		)
+	`);
+
+	const tx = db.transaction(() => {
+		const row = getAgentStmt.get(id) as { agent_id: number; is_default: number } | undefined;
+		if (!row) return;
+		delStmt.run(id);
+		if (row.is_default) {
+			// if we deleted the default, promote the newest one as default (if any)
+			const hasAny = db.prepare(`SELECT id FROM agent_request_templates WHERE agent_id = ? LIMIT 1`).get(row.agent_id) as { id?: number } | undefined;
+			const hasDefault = db.prepare(`SELECT id FROM agent_request_templates WHERE agent_id = ? AND is_default = 1 LIMIT 1`).get(row.agent_id) as { id?: number } | undefined;
+			if (hasAny && !hasDefault) {
+				ensureDefaultStmt.run(row.agent_id);
+			}
+		}
+	});
+	tx();
+}
+
+export function setDefaultAgentRequestTemplate(agentId: number, templateId: number): void {
+	const tx = db.transaction(() => {
+		db.prepare(`UPDATE agent_request_templates SET is_default = 0 WHERE agent_id = ?`).run(agentId);
+		db.prepare(`UPDATE agent_request_templates SET is_default = 1 WHERE id = ? AND agent_id = ?`).run(templateId, agentId);
+	});
+	tx();
+}
+
+// Agent Response Maps
+export function listAgentResponseMaps(agentId: number): AgentResponseMap[] {
+	const stmt = db.prepare(`
+		SELECT * FROM agent_response_maps
+		WHERE agent_id = ?
+		ORDER BY created_at DESC, id DESC
+	`);
+	return stmt.all(agentId) as AgentResponseMap[];
+}
+
+export function getAgentResponseMapById(id: number): AgentResponseMap | undefined {
+	const stmt = db.prepare(`SELECT * FROM agent_response_maps WHERE id = ?`);
+	return stmt.get(id) as AgentResponseMap | undefined;
+}
+
+export function createAgentResponseMap(agentId: number, payload: Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>): AgentResponseMap {
+	const hadDefaultStmt = db.prepare(`SELECT id FROM agent_response_maps WHERE agent_id = ? AND is_default = 1 LIMIT 1`);
+	const insertStmt = db.prepare(`
+		INSERT INTO agent_response_maps (agent_id, name, description, spec, tags, is_default)
+		VALUES (@agent_id, @name, @description, @spec, @tags, @is_default)
+		RETURNING *
+	`);
+	const clearDefaultStmt = db.prepare(`UPDATE agent_response_maps SET is_default = 0 WHERE agent_id = ?`);
+	const setDefaultStmt = db.prepare(`UPDATE agent_response_maps SET is_default = 1 WHERE id = ?`);
+
+	const tx = db.transaction(() => {
+		const hadDefault = !!hadDefaultStmt.get(agentId);
+		const wantsDefault = payload.is_default ? 1 : 0;
+
+		if (wantsDefault) {
+			clearDefaultStmt.run(agentId);
+		}
+		const row = insertStmt.get({
+			agent_id: agentId,
+			name: payload.name,
+			description: payload.description ?? null,
+			spec: payload.spec,
+			tags: payload.tags ?? null,
+			is_default: wantsDefault
+		}) as AgentResponseMap;
+
+		if (!hadDefault && !wantsDefault && row?.id) {
+			setDefaultStmt.run(row.id);
+			row.is_default = 1;
+		}
+		return row;
+	});
+	return tx();
+}
+
+export function updateAgentResponseMap(id: number, updates: Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>): AgentResponseMap | undefined {
+	const clearDefaultStmt = db.prepare(`UPDATE agent_response_maps SET is_default = 0 WHERE agent_id = (SELECT agent_id FROM agent_response_maps WHERE id = ?)`);
+	const setDefaultStmt = db.prepare(`UPDATE agent_response_maps SET is_default = 1 WHERE id = ?`);
+
+	const current = getAgentResponseMapById(id);
+	if (!current) return undefined;
+
+	const fields = Object.entries(updates)
+		.filter(([k, v]) => v !== undefined && k !== 'is_default')
+		.map(([k]) => `${k} = @${k}`);
+
+	const updateStmt = db.prepare(`
+		UPDATE agent_response_maps
+		SET ${fields.length ? fields.join(', ') : 'name = name'}
+		WHERE id = @id
+		RETURNING *
+	`);
+
+	const tx = db.transaction(() => {
+		let row = updateStmt.get({ id, ...updates }) as AgentResponseMap;
+		if (updates.is_default) {
+			clearDefaultStmt.run(id);
+			setDefaultStmt.run(id);
+			row.is_default = 1;
+		}
+		return row;
+	});
+	return tx();
+}
+
+export function deleteAgentResponseMap(id: number): void {
+	const getAgentStmt = db.prepare(`SELECT agent_id, is_default FROM agent_response_maps WHERE id = ?`);
+	const delStmt = db.prepare(`DELETE FROM agent_response_maps WHERE id = ?`);
+	const ensureDefaultStmt = db.prepare(`
+		UPDATE agent_response_maps
+		SET is_default = 1
+		WHERE id = (
+			SELECT id FROM agent_response_maps
+			WHERE agent_id = ?
+			ORDER BY created_at DESC, id DESC
+			LIMIT 1
+		)
+	`);
+
+	const tx = db.transaction(() => {
+		const row = getAgentStmt.get(id) as { agent_id: number; is_default: number } | undefined;
+		if (!row) return;
+		delStmt.run(id);
+		if (row.is_default) {
+			const hasAny = db.prepare(`SELECT id FROM agent_response_maps WHERE agent_id = ? LIMIT 1`).get(row.agent_id) as { id?: number } | undefined;
+			const hasDefault = db.prepare(`SELECT id FROM agent_response_maps WHERE agent_id = ? AND is_default = 1 LIMIT 1`).get(row.agent_id) as { id?: number } | undefined;
+			if (hasAny && !hasDefault) {
+				ensureDefaultStmt.run(row.agent_id);
+			}
+		}
+	});
+	tx();
+}
+
+export function setDefaultAgentResponseMap(agentId: number, mapId: number): void {
+	const tx = db.transaction(() => {
+		db.prepare(`UPDATE agent_response_maps SET is_default = 0 WHERE agent_id = ?`).run(agentId);
+		db.prepare(`UPDATE agent_response_maps SET is_default = 1 WHERE id = ? AND agent_id = ?`).run(mapId, agentId);
+	});
+	tx();
+}
 
 // Test queries
 export const createTest = (test: Test) => {
@@ -1103,12 +1343,18 @@ export const createConversation = (conversation: Conversation) => {
 		...conversation,
 		name: conversation.name || '',
 		description: conversation.description || '',
-		tags: conversation.tags || '[]'
+		tags: conversation.tags || '[]',
+		default_request_template_id: conversation.default_request_template_id ?? null,
+		default_response_map_id: conversation.default_response_map_id ?? null,
+		variables: conversation.variables ?? null,
+		stop_on_failure: typeof conversation.stop_on_failure === 'boolean'
+			? (conversation.stop_on_failure ? 1 : 0)
+			: (conversation.stop_on_failure ?? 0)
 	};
 
 	const statement = db.prepare(`
-		INSERT INTO conversations (name, description, tags)
-		VALUES (@name, @description, @tags)
+		INSERT INTO conversations (name, description, tags, default_request_template_id, default_response_map_id, variables, stop_on_failure)
+		VALUES (@name, @description, @tags, @default_request_template_id, @default_response_map_id, @variables, @stop_on_failure)
 		RETURNING *
 	`);
 	return statement.get(conversationWithDefaults) as Conversation;
@@ -1155,8 +1401,40 @@ export const getConversationsWithCount = (params: { limit?: number; offset?: num
 };
 
 export const updateConversation = (id: number, conversation: Partial<Conversation>) => {
+	const normalizedConversation: Record<string, unknown> = { ...conversation };
+
+	if (Object.prototype.hasOwnProperty.call(normalizedConversation, 'stop_on_failure')) {
+		const value = normalizedConversation.stop_on_failure as unknown;
+
+		if (typeof value === 'boolean') {
+			normalizedConversation.stop_on_failure = value ? 1 : 0;
+		} else if (value === null || value === undefined) {
+			normalizedConversation.stop_on_failure = 0;
+		}
+	}
+
+	if (Object.prototype.hasOwnProperty.call(normalizedConversation, 'default_request_template_id')) {
+		const value = normalizedConversation.default_request_template_id as unknown;
+
+		if (value === null || value === undefined || value === '') {
+			normalizedConversation.default_request_template_id = null;
+		} else if (typeof value === 'string' || typeof value === 'number') {
+			normalizedConversation.default_request_template_id = Number(value);
+		}
+	}
+
+	if (Object.prototype.hasOwnProperty.call(normalizedConversation, 'default_response_map_id')) {
+		const value = normalizedConversation.default_response_map_id as unknown;
+
+		if (value === null || value === undefined || value === '') {
+			normalizedConversation.default_response_map_id = null;
+		} else if (typeof value === 'string' || typeof value === 'number') {
+			normalizedConversation.default_response_map_id = Number(value);
+		}
+	}
+
 	const filteredConversation = Object.fromEntries(
-		Object.entries(conversation).filter(([_, value]) => value !== undefined)
+		Object.entries(normalizedConversation).filter(([_, value]) => value !== undefined)
 	);
 
 	if (Object.keys(filteredConversation).length === 0) {
@@ -1211,8 +1489,8 @@ export const deleteConversation = (id: number) => {
 export const addMessageToConversation = (message: ConversationMessage) => {
 	const normalizedMessage = normalizeConversationMessageInsert(message);
 	const statement = db.prepare(`
-		INSERT INTO conversation_messages (conversation_id, sequence, role, content, metadata)
-		VALUES (@conversation_id, @sequence, @role, @content, @metadata)
+		INSERT INTO conversation_messages (conversation_id, sequence, role, content, metadata, request_template_id, response_map_id, set_variables)
+		VALUES (@conversation_id, @sequence, @role, @content, @metadata, @request_template_id, @response_map_id, @set_variables)
 		RETURNING *
 	`);
 	return statement.get(normalizedMessage) as ConversationMessage;
@@ -1267,6 +1545,7 @@ export const createExecutionSession = (session: ExecutionSession) => {
 	const nowIso = new Date().toISOString();
 	const status = session.status || 'pending';
 	let metadataString = '{}';
+	let variablesString: string | null = null;
 	if (typeof session.metadata === 'string') {
 		metadataString = session.metadata;
 	} else if (session.metadata) {
@@ -1274,6 +1553,17 @@ export const createExecutionSession = (session: ExecutionSession) => {
 			metadataString = JSON.stringify(session.metadata as unknown as any);
 		} catch {
 			metadataString = '{}';
+		}
+	}
+	if ((session as any).variables === null || (session as any).variables === undefined) {
+		variablesString = null;
+	} else if (typeof (session as any).variables === 'string') {
+		variablesString = (session as any).variables as string;
+	} else {
+		try {
+			variablesString = JSON.stringify((session as any).variables);
+		} catch {
+			variablesString = null;
 		}
 	}
 
@@ -1285,17 +1575,18 @@ export const createExecutionSession = (session: ExecutionSession) => {
 		completed_at: session.completed_at ?? (status === 'completed' ? nowIso : null),
 		success: (typeof session.success === 'boolean') ? (session.success ? 1 : 0) : null,
 		error_message: session.error_message ?? null,
-		metadata: metadataString
+		metadata: metadataString,
+		variables: variablesString
 	};
 
 	const statement = db.prepare(`
 		INSERT INTO execution_sessions (
 			conversation_id, agent_id, status, started_at, completed_at,
-			success, error_message, metadata
+			success, error_message, metadata, variables
 		)
 		VALUES (
 			@conversation_id, @agent_id, @status, @started_at, @completed_at,
-			@success, @error_message, @metadata
+			@success, @error_message, @metadata, @variables
 		)
 		RETURNING *
 	`);
