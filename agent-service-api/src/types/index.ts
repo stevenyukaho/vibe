@@ -36,6 +36,7 @@ export interface ConversationExecutionRequest {
 	token_mapping?: string;
 	headers?: Record<string, string>;
 	http_method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+	stop_on_failure?: boolean; // if true, halt on per-turn failure
 }
 
 /**
@@ -93,6 +94,7 @@ export interface ConversationExecutionResponse {
 	success: boolean;
 	execution_time: number;
 	intermediate_steps: IntermediateStep[];
+	variables?: Record<string, any>;
 	metrics: Metrics;
 }
 
@@ -102,6 +104,7 @@ export interface ConversationExecutionResponse {
 export interface ResponseMapping {
 	output: string;
 	intermediate_steps?: string;
+	variables?: Record<string, string>;
 	success_criteria?: {
 		type: 'contains' | 'exact_match' | 'json_match';
 		path?: string;
