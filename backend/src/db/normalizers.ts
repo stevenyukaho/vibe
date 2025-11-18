@@ -14,6 +14,9 @@ export interface ConversationMessageInsertPayload {
 	role: string;
 	content: string;
 	metadata: string | null;
+	request_template_id: number | null;
+	response_map_id: number | null;
+	set_variables: string | null;
 }
 
 export function normalizeConversationMessageInsert(message: {
@@ -22,6 +25,9 @@ export function normalizeConversationMessageInsert(message: {
 	role?: string;
 	content?: string;
 	metadata?: unknown;
+	request_template_id?: number | null;
+	response_map_id?: number | null;
+	set_variables?: unknown;
 }): ConversationMessageInsertPayload {
 	const conversationId = Number(message.conversation_id);
 	const sequence = message.sequence !== undefined ? Number(message.sequence) : 1;
@@ -49,12 +55,35 @@ export function normalizeConversationMessageInsert(message: {
 		}
 	}
 
+	const request_template_id = (message.request_template_id !== undefined && message.request_template_id !== null)
+		? Number(message.request_template_id)
+		: null;
+	const response_map_id = (message.response_map_id !== undefined && message.response_map_id !== null)
+		? Number(message.response_map_id)
+		: null;
+
+	let set_variables: string | null = null;
+	if (message.set_variables === null || message.set_variables === undefined) {
+		set_variables = null;
+	} else if (typeof message.set_variables === 'string') {
+		set_variables = message.set_variables;
+	} else {
+		try {
+			set_variables = JSON.stringify(message.set_variables);
+		} catch (_e) {
+			set_variables = null;
+		}
+	}
+
 	return {
 		conversation_id: conversationId,
 		sequence,
 		role,
 		content,
-		metadata
+		metadata,
+		request_template_id,
+		response_map_id,
+		set_variables
 	};
 }
 
