@@ -12,9 +12,11 @@ import {
 	Accordion,
 	AccordionItem,
 	CodeSnippet,
-	Dropdown
+	Dropdown,
+	Tag,
+	Checkbox
 } from '@carbon/react';
-import { Launch } from '@carbon/icons-react';
+import { Launch, TrashCan, Edit, Add } from '@carbon/icons-react';
 import { api } from '@/lib/api';
 import styles from './AgentFormModal.module.scss';
 
@@ -24,6 +26,28 @@ interface AgentFormModalProps {
 	formData: Record<string, string>;
 	onClose: () => void;
 	onSuccess: () => void;
+}
+
+interface RequestTemplate {
+	id?: number;
+	name: string;
+	description?: string;
+	body: string;
+	is_default?: boolean;
+	_isNew?: boolean;
+	_isEditing?: boolean;
+	_isDeleted?: boolean;
+}
+
+interface ResponseMap {
+	id?: number;
+	name: string;
+	description?: string;
+	spec: string;
+	is_default?: boolean;
+	_isNew?: boolean;
+	_isEditing?: boolean;
+	_isDeleted?: boolean;
 }
 
 export default function AgentFormModal({
@@ -38,12 +62,54 @@ export default function AgentFormModal({
 	const [isSaving, setIsSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
+	// State for templates and maps
+	const [requestTemplates, setRequestTemplates] = useState<RequestTemplate[]>([]);
+	const [responseMaps, setResponseMaps] = useState<ResponseMap[]>([]);
+	const [newTemplate, setNewTemplate] = useState<Partial<RequestTemplate>>({ name: '', body: '', is_default: false });
+	const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ name: '', spec: '', is_default: false });
+	const [shouldShowNewTemplateForm, setShouldShowNewTemplateForm] = useState(false);
+	const [shouldShowNewMapForm, setShouldShowNewMapForm] = useState(false);
+
 	// Update form data when initialFormData changes
 	useEffect(() => {
 		if (isOpen && initialFormData) {
 			setFormData(initialFormData);
 		}
 	}, [isOpen, initialFormData]);
+
+	// Load templates and maps when editing an existing agent
+	useEffect(() => {
+		if (isOpen && editingId) {
+			const loadTemplatesAndMaps = async () => {
+				try {
+					const [templates, maps] = await Promise.all([
+						api.getAgentRequestTemplates(editingId),
+						api.getAgentResponseMaps(editingId)
+					]);
+					// Convert is_default from number (0/1) to boolean
+					setRequestTemplates((templates || []).map(t => ({
+						...t,
+						is_default: Number(t.is_default) === 1
+					})));
+					setResponseMaps((maps || []).map(m => ({
+						...m,
+						is_default: Number(m.is_default) === 1
+					})));
+				} catch (err) {
+					console.error('Failed to load templates/maps:', err);
+				}
+			};
+			loadTemplatesAndMaps();
+		} else if (isOpen) {
+			// Reset for new agent
+			setRequestTemplates([]);
+			setResponseMaps([]);
+			setNewTemplate({ name: '', body: '', is_default: false });
+			setNewResponseMap({ name: '', spec: '', is_default: false });
+			setShouldShowNewTemplateForm(false);
+			setShouldShowNewMapForm(false);
+		}
+	}, [isOpen, editingId]);
 
 	// State for API connection testing
 	const [testConnectionStatus, setTestConnectionStatus] = useState<{
@@ -99,39 +165,6 @@ export default function AgentFormModal({
 					setError('Invalid API Endpoint URL format');
 					setIsSaving(false);
 					return;
-				}
-
-				// Validate request template JSON if provided
-				if (formData['agent-request-template']) {
-					try {
-						// Make sure it contains the input placeholder
-						const template = formData['agent-request-template'];
-						if (!template.includes('{{input}}')) {
-							setError('Request template must include {{input}} placeholder');
-							setIsSaving(false);
-							return;
-						}
-
-						// Verify it's valid JSON when the placeholder is replaced
-						JSON.parse(template.replace(/\{\{input\}\}/g, 'test'));
-					} catch (error) {
-						console.error('Invalid JSON in request template:', error);
-						setError('Invalid JSON in request template');
-						setIsSaving(false);
-						return;
-					}
-				}
-
-				// Validate response mapping JSON if provided
-				if (formData['agent-response-mapping'] !== undefined) {
-					if (formData['agent-response-mapping']) {
-						settings = {
-							...settings,
-							response_mapping: formData['agent-response-mapping']
-						};
-					} else {
-						delete settings['response_mapping'];
-					}
 				}
 
 				// Validate headers JSON if provided
@@ -232,26 +265,6 @@ export default function AgentFormModal({
 					};
 				}
 
-				// Add request template if provided
-				if (formData['agent-request-template']) {
-					settings = {
-						...settings,
-						request_template: formData['agent-request-template']
-					};
-				}
-
-				// Add response mapping if provided
-				if (formData['agent-response-mapping'] !== undefined) {
-					if (formData['agent-response-mapping']) {
-						settings = {
-							...settings,
-							response_mapping: formData['agent-response-mapping']
-						};
-					} else {
-						delete settings['response_mapping'];
-					}
-				}
-
 				// Add token mapping if provided
 				if (formData['agent-token-mapping'] !== undefined) {
 					if (formData['agent-token-mapping']) {
@@ -297,12 +310,100 @@ export default function AgentFormModal({
 				settings: JSON.stringify(settings)
 			};
 
+			let savedAgentId: number;
 			if (editingId) {
 				// Update existing agent
 				await api.updateAgent(editingId, agentData);
+				savedAgentId = editingId;
 			} else {
 				// Create new agent
-				await api.createAgent(agentData);
+				const createdAgent = await api.createAgent(agentData);
+				savedAgentId = createdAgent.id!;
+			}
+
+			// For external API agents, save templates and maps
+			if (settings.type === 'external_api') {
+				// Warn if no templates/maps but allow saving
+				const activeTemplates = requestTemplates.filter(t => !t._isDeleted);
+				const activeMaps = responseMaps.filter(m => !m._isDeleted);
+
+				if (activeTemplates.length === 0 || activeMaps.length === 0) {
+					console.warn('External API agent saved without templates/maps - will need them before execution');
+				}
+
+				// Process templates
+				for (const template of requestTemplates) {
+					if (template._isDeleted && template.id && !template._isNew) {
+						await api.deleteAgentRequestTemplate(savedAgentId, template.id);
+					} else if (template._isNew && !template._isDeleted) {
+						// Create new template
+						try {
+							JSON.parse(template.body);
+							await api.createAgentRequestTemplate(savedAgentId, {
+								name: template.name,
+								description: template.description,
+								body: template.body,
+								is_default: template.is_default
+							});
+						} catch (err) {
+							setError(`Invalid JSON in template "${template.name}": ${err instanceof Error ? err.message : 'Unknown error'}`);
+							setIsSaving(false);
+							return;
+						}
+					} else if (template.id && !template._isNew && !template._isDeleted) {
+						// Update existing template
+						try {
+							JSON.parse(template.body);
+							await api.updateAgentRequestTemplate(savedAgentId, template.id, {
+								name: template.name,
+								description: template.description,
+								body: template.body,
+								is_default: template.is_default
+							});
+						} catch (err) {
+							setError(`Invalid JSON in template "${template.name}": ${err instanceof Error ? err.message : 'Unknown error'}`);
+							setIsSaving(false);
+							return;
+						}
+					}
+				}
+
+				// Process response maps
+				for (const map of responseMaps) {
+					if (map._isDeleted && map.id && !map._isNew) {
+						await api.deleteAgentResponseMap(savedAgentId, map.id);
+					} else if (map._isNew && !map._isDeleted) {
+						// Create new map
+						try {
+							JSON.parse(map.spec);
+							await api.createAgentResponseMap(savedAgentId, {
+								name: map.name,
+								description: map.description,
+								spec: map.spec,
+								is_default: map.is_default
+							});
+						} catch (err) {
+							setError(`Invalid JSON in response map "${map.name}": ${err instanceof Error ? err.message : 'Unknown error'}`);
+							setIsSaving(false);
+							return;
+						}
+					} else if (map.id && !map._isNew && !map._isDeleted) {
+						// Update existing map
+						try {
+							JSON.parse(map.spec);
+							await api.updateAgentResponseMap(savedAgentId, map.id, {
+								name: map.name,
+								description: map.description,
+								spec: map.spec,
+								is_default: map.is_default
+							});
+						} catch (err) {
+							setError(`Invalid JSON in response map "${map.name}": ${err instanceof Error ? err.message : 'Unknown error'}`);
+							setIsSaving(false);
+							return;
+						}
+					}
+				}
 			}
 
 			// Notify parent of success and close modal
@@ -367,18 +468,7 @@ export default function AgentFormModal({
 			}
 
 			// Prepare request body
-			let body = { test: 'connection' };
-
-			// Use request template if provided
-			if (formData['agent-request-template']) {
-				try {
-					const template = formData['agent-request-template'].replace(/\{\{input\}\}/g, 'test connection');
-					body = JSON.parse(template);
-				} catch (error) {
-					console.error('Invalid request template:', error);
-					// Invalid JSON, use default
-				}
-			}
+			const body = { test: 'connection' };
 
 			// Make the request
 			const response = await fetch(formData['agent-api-endpoint'], {
@@ -577,24 +667,6 @@ export default function AgentFormModal({
 								type="password"
 							/>
 							<TextArea
-								id="agent-request-template"
-								labelText="Request Template (Optional)"
-								placeholder='JSON template with {{input}} placeholder, e.g.: {"prompt": "{{input}}", "max_tokens": 1000}'
-								rows={4}
-								value={formData['agent-request-template'] || ''}
-								onChange={handleInputChange}
-								helperText="Use {{input}} as a placeholder for the test input"
-							/>
-							<TextArea
-								id="agent-response-mapping"
-								labelText="Response Mapping (Optional)"
-								placeholder='JSON mapping to extract response, e.g.: {"output": "choices.0.text", "success_criteria": {"type": "contains", "value": "completed"}}'
-								rows={4}
-								value={formData['agent-response-mapping'] || ''}
-								onChange={handleInputChange}
-								helperText="Specify how to extract output and determine success"
-							/>
-							<TextArea
 								id="agent-token-mapping"
 								labelText="Token mapping (Optional)"
 								placeholder='JSON mapping to extract token usage, e.g.: {"input_tokens": "usage.prompt_tokens", "output_tokens": "usage.completion_tokens"}'
@@ -613,31 +685,367 @@ export default function AgentFormModal({
 								helperText="Custom HTTP headers as JSON object"
 							/>
 
-							{/* Test Connection Button */}
-							<div className={styles.testConnection}>
-								<Button
-									kind="tertiary"
-									onClick={testApiConnection}
-									disabled={!formData['agent-api-endpoint'] || testConnectionStatus?.loading}
-									renderIcon={Launch}
-									size="sm"
-								>
-									{testConnectionStatus?.loading ? 'Testing...' : 'Test Connection'}
-								</Button>
+							{/* Request Templates Section */}
+							<Accordion>
+								<AccordionItem title="Request templates (recommended)">
+									<div className={styles.templatesSection}>
+										<p className={styles.sectionDescription}>
+											Templates define how to format requests to your API. At least one template is needed to execute conversations.
+										</p>
 
-								{testConnectionStatus && !testConnectionStatus.loading && (
-									<InlineNotification 
-										className={styles.testConnectionStatus}
-										kind={testConnectionStatus.success ? 'success' : 'error'}
-										title={testConnectionStatus.success ? 'Success' : 'Error'}
-										subtitle={testConnectionStatus.message}
-										hideCloseButton
-										lowContrast
-									/>
-								)}
-							</div>
+										{/* Existing templates */}
+										{requestTemplates.filter(t => !t._isDeleted).map((template, idx) => (
+											<div key={template.id || `new-${idx}`} className={styles.templateItem}>
+												<div className={styles.templateHeader}>
+													<div className={styles.templateTitle}>
+														<strong>{template.name}</strong>
+														{template.is_default && <Tag type="green" size="sm">default</Tag>}
+													</div>
+													<div className={styles.templateActions}>
+														<Button
+															kind="ghost"
+															size="sm"
+															renderIcon={Edit}
+															onClick={() => {
+																setRequestTemplates(requestTemplates.map(t =>
+																	t.id === template.id ? { ...t, _isEditing: !t._isEditing } : t
+																));
+															}}
+														>
+															{template._isEditing ? 'Cancel' : 'Edit'}
+														</Button>
+														<Button
+															kind="danger--ghost"
+															size="sm"
+															renderIcon={TrashCan}
+															onClick={() => {
+																setRequestTemplates(requestTemplates.map(t =>
+																	t.id === template.id ? { ...t, _isDeleted: true } : t
+																));
+															}}
+														>
+															Delete
+														</Button>
+													</div>
+												</div>
+												{template._isEditing ? (
+													<Stack gap={4}>
+														<TextInput
+															id={`template-name-${idx}`}
+															labelText="Name"
+															value={template.name}
+															onChange={(e) => {
+																setRequestTemplates(requestTemplates.map(t =>
+																	t.id === template.id ? { ...t, name: e.target.value } : t
+																));
+															}}
+														/>
+														<TextArea
+															id={`template-body-${idx}`}
+															labelText="Body (JSON)"
+															value={template.body}
+															onChange={(e) => {
+																setRequestTemplates(requestTemplates.map(t =>
+																	t.id === template.id ? { ...t, body: e.target.value } : t
+																));
+															}}
+															rows={4}
+														/>
+														<Checkbox
+															id={`template-default-${idx}`}
+															labelText="Set as default"
+															checked={!!template.is_default}
+															onChange={(_evt, { checked }) => {
+																setRequestTemplates(requestTemplates.map(t =>
+																	t.id === template.id ? { ...t, is_default: checked } : { ...t, is_default: false }
+																));
+															}}
+														/>
+													</Stack>
+												) : (
+													<CodeSnippet type="multi" feedback="Copied to clipboard">
+														{template.body}
+													</CodeSnippet>
+												)}
+											</div>
+										))}
+
+										{/* Add new template button */}
+										{!shouldShowNewTemplateForm && (
+											<Button
+												kind="tertiary"
+												size="sm"
+												renderIcon={Add}
+												onClick={() => setShouldShowNewTemplateForm(true)}
+											>
+												Add new template
+											</Button>
+										)}
+
+										{/* New template form */}
+										{shouldShowNewTemplateForm && (
+											<div className={styles.newTemplateForm}>
+												<h6 className={styles.newFormTitle}>Add new template</h6>
+												<Stack gap={4}>
+													<TextInput
+														id="new-template-name"
+														labelText="Name"
+														value={newTemplate.name || ''}
+														onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
+														placeholder="e.g., default, openai-style"
+													/>
+													<TextArea
+														id="new-template-body"
+														labelText="Body (JSON)"
+														value={newTemplate.body || ''}
+														onChange={(e) => setNewTemplate({ ...newTemplate, body: e.target.value })}
+														placeholder='{"model": "gpt-4", "messages": [{"role": "user", "content": "{{input}}"}]}'
+														rows={4}
+													/>
+													<Checkbox
+														id="new-template-default"
+														labelText="Set as default"
+														checked={!!newTemplate.is_default}
+														onChange={(_evt, { checked }) => setNewTemplate({ ...newTemplate, is_default: checked })}
+													/>
+													<div className={styles.formActions}>
+														<Button
+															kind="secondary"
+															size="sm"
+															onClick={() => {
+																setShouldShowNewTemplateForm(false);
+																setNewTemplate({ name: '', body: '', is_default: false });
+															}}
+														>
+															Cancel
+														</Button>
+														<Button
+															kind="primary"
+															size="sm"
+															onClick={() => {
+																// Validate JSON
+																try {
+																	JSON.parse(newTemplate.body || '');
+																} catch (err) {
+																	setError(`Invalid JSON in template body: ${err instanceof Error ? err.message : 'Unknown error'}`);
+																	return;
+																}
+
+																// Mark as new for saving later
+																const newTpl = {
+																	...newTemplate,
+																	id: Date.now(), // temporary ID
+																	_isNew: true
+																} as RequestTemplate & { _isNew: boolean };
+																setRequestTemplates([...requestTemplates, newTpl]);
+																setShouldShowNewTemplateForm(false);
+																setNewTemplate({ name: '', body: '', is_default: false });
+																setError(null);
+															}}
+															disabled={!newTemplate.name || !newTemplate.body}
+														>
+															Add
+														</Button>
+													</div>
+												</Stack>
+											</div>
+										)}
+									</div>
+								</AccordionItem>
+
+								{/* Response Maps Section */}
+								<AccordionItem title="Response maps (recommended)">
+									<div className={styles.templatesSection}>
+										<p className={styles.sectionDescription}>
+											Response maps define how to extract data from API responses. At least one map is needed to execute conversations.
+										</p>
+
+										{/* Existing maps */}
+										{responseMaps.filter(m => !m._isDeleted).map((map, idx) => (
+											<div key={map.id || `new-${idx}`} className={styles.mapItem}>
+												<div className={styles.mapHeader}>
+													<div className={styles.mapTitle}>
+														<strong>{map.name}</strong>
+														{map.is_default && <Tag type="green" size="sm">default</Tag>}
+													</div>
+													<div className={styles.mapActions}>
+														<Button
+															kind="ghost"
+															size="sm"
+															renderIcon={Edit}
+															onClick={() => {
+																setResponseMaps(responseMaps.map(m =>
+																	m.id === map.id ? { ...m, _isEditing: !m._isEditing } : m
+																));
+															}}
+														>
+															{map._isEditing ? 'Cancel' : 'Edit'}
+														</Button>
+														<Button
+															kind="danger--ghost"
+															size="sm"
+															renderIcon={TrashCan}
+															onClick={() => {
+																setResponseMaps(responseMaps.map(m =>
+																	m.id === map.id ? { ...m, _isDeleted: true } : m
+																));
+															}}
+														>
+															Delete
+														</Button>
+													</div>
+												</div>
+												{map._isEditing ? (
+													<Stack gap={4}>
+														<TextInput
+															id={`map-name-${idx}`}
+															labelText="Name"
+															value={map.name}
+															onChange={(e) => {
+																setResponseMaps(responseMaps.map(m =>
+																	m.id === map.id ? { ...m, name: e.target.value } : m
+																));
+															}}
+														/>
+														<TextArea
+															id={`map-spec-${idx}`}
+															labelText="Spec (JSON)"
+															value={map.spec}
+															onChange={(e) => {
+																setResponseMaps(responseMaps.map(m =>
+																	m.id === map.id ? { ...m, spec: e.target.value } : m
+																));
+															}}
+															rows={4}
+														/>
+														<Checkbox
+															id={`map-default-${idx}`}
+															labelText="Set as default"
+															checked={!!map.is_default}
+															onChange={(_evt, { checked }) => {
+																setResponseMaps(responseMaps.map(m =>
+																	m.id === map.id ? { ...m, is_default: checked } : { ...m, is_default: false }
+																));
+															}}
+														/>
+													</Stack>
+												) : (
+													<CodeSnippet type="multi" feedback="Copied to clipboard">
+														{map.spec}
+													</CodeSnippet>
+												)}
+											</div>
+										))}
+
+										{/* Add new map button */}
+										{!shouldShowNewMapForm && (
+											<Button
+												kind="tertiary"
+												size="sm"
+												renderIcon={Add}
+												onClick={() => setShouldShowNewMapForm(true)}
+											>
+												Add new response map
+											</Button>
+										)}
+
+										{/* New map form */}
+										{shouldShowNewMapForm && (
+											<div className={styles.newMapForm}>
+												<h6 className={styles.newFormTitle}>Add new response map</h6>
+												<Stack gap={4}>
+													<TextInput
+														id="new-map-name"
+														labelText="Name"
+														value={newResponseMap.name || ''}
+														onChange={(e) => setNewResponseMap({ ...newResponseMap, name: e.target.value })}
+														placeholder="e.g., default, openai-style"
+													/>
+													<TextArea
+														id="new-map-spec"
+														labelText="Spec (JSON)"
+														value={newResponseMap.spec || ''}
+														onChange={(e) => setNewResponseMap({ ...newResponseMap, spec: e.target.value })}
+														placeholder='{"output": "choices.0.message.content"}'
+														rows={4}
+													/>
+													<Checkbox
+														id="new-map-default"
+														labelText="Set as default"
+														checked={!!newResponseMap.is_default}
+														onChange={(_evt, { checked }) => setNewResponseMap({ ...newResponseMap, is_default: checked })}
+													/>
+													<div className={styles.formActions}>
+														<Button
+															kind="secondary"
+															size="sm"
+															onClick={() => {
+																setShouldShowNewMapForm(false);
+																setNewResponseMap({ name: '', spec: '', is_default: false });
+															}}
+														>
+															Cancel
+														</Button>
+														<Button
+															kind="primary"
+															size="sm"
+															onClick={() => {
+																// Validate JSON
+																try {
+																	JSON.parse(newResponseMap.spec || '');
+																} catch (err) {
+																	setError(`Invalid JSON in response map spec: ${err instanceof Error ? err.message : 'Unknown error'}`);
+																	return;
+																}
+
+																// Mark as new for saving later
+																const newMap = {
+																	...newResponseMap,
+																	id: Date.now(), // temporary ID
+																	_isNew: true
+																} as ResponseMap & { _isNew: boolean };
+																setResponseMaps([...responseMaps, newMap]);
+																setShouldShowNewMapForm(false);
+																setNewResponseMap({ name: '', spec: '', is_default: false });
+																setError(null);
+															}}
+															disabled={!newResponseMap.name || !newResponseMap.spec}
+														>
+															Add
+														</Button>
+													</div>
+												</Stack>
+											</div>
+										)}
+									</div>
+								</AccordionItem>
+							</Accordion>
 						</>
 					)}
+
+					{/* Test Connection Button */}
+					<div className={styles.testConnection}>
+						<Button
+							kind="tertiary"
+							onClick={testApiConnection}
+							disabled={!formData['agent-api-endpoint'] || testConnectionStatus?.loading}
+							renderIcon={Launch}
+							size="sm"
+						>
+							{testConnectionStatus?.loading ? 'Testing...' : 'Test Connection'}
+						</Button>
+
+						{testConnectionStatus && !testConnectionStatus.loading && (
+							<InlineNotification
+								className={styles.testConnectionStatus}
+								kind={testConnectionStatus.success ? 'success' : 'error'}
+								title={testConnectionStatus.success ? 'Success' : 'Error'}
+								subtitle={testConnectionStatus.message}
+								hideCloseButton
+								lowContrast
+							/>
+						)}
+					</div>
 
 					<TextArea
 						id="agent-prompt"
@@ -664,15 +1072,40 @@ export default function AgentFormModal({
 						<AccordionItem title="Need help?">
 							<div className={styles.helpSection}>
 								<h5 className={styles.sectionHeading}>Request Template</h5>
-								<p className={styles.helpText}>The request template formats your test input for the external API. It should be a valid JSON string with a placeholder for where the test input should go.</p>
+								<p className={styles.helpText}>The request template formats your test input for the external API. It should be a valid JSON string with placeholders for where the conversation content should go.</p>
 								<ul className={styles.helpList}>
-									<li className={styles.listItem}>Must include <code>{'{{input}}'}</code> as a placeholder for the test input</li>
-									<li className={styles.listItem}>Should be valid JSON when the placeholder is replaced with text</li>
+									<li className={styles.listItem}>Must include <code>{'{{input}}'}</code> (required)</li>
+									<li className={styles.listItem}><code>{'{{input}}'}</code> = current user message for this turn</li>
+									<li className={styles.listItem}><code>{'{{conversation_history}}'}</code> = full transcript so far including roles (System/User/Assistant) and the current user message</li>
+									<li className={styles.listItem}>If <code>{'{{conversation_history}}'}</code> is omitted, then <code>{'{{input}}'}</code> will contain the entire conversation so far (history-first mode)</li>
+									<li className={styles.listItem}>If <code>{'{{conversation_history}}'}</code> is present, then <code>{'{{input}}'}</code> will contain only the current user message (dual-placeholder mode)</li>
 								</ul>
+								<h6 className={styles.exampleHeading}>History-first mode (no {'{{conversation_history}}'})</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({
+										model: 'gpt-4',
+										messages: [
+											{ role: 'user', content: '{{input}}' } // {{input}} will be the entire conversation so far
+										]
+									}, null, 2)}
+								</CodeSnippet>
+
+								<h6 className={styles.exampleHeading}>Dual-placeholder mode (explicit history + current turn)</h6>
+								<CodeSnippet type="multi" feedback="Copied to clipboard">
+									{JSON.stringify({
+										model: 'gpt-4',
+										messages: [
+											{ role: 'system', content: 'Follow instructions carefully.' },
+											{ role: 'user', content: '{{input}}' },
+											{ role: 'system', content: 'Conversation so far:\n{{conversation_history}}' }
+										]
+									}, null, 2)}
+								</CodeSnippet>
+
 								<h6 className={styles.exampleHeading}>Example for OpenAI:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
-										model: 'gpt-4', 
+									{JSON.stringify({
+										model: 'gpt-5',
 										messages: [
 											{ role: 'user', content: '{{input}}' }
 										]
@@ -681,8 +1114,8 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for Anthropic/Claude:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
-										model: 'claude-3-5-sonnet-20240620', 
+									{JSON.stringify({
+										model: 'claude-sonnet-4.5',
 										messages: [
 											{ role: 'user', content: '{{input}}' }
 										],
@@ -692,7 +1125,7 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for Google Gemini:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										contents: [
 											{ role: 'user', parts: [{ text: '{{input}}' }] }
 										],
@@ -705,8 +1138,8 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for Mistral AI:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
-										model: 'mistral-large-latest', 
+									{JSON.stringify({
+										model: 'mistral-large-latest',
 										messages: [
 											{ role: 'user', content: '{{input}}' }
 										],
@@ -717,7 +1150,7 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for Cohere:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										message: '{{input}}',
 										model: 'command',
 										temperature: 0.7,
@@ -727,7 +1160,7 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for Ollama:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										model: 'llama3',
 										prompt: '{{input}}',
 										options: {
@@ -781,10 +1214,10 @@ export default function AgentFormModal({
 									<li className={styles.listItem}>Use dot notation to access nested properties</li>
 									<li className={styles.listItem}>Supports both separate input/output tokens and total tokens only</li>
 								</ul>
-								
+
 								<h6 className={styles.exampleHeading}>Example for OpenAI (auto-detected):</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										'input_tokens': 'usage.prompt_tokens',
 										'output_tokens': 'usage.completion_tokens'
 									}, null, 2)}
@@ -792,7 +1225,7 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for Anthropic/Claude (auto-detected):</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										'input_tokens': 'usage.input_tokens',
 										'output_tokens': 'usage.output_tokens'
 									}, null, 2)}
@@ -800,7 +1233,7 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for Google Gemini (auto-detected):</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										'input_tokens': 'usageMetadata.promptTokenCount',
 										'output_tokens': 'usageMetadata.candidatesTokenCount'
 									}, null, 2)}
@@ -808,7 +1241,7 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for Ollama (auto-detected):</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										'input_tokens': 'prompt_eval_count',
 										'output_tokens': 'eval_count'
 									}, null, 2)}
@@ -816,7 +1249,7 @@ export default function AgentFormModal({
 
 								<h6 className={styles.exampleHeading}>Example for custom API with total tokens only:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										'total_tokens': 'metadata.tokens_used'
 									}, null, 2)}
 								</CodeSnippet>
@@ -829,7 +1262,7 @@ export default function AgentFormModal({
 								</ul>
 								<h6 className={styles.exampleHeading}>Example:</h6>
 								<CodeSnippet type="multi" feedback="Copied to clipboard">
-									{JSON.stringify({ 
+									{JSON.stringify({
 										'Content-Type': 'application/json',
 										'X-Custom-Header': 'custom-value'
 									}, null, 2)}

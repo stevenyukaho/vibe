@@ -52,3 +52,64 @@
 .testConnectionStatus {
 	margin-top: $spacing-03;
 }
+
+// Templates and Maps
+.templatesSection {
+	margin-bottom: $spacing-05;
+}
+
+.sectionDescription {
+	font-size: 0.875rem;
+	margin-bottom: $spacing-05;
+}
+
+.templateItem,
+.mapItem {
+	margin-bottom: $spacing-05;
+	padding: $spacing-05;
+	background-color: var(--cds-layer-01);
+	border-radius: 4px;
+}
+
+.templateHeader,
+.mapHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: $spacing-03;
+}
+
+.templateTitle,
+.mapTitle {
+	display: flex;
+	align-items: center;
+	gap: $spacing-03;
+}
+
+.templateActions,
+.mapActions {
+	display: flex;
+	gap: $spacing-03;
+}
+
+.newTemplateForm,
+.newMapForm {
+	margin-top: $spacing-05;
+	padding: $spacing-05;
+	background-color: var(--cds-layer-02);
+	border-radius: 4px;
+}
+
+.newFormTitle {
+	margin-bottom: $spacing-03;
+	font-weight: 600;
+}
+
+.formField {
+	margin-bottom: $spacing-03;
+}
+
+.formActions {
+	display: flex;
+	gap: $spacing-03;
+}
