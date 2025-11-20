@@ -3,15 +3,17 @@ import { SideNav, SideNavItems, SideNavLink, SideNavMenu } from '@carbon/react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
 	TestTool,
-	DataTable,
 	Report,
 	Dashboard,
 	Play,
 	CloudServices,
 	Rocket,
 	Chat,
-	Events,
-	Warning
+	Warning,
+	Bot,
+	Task,
+	Folder,
+	DocumentMultiple_01
 } from '@carbon/icons-react';
 import styles from './SideNav.module.scss';
 
@@ -52,27 +54,27 @@ export default function AppSideNav() {
 				>
                     Conversations
 				</SideNavLink>
-				<SideNavLink
-					renderIcon={DataTable}
-					isActive={activeItem === 'agents'}
-					onClick={() => handleNavChange('agents')}
-				>
+			<SideNavLink
+				renderIcon={Bot}
+				isActive={activeItem === 'agents'}
+				onClick={() => handleNavChange('agents')}
+			>
                     Agents
-				</SideNavLink>
-				<SideNavLink
-					renderIcon={Events}
-					isActive={activeItem === 'sessions'}
-					onClick={() => handleNavChange('sessions')}
-				>
+			</SideNavLink>
+			<SideNavLink
+				renderIcon={DocumentMultiple_01}
+				isActive={activeItem === 'sessions'}
+				onClick={() => handleNavChange('sessions')}
+			>
                     Sessions
-				</SideNavLink>
-				<SideNavLink
-					renderIcon={Dashboard}
-					isActive={activeItem === 'jobs'}
-					onClick={() => handleNavChange('jobs')}
-				>
+			</SideNavLink>
+			<SideNavLink
+				renderIcon={Task}
+				isActive={activeItem === 'jobs'}
+				onClick={() => handleNavChange('jobs')}
+			>
                     Jobs
-				</SideNavLink>
+			</SideNavLink>
 				<SideNavLink
 					renderIcon={Play}
 					isActive={activeItem === 'execute'}
@@ -80,13 +82,13 @@ export default function AppSideNav() {
 				>
                     Quick execute
 				</SideNavLink>
-				<SideNavLink
-					renderIcon={DataTable}
-					isActive={activeItem === 'test-suites'}
-					onClick={() => handleNavChange('test-suites')}
-				>
+			<SideNavLink
+				renderIcon={Folder}
+				isActive={activeItem === 'test-suites'}
+				onClick={() => handleNavChange('test-suites')}
+			>
                     Suites
-				</SideNavLink>
+			</SideNavLink>
 				<SideNavLink
 					renderIcon={Rocket}
 					isActive={activeItem === 'suite-runs'}
