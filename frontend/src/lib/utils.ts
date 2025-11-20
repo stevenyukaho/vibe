@@ -337,3 +337,79 @@ export const calculateSessionStats = (sessions: ExecutionSession[]): {
 		lastRun
 	};
 };
+
+// Path traversal utilities
+
+/**
+ * Tokenizes a path string into an array of property names and array indices.
+ * Supports dot notation (a.b.c) and bracket notation (a[0]['key']).
+ */
+export const tokenizePath = (path: string): (string | number)[] => {
+	const tokens: (string | number)[] = [];
+	const dotParts = path.split('.');
+
+	for (const part of dotParts) {
+		const regex = /([^\[\]]+)|\[(\d+|'.*?'|".*?")\]/g;
+		let match: RegExpExecArray | null;
+
+		while ((match = regex.exec(part)) !== null) {
+			if (match[1]) {
+				tokens.push(match[1]);
+			} else if (match[2]) {
+				const raw = match[2];
+				if (/^\d+$/.test(raw)) {
+					tokens.push(Number(raw));
+				} else {
+					tokens.push(String(raw).slice(1, -1));
+				}
+			}
+		}
+	}
+
+	return tokens;
+};
+
+/**
+ * Traverses an object using an array of tokens to extract a nested value.
+ */
+export const traverseByTokens = (obj: unknown, tokens: (string | number)[]): unknown => {
+	let current: unknown = obj;
+	for (const token of tokens) {
+		if (current === null || current === undefined) {
+			return undefined;
+		}
+		if (typeof token === 'number') {
+			if (Array.isArray(current)) {
+				current = current[token];
+			} else if (typeof current === 'object') {
+				current = (current as Record<string, unknown>)[String(token)];
+			} else {
+				return undefined;
+			}
+		} else {
+			if (typeof current === 'object' && current !== null) {
+				current = (current as Record<string, unknown>)[token];
+			} else {
+				return undefined;
+			}
+		}
+	}
+	return current;
+};
+
+/**
+ * Extracts a value from an object using dot/bracket notation path.
+ */
+export const extractByPath = (obj: unknown, path: string): unknown => {
+	try {
+		if (!path || typeof path !== 'string') {
+			return undefined;
+		}
+		const tokens = tokenizePath(path);
+
+		return traverseByTokens(obj, tokens);
+	} catch (error) {
+		console.error('Error extracting path:', path, error);
+		return undefined;
+	}
+};
