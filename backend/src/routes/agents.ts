@@ -1,7 +1,26 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { createAgent, getAgents, getAgentById, updateAgent, deleteAgent, getAgentsWithCount } from '../db/queries';
-import type { Agent } from '../types';
+import {
+	createAgent,
+	getAgents,
+	getAgentById,
+	updateAgent,
+	deleteAgent,
+	getAgentsWithCount,
+	listAgentRequestTemplates,
+	getAgentRequestTemplateById,
+	createAgentRequestTemplate,
+	updateAgentRequestTemplate,
+	deleteAgentRequestTemplate,
+	setDefaultAgentRequestTemplate,
+	listAgentResponseMaps,
+	getAgentResponseMapById,
+	createAgentResponseMap,
+	updateAgentResponseMap,
+	deleteAgentResponseMap,
+	setDefaultAgentResponseMap
+} from '../db/queries';
+import type { Agent, AgentRequestTemplate, AgentResponseMap } from '../types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
@@ -141,4 +160,148 @@ router.delete<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res:
 	}
 }) as any);
 
-export default router; 
+export default router;
+
+// Request templates
+router.get<{ id: string }>('/:id/request-templates', ((req: Request<{ id: string }>, res: Response) => {
+	try {
+		const agentId = Number(req.params.id);
+		return res.json(listAgentRequestTemplates(agentId));
+	} catch (error) {
+		console.error('Error listing request templates:', error);
+		return res.status(500).json({ error: 'Failed to list request templates' });
+	}
+}) as any);
+
+router.post<{ id: string }, {}, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>('/:id/request-templates', ((req: Request<{ id: string }, {}, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
+	try {
+		const agentId = Number(req.params.id);
+		const created = createAgentRequestTemplate(agentId, req.body);
+
+		return res.status(201).json(created);
+	} catch (error) {
+		console.error('Error creating request template:', error);
+		return res.status(500).json({ error: 'Failed to create request template' });
+	}
+}) as any);
+
+router.patch<{ id: string; templateId: string }, {}, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>('/:id/request-templates/:templateId', ((req: Request<{ id: string; templateId: string }, {}, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
+	try {
+		const tplId = Number(req.params.templateId);
+		const existing = getAgentRequestTemplateById(tplId);
+		if (!existing) {
+			return res.status(404).json({ error: 'Template not found' });
+		}
+		const updated = updateAgentRequestTemplate(tplId, req.body);
+
+		return res.json(updated);
+	} catch (error) {
+		console.error('Error updating request template:', error);
+		return res.status(500).json({ error: 'Failed to update request template' });
+	}
+}) as any);
+
+router.delete<{ id: string; templateId: string }>('/:id/request-templates/:templateId', ((req: Request<{ id: string; templateId: string }>, res: Response) => {
+	try {
+		const tplId = Number(req.params.templateId);
+		const existing = getAgentRequestTemplateById(tplId);
+		if (!existing) {
+			return res.status(404).json({ error: 'Template not found' });
+		}
+		deleteAgentRequestTemplate(tplId);
+
+		return res.status(204).send();
+	} catch (error) {
+		console.error('Error deleting request template:', error);
+		return res.status(500).json({ error: 'Failed to delete request template' });
+	}
+}) as any);
+
+router.post<{ id: string; templateId: string }>('/:id/request-templates/:templateId/default', ((req: Request<{ id: string; templateId: string }>, res: Response) => {
+	try {
+		const agentId = Number(req.params.id);
+		const tplId = Number(req.params.templateId);
+		const existing = getAgentRequestTemplateById(tplId);
+		if (!existing || existing.agent_id !== agentId) {
+			return res.status(404).json({ error: 'Template not found' });
+		}
+		setDefaultAgentRequestTemplate(agentId, tplId);
+
+		return res.status(204).send();
+	} catch (error) {
+		console.error('Error setting default request template:', error);
+		return res.status(500).json({ error: 'Failed to set default request template' });
+	}
+}) as any);
+
+// Response maps
+router.get<{ id: string }>('/:id/response-maps', ((req: Request<{ id: string }>, res: Response) => {
+	try {
+		const agentId = Number(req.params.id);
+		return res.json(listAgentResponseMaps(agentId));
+	} catch (error) {
+		console.error('Error listing response maps:', error);
+		return res.status(500).json({ error: 'Failed to list response maps' });
+	}
+}) as any);
+
+router.post<{ id: string }, {}, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>('/:id/response-maps', ((req: Request<{ id: string }, {}, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
+	try {
+		const agentId = Number(req.params.id);
+		const created = createAgentResponseMap(agentId, req.body);
+
+		return res.status(201).json(created);
+	} catch (error) {
+		console.error('Error creating response map:', error);
+		return res.status(500).json({ error: 'Failed to create response map' });
+	}
+}) as any);
+
+router.patch<{ id: string; mapId: string }, {}, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>('/:id/response-maps/:mapId', ((req: Request<{ id: string; mapId: string }, {}, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
+	try {
+		const mapId = Number(req.params.mapId);
+		const existing = getAgentResponseMapById(mapId);
+		if (!existing) {
+			return res.status(404).json({ error: 'Response map not found' });
+		}
+		const updated = updateAgentResponseMap(mapId, req.body);
+
+		return res.json(updated);
+	} catch (error) {
+		console.error('Error updating response map:', error);
+		return res.status(500).json({ error: 'Failed to update response map' });
+	}
+}) as any);
+
+router.delete<{ id: string; mapId: string }>('/:id/response-maps/:mapId', ((req: Request<{ id: string; mapId: string }>, res: Response) => {
+	try {
+		const mapId = Number(req.params.mapId);
+		const existing = getAgentResponseMapById(mapId);
+		if (!existing) {
+			return res.status(404).json({ error: 'Response map not found' });
+		}
+		deleteAgentResponseMap(mapId);
+
+		return res.status(204).send();
+	} catch (error) {
+		console.error('Error deleting response map:', error);
+		return res.status(500).json({ error: 'Failed to delete response map' });
+	}
+}) as any);
+
+router.post<{ id: string; mapId: string }>('/:id/response-maps/:mapId/default', ((req: Request<{ id: string; mapId: string }>, res: Response) => {
+	try {
+		const agentId = Number(req.params.id);
+		const mapId = Number(req.params.mapId);
+		const existing = getAgentResponseMapById(mapId);
+		if (!existing || existing.agent_id !== agentId) {
+			return res.status(404).json({ error: 'Response map not found' });
+		}
+		setDefaultAgentResponseMap(agentId, mapId);
+
+		return res.status(204).send();
+	} catch (error) {
+		console.error('Error setting default response map:', error);
+		return res.status(500).json({ error: 'Failed to set default response map' });
+	}
+}) as any);
