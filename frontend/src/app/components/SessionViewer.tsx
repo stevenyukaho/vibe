@@ -7,6 +7,8 @@ import type { ExecutionSession, SessionMessage } from '../../lib/api';
 import styles from './SessionViewer.module.scss';
 import { getStatusTagType } from '../../lib/utils';
 
+type ExecutionSessionWithVars = ExecutionSession & { variables?: string };
+
 interface SessionViewerProps {
 	session: ExecutionSession;
 	messages: SessionMessage[];
@@ -26,7 +28,58 @@ const renderMetadata = (metadata?: string) => {
 				{meta.output_tokens !== undefined && (
 					<span className={styles.metaChip}>out: {meta.output_tokens}</span>
 				)}
+				{meta.request_template_used && (
+					<span className={styles.metaChip}>tpl: {meta.request_template_used}</span>
+				)}
+				{meta.response_mapping_used && (
+					<span className={styles.metaChip}>map: {meta.response_mapping_used}</span>
+				)}
+				{(meta.variables_before || meta.variables_after || meta.variables_snapshot) && (
+					<span className={styles.metaChip}>
+						vars: {Object.keys(meta.variables_before || meta.variables_after || meta.variables_snapshot || {}).length}
+					</span>
+				)}
 			</>
+		);
+	} catch {
+		return null;
+	}
+};
+
+const renderVariables = (metadata?: string) => {
+	try {
+		const meta = metadata ? JSON.parse(metadata) : {};
+		const hasVariables = meta.variables_before || meta.variables_after || meta.variables_snapshot;
+
+		if (!hasVariables) return null;
+
+		return (
+			<div className={styles.variablesSection}>
+				{meta.variables_before && (
+					<div className={styles.variablesBlock}>
+						<div className={styles.variablesLabel}>Variables (before call):</div>
+						<CodeSnippet type="multi" wrapText hideCopyButton>
+							{JSON.stringify(meta.variables_before, null, 2)}
+						</CodeSnippet>
+					</div>
+				)}
+				{meta.variables_after && (
+					<div className={styles.variablesBlock}>
+						<div className={styles.variablesLabel}>Variables (after call):</div>
+						<CodeSnippet type="multi" wrapText hideCopyButton>
+							{JSON.stringify(meta.variables_after, null, 2)}
+						</CodeSnippet>
+					</div>
+				)}
+				{meta.variables_snapshot && !meta.variables_after && (
+					<div className={styles.variablesBlock}>
+						<div className={styles.variablesLabel}>Variables:</div>
+						<CodeSnippet type="multi" wrapText hideCopyButton>
+							{JSON.stringify(meta.variables_snapshot, null, 2)}
+						</CodeSnippet>
+					</div>
+				)}
+			</div>
 		);
 	} catch {
 		return null;
@@ -53,6 +106,18 @@ export default function SessionViewer({ session, messages }: SessionViewerProps)
 							{Math.round((new Date(session.completed_at).getTime() - new Date(session.started_at).getTime()) / 1000)}s
 						</Tag>
 					)}
+					{(session as ExecutionSessionWithVars).variables && (
+						<Tag type="teal">
+							vars {(() => {
+								try {
+									const varsStr = (session as ExecutionSessionWithVars).variables!;
+									return Object.keys(JSON.parse(varsStr)).length;
+								} catch {
+									return 0;
+								}
+							})()}
+						</Tag>
+					)}
 				</div>
 			</div>
 
@@ -77,6 +142,7 @@ export default function SessionViewer({ session, messages }: SessionViewerProps)
 								<span className={styles.timestamp}>{new Date(m.timestamp).toLocaleString()}</span>
 								{renderMetadata(m.metadata)}
 							</div>
+							{renderVariables(m.metadata)}
 						</div>
 					</div>
 				))}

@@ -11,7 +11,8 @@ import {
 	Modal,
 	ComboBox,
 	OverflowMenu,
-	OverflowMenuItem
+	OverflowMenuItem,
+	TextArea
 } from '@carbon/react';
 import {
 	Edit,
@@ -44,6 +45,11 @@ export default function ConversationDetailPage() {
 	const [agents, setAgents] = useState<Agent[]>([]);
 	const [execModalOpen, setExecModalOpen] = useState(false);
 	const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+	const [agentTemplates, setAgentTemplates] = useState<Array<{ id: number; name: string; body: string; is_default?: number }>>([]);
+	const [agentResponseMaps, setAgentResponseMaps] = useState<Array<{ id: number; name: string; spec: string; is_default?: number }>>([]);
+	const [selectedTemplate, setSelectedTemplate] = useState<{ id: number; name: string } | null>(null);
+	const [selectedMap, setSelectedMap] = useState<{ id: number; name: string } | null>(null);
+	const [runVariables, setRunVariables] = useState<string>('');
 	const [editModalOpen, setEditModalOpen] = useState(false);
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [duplicating, setDuplicating] = useState(false);
@@ -125,10 +131,55 @@ export default function ConversationDetailPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [params.id]);
 
+	useEffect(() => {
+		// When agent is selected in the execute modal, load its templates/maps
+		(async () => {
+			try {
+				if (!selectedAgent) {
+					setAgentTemplates([]);
+					setAgentResponseMaps([]);
+					return;
+				}
+				const [tpls, maps] = await Promise.all([
+					api.getAgentRequestTemplates(selectedAgent.id!),
+					api.getAgentResponseMaps(selectedAgent.id!)
+				]);
+				setAgentTemplates(tpls || []);
+				setAgentResponseMaps(maps || []);
+				// Pre-select conversation defaults if present
+				if (conversation?.default_request_template_id) {
+					const t = (tpls || []).find(t => t.id === conversation.default_request_template_id);
+					setSelectedTemplate(t ? { id: t.id, name: t.name } : null);
+				} else {
+					const def = (tpls || []).find(t => Number(t.is_default) === 1);
+					setSelectedTemplate(def ? { id: def.id, name: def.name } : null);
+				}
+				if (conversation?.default_response_map_id) {
+					const m = (maps || []).find(m => m.id === conversation.default_response_map_id);
+					setSelectedMap(m ? { id: m.id, name: m.name } : null);
+				} else {
+					const defm = (maps || []).find(m => Number(m.is_default) === 1);
+					setSelectedMap(defm ? { id: defm.id, name: defm.name } : null);
+				}
+				// Seed run variables from conversation
+				setRunVariables(conversation?.variables || '');
+			} catch { }
+		})();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedAgent, execModalOpen]);
+
 	const handleExecuteWithAgent = async (agentId: number) => {
 		if (!conversation?.id) return;
 		try {
 			setExecuting(true);
+			// Persist selected defaults and variables before run (best-effort)
+			try {
+				await api.updateConversation(conversation.id, {
+					default_request_template_id: selectedTemplate?.id,
+					default_response_map_id: selectedMap?.id,
+					variables: runVariables || undefined
+				});
+			} catch { }
 			await api.executeConversation(agentId, conversation.id);
 			// refresh after a short delay or navigate to jobs
 			setTimeout(load, 1000);
@@ -379,6 +430,43 @@ export default function ConversationDetailPage() {
 						placeholder="Choose an agent"
 					/>
 				</div>
+				{selectedAgent && (
+					<>
+						<div className={styles.modalField}>
+							<ComboBox
+								id="template-selector"
+								titleText="Default request template"
+								items={agentTemplates.map(t => ({ id: t.id, name: t.name }))}
+								itemToString={(item) => (item ? `${item.name}` : '')}
+								selectedItem={selectedTemplate}
+								onChange={({ selectedItem }) => setSelectedTemplate(selectedItem as { id: number; name: string } | null)}
+								placeholder="Select template (optional)"
+							/>
+						</div>
+						<div className={styles.modalField}>
+							<ComboBox
+								id="map-selector"
+								titleText="Default response map"
+								items={agentResponseMaps.map(m => ({ id: m.id, name: m.name }))}
+								itemToString={(item) => (item ? `${item.name}` : '')}
+								selectedItem={selectedMap}
+								onChange={({ selectedItem }) => setSelectedMap(selectedItem as { id: number; name: string } | null)}
+								placeholder="Select response map (optional)"
+							/>
+						</div>
+						<div className={styles.modalField}>
+							<TextArea
+								id="run-variables"
+								labelText="Run variables (JSON)"
+								helperText="Optional: Seed variables for this execution. These override conversation defaults and are available from turn 1. Use template placeholders like {{varName}} in request templates. Variables extracted from responses (via response maps) are automatically merged and available in subsequent turns."
+								rows={4}
+								value={runVariables}
+								onChange={(e) => setRunVariables(e.target.value)}
+								placeholder='{"sessionId": "abc-123", "userId": "user_456"}'
+							/>
+						</div>
+					</>
+				)}
 			</Modal>
 
 			{/* Edit conversation modal */}
