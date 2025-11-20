@@ -7,16 +7,19 @@ import {
 	TextArea,
 	Button,
 	ToastNotification,
+	InlineNotification,
 	Tag,
 	Tile,
 	Grid,
 	Column,
 	Select,
 	SelectItem,
-	IconButton
+	IconButton,
+	Checkbox,
+	Dropdown
 } from '@carbon/react';
 import { Add, TrashCan, ArrowUp, ArrowDown } from '@carbon/icons-react';
-import { api, Conversation, ConversationMessage } from '../../lib/api';
+import { api, Conversation, ConversationMessage, Agent } from '../../lib/api';
 import styles from './ConversationFormModal.module.scss';
 
 interface ConversationFormModalProps {
@@ -34,31 +37,88 @@ interface TurnTargetMap {
 	};
 }
 
+// Extended ConversationMessage type for form with optional override fields
+interface ExtendedConversationMessage extends ConversationMessage {
+	request_template_id?: number;
+	response_map_id?: number;
+	set_variables?: string;
+}
+
+// Extended Conversation type for form data
+interface ConversationFormData {
+	name: string;
+	description: string;
+	tags: string[];
+	variables: string;
+	stop_on_failure: boolean;
+	default_agent_id?: number;
+	default_request_template_id?: number;
+	default_response_map_id?: number;
+}
+
 export default function ConversationFormModal({
 	open,
 	conversation,
 	onClose,
 	onSave
 }: ConversationFormModalProps) {
-	const [formData, setFormData] = useState({
+	const [formData, setFormData] = useState<ConversationFormData>({
 		name: '',
 		description: '',
-		tags: [] as string[]
+		tags: [],
+		variables: '',
+		stop_on_failure: false,
+		default_agent_id: undefined,
+		default_request_template_id: undefined,
+		default_response_map_id: undefined
 	});
-	const [messages, setMessages] = useState<ConversationMessage[]>([]);
+	const [messages, setMessages] = useState<ExtendedConversationMessage[]>([]);
 	const [turnTargets, setTurnTargets] = useState<TurnTargetMap>({});
 	const [newTag, setNewTag] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// State for agents and their templates/maps
+	const [agents, setAgents] = useState<Agent[]>([]);
+	const [requestTemplates, setRequestTemplates] = useState<Array<{ id: number; name: string }>>([]);
+	const [responseMaps, setResponseMaps] = useState<Array<{ id: number; name: string }>>([]);
+
+	// Load agents on modal open
+	useEffect(() => {
+		if (open) {
+			api.getAgents().then(setAgents).catch(err => console.error('Failed to load agents:', err));
+		}
+	}, [open]);
+
+	// Load templates and maps when default agent changes
+	useEffect(() => {
+		if (formData.default_agent_id) {
+			Promise.all([
+				api.getAgentRequestTemplates(formData.default_agent_id),
+				api.getAgentResponseMaps(formData.default_agent_id)
+			]).then(([templates, maps]) => {
+				setRequestTemplates(templates.map(t => ({ id: t.id, name: t.name })));
+				setResponseMaps(maps.map(m => ({ id: m.id, name: m.name })));
+			}).catch(err => console.error('Failed to load templates/maps:', err));
+		} else {
+			setRequestTemplates([]);
+			setResponseMaps([]);
+		}
+	}, [formData.default_agent_id]);
 
 	useEffect(() => {
 		if (conversation) {
 			setFormData({
 				name: conversation.name || '',
 				description: conversation.description || '',
-				tags: conversation.tags ? JSON.parse(conversation.tags) : []
+				tags: conversation.tags ? JSON.parse(conversation.tags) : [],
+				variables: conversation.variables || '',
+				stop_on_failure: Boolean((conversation as Conversation & { stop_on_failure?: boolean }).stop_on_failure),
+				default_agent_id: (conversation as Conversation & { default_agent_id?: number }).default_agent_id,
+				default_request_template_id: conversation.default_request_template_id,
+				default_response_map_id: conversation.default_response_map_id
 			});
-			setMessages(conversation.messages || []);
+			setMessages((conversation.messages || []) as ExtendedConversationMessage[]);
 
 			// Load turn targets
 			if (conversation.id) {
@@ -80,7 +140,12 @@ export default function ConversationFormModal({
 			setFormData({
 				name: '',
 				description: '',
-				tags: []
+				tags: [],
+				variables: '',
+				stop_on_failure: false,
+				default_agent_id: undefined,
+				default_request_template_id: undefined,
+				default_response_map_id: undefined
 			});
 			setMessages([]);
 			setTurnTargets({});
@@ -102,8 +167,13 @@ export default function ConversationFormModal({
 		try {
 			setLoading(true);
 			const conversationData = {
-				...formData,
+				name: formData.name,
+				description: formData.description,
 				tags: JSON.stringify(formData.tags),
+				variables: formData.variables,
+				stop_on_failure: formData.stop_on_failure,
+				default_request_template_id: formData.default_request_template_id,
+				default_response_map_id: formData.default_response_map_id,
 				messages: messages.map((msg, index) => ({
 					...msg,
 					sequence: index + 1
@@ -164,7 +234,7 @@ export default function ConversationFormModal({
 	};
 
 	const addMessage = () => {
-		const newMessage: ConversationMessage = {
+		const newMessage: ExtendedConversationMessage = {
 			sequence: messages.length + 1,
 			role: 'user',
 			content: ''
@@ -172,7 +242,7 @@ export default function ConversationFormModal({
 		setMessages([...messages, newMessage]);
 	};
 
-	const updateMessage = (index: number, updates: Partial<ConversationMessage>) => {
+	const updateMessage = (index: number, updates: Partial<ExtendedConversationMessage>) => {
 		const updatedMessages = messages.map((msg, i) =>
 			i === index ? { ...msg, ...updates } : msg,
 		);
@@ -276,6 +346,68 @@ export default function ConversationFormModal({
 					</Column>
 				</Grid>
 
+				<Grid>
+					<Column sm={4} md={8} lg={16}>
+						<Dropdown
+							id="default-agent"
+							titleText="Default agent (optional)"
+							label="Select default agent"
+							items={agents.map(a => ({ id: a.id, label: `${a.name} (v${a.version})` }))}
+							selectedItem={agents.find(a => a.id === formData.default_agent_id) ? { id: formData.default_agent_id, label: agents.find(a => a.id === formData.default_agent_id)!.name } : null}
+							onChange={(e) => {
+								setFormData(prev => ({ ...prev, default_agent_id: e.selectedItem?.id }));
+							}}
+							helperText="Selecting an agent enables template/map selection for per-turn overrides"
+						/>
+					</Column>
+				</Grid>
+
+				{formData.default_agent_id && (
+					<Grid>
+						<Column sm={4} md={8} lg={8}>
+							<Dropdown
+								id="default-template"
+								titleText="Default request template (optional)"
+								label="Select template"
+								items={requestTemplates.map(t => ({ id: t.id, label: t.name }))}
+								selectedItem={requestTemplates.find(t => t.id === formData.default_request_template_id) ? { id: formData.default_request_template_id, label: requestTemplates.find(t => t.id === formData.default_request_template_id)!.name } : null}
+								onChange={(e) => {
+									setFormData(prev => ({ ...prev, default_request_template_id: e.selectedItem?.id }));
+								}}
+							/>
+						</Column>
+						<Column sm={4} md={8} lg={8}>
+							<Dropdown
+								id="default-map"
+								titleText="Default response map (optional)"
+								label="Select map"
+								items={responseMaps.map(m => ({ id: m.id, label: m.name }))}
+								selectedItem={responseMaps.find(m => m.id === formData.default_response_map_id) ? { id: formData.default_response_map_id, label: responseMaps.find(m => m.id === formData.default_response_map_id)!.name } : null}
+								onChange={(e) => {
+									setFormData(prev => ({ ...prev, default_response_map_id: e.selectedItem?.id }));
+								}}
+							/>
+						</Column>
+					</Grid>
+				)}
+
+				<InlineNotification
+					className={styles.variablesInfo}
+					kind="info"
+					lowContrast
+					hideCloseButton
+					title="Variables quick guide"
+					subtitle={(
+						<span>
+							Conversation variables seed each run. Override variables (per user message) merge in
+							before the request is sent. Response mapping variables are extracted after the call
+							and available to following turns. Use pointers like <code>$.message.content</code>,
+							<code>$.variables.lastAnswer</code>, or <code>$.lastResponse.data.id</code>.
+							<code>$</code> refers to the execution context root.
+						</span>
+					) as unknown as string}
+				/>
+
 				<div className={styles.messagesSection}>
 					<div className={styles.messagesHeader}>
 						<h4>Conversation script</h4>
@@ -360,6 +492,57 @@ export default function ConversationFormModal({
 											placeholder="Enter the expected assistant response for similarity scoring"
 											rows={2}
 										/>
+										{formData.default_agent_id ? (
+											<div className={styles.targetOptions}>
+												<Dropdown
+													id={`tpl-${index}`}
+													titleText="Request template override (optional)"
+													label="Select template"
+													items={[{ id: null, label: '(use default)' }, ...requestTemplates.map(t => ({ id: t.id, label: t.name }))]}
+													selectedItem={
+														message.request_template_id
+															? requestTemplates.find(t => t.id === message.request_template_id)
+																? { id: message.request_template_id, label: requestTemplates.find(t => t.id === message.request_template_id)!.name }
+																: null
+															: { id: null, label: '(use default)' }
+													}
+													onChange={(e) => {
+														updateMessage(index, { request_template_id: e.selectedItem?.id || undefined });
+													}}
+													helperText="Use {{var}} in templates to reference variables"
+												/>
+												<Dropdown
+													id={`map-${index}`}
+													titleText="Response map override (optional)"
+													label="Select map"
+													items={[{ id: null, label: '(use default)' }, ...responseMaps.map(m => ({ id: m.id, label: m.name }))]}
+													selectedItem={
+														message.response_map_id
+															? responseMaps.find(m => m.id === message.response_map_id)
+																? { id: message.response_map_id, label: responseMaps.find(m => m.id === message.response_map_id)!.name }
+																: null
+															: { id: null, label: '(use default)' }
+													}
+													onChange={(e) => {
+														updateMessage(index, { response_map_id: e.selectedItem?.id || undefined });
+													}}
+													helperText='Define {"var": "path.to.field"} in response_mapping.variables to extract and use in next turn'
+												/>
+											</div>
+										) : (
+											<p style={{ fontSize: '0.875rem', color: '#6f6f6f', fontStyle: 'italic' }}>
+												Select a default agent above to enable per-turn template/map overrides
+											</p>
+										)}
+										<TextArea
+											id={`setvars-${index}`}
+											labelText="Override variables (JSON)"
+											placeholder='{"runId": "abc-123", "traceId": "$.lastResponse.id"}'
+											rows={2}
+											value={message.set_variables || ''}
+											onChange={(e) => updateMessage(index, { set_variables: e.target.value })}
+											helperText="Merge additional variables before this request runs. Supports pointers like $.message.content, $.variables.lastAnswer, $.lastResponse.data.id (the $ root is the current execution context)."
+										/>
 										<div className={styles.targetOptions}>
 											<TextInput
 												id={`threshold-${index}`}
@@ -400,6 +583,31 @@ export default function ConversationFormModal({
 						);
 					})}
 				</div>
+				<Grid>
+					<Column sm={4} md={8} lg={16}>
+						<TextArea
+							id="variables"
+							labelText="Conversation variables (JSON)"
+							placeholder='{"sessionId":"abc-123", "tenantId":"org_456"}'
+							rows={3}
+							value={formData.variables}
+							onChange={(e) => setFormData(prev => ({ ...prev, variables: e.target.value }))}
+							helperText="Optional: Seed variables available from turn 1. Variables extracted from response mappings (via response_mapping.variables) are automatically available in subsequent turns."
+						/>
+					</Column>
+					<Column sm={4} md={8} lg={16}>
+						<div style={{ marginTop: '0.5rem' }}>
+							<Checkbox
+								id="stop-on-failure"
+								labelText="Stop conversation on response failure"
+								checked={formData.stop_on_failure}
+								onChange={(_evt, data: { checked: boolean }) => {
+									setFormData(prev => ({ ...prev, stop_on_failure: data.checked }));
+								}}
+							/>
+						</div>
+					</Column>
+				</Grid>
 			</div>
 		</Modal>
 	);
