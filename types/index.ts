@@ -215,3 +215,15 @@ export interface ConversationExecutionResponse {
 	variables?: Record<string, any>;
 	metrics: Metrics;
 }
+
+export interface ResponseMapping {
+	output?: string;
+	intermediate_steps?: string;
+	variables?: Record<string, string>;
+	success_criteria?: {
+		type: 'contains' | 'exact_match' | 'json_match';
+		path?: string;
+		operator?: string;
+		value: any;
+	};
+}
