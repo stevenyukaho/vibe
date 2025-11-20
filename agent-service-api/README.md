@@ -99,13 +99,15 @@ Response:
 
 ## Request Template
 
-The `request_template` field allows you to specify how to format the test input for the external API. Use `{{input}}` as a placeholder for the test input:
+The `request_template` field allows you to specify how to format the test input for the external API. Use `{{input}}` as a placeholder for the test input. For conversations, you can also use `{{conversation_history}}`. Arbitrary variables may be injected via `{{variableName}}` when provided in the per-message metadata or conversation defaults:
 
 ```json
 {
   "messages": [
     {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "{{input}}"}
+    {"role": "user", "content": "{{input}}"},
+    {"role": "system", "content": "History:\n{{conversation_history}}"},
+    {"role": "system", "content": "Request id: {{requestId}}"}
   ],
   "temperature": 0.7
 }
@@ -113,12 +115,17 @@ The `request_template` field allows you to specify how to format the test input 
 
 ## Response Mapping
 
-The `response_mapping` field specifies how to extract data from the API response:
+The `response_mapping` field specifies how to extract data from the API response.
+You can also extract variables from the response to be made available to subsequent turns:
 
 ```json
 {
   "output": "choices.0.message.content",
   "intermediate_steps": "usage",
+  "variables": {
+    "responseId": "id",
+    "firstToolCall": "tool_calls[0].name"
+  },
   "success_criteria": {
     "type": "contains",
     "value": "correct answer"
@@ -220,6 +227,31 @@ For complex success validation:
   }
 }
 ```
+
+### Conversation Execution metadata
+
+When executing conversations, the service supports per-message overrides via the `metadata` of each scripted message:
+
+```json
+{
+  "sequence": 2,
+  "role": "user",
+  "content": "hello",
+  "metadata": {
+    "request_template": "{\"model\":\"gpt-5\",\"messages\":[{\"role\":\"user\",\"content\":\"{{input}}\"}],\"temperature\":0.7}",
+    "response_mapping": "{\"output\":\"choices.0.message.content\",\"variables\":{\"replyLen\":\"choices.0.message.content.length\"}}",
+    "variables": {
+      "requestId": "abc-123",
+      "sessionRef": "$.lastResponse.id"
+    }
+  }
+}
+```
+
+Notes:
+
+- `variables` supports literal values; values starting with `$.` are resolved against a context object including `lastRequest`, `lastResponse`, and the current `conversation`.
+- Variables extracted via `response_mapping.variables` are accumulated across turns and available to subsequent messages.
 
 ## Example Configurations
 
