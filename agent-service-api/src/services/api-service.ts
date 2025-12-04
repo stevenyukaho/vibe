@@ -7,7 +7,7 @@ import {
 	IntermediateStep,
 	ResponseMapping,
 	SessionMessage
-} from '../types';
+} from '@ibm-vibe/types';
 import { DEFAULT_TIMEOUT } from '../config';
 import { extractTokenUsage } from './token-extractor';
 

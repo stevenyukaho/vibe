@@ -1,4 +1,4 @@
-import type { TokenMapping, TokenUsage } from '../../../types';
+import type { TokenMapping, TokenUsage } from '@ibm-vibe/types';
 
 /**
  * Popular token usage formats for automatic detection

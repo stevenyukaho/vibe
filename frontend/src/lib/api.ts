@@ -1,6 +1,6 @@
-import type { Agent, Test, TestResult } from '../../../backend/src/exports';
-import type { PaginatedResponse, StatsResponse, LLMRequestOptions, LLMResponse } from '../../../types';
-import type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget } from '../../../types';
+import type { Agent, Test, TestResult } from '@ibm-vibe/types';
+import type { PaginatedResponse, StatsResponse, LLMRequestOptions, LLMResponse } from '@ibm-vibe/types';
+import type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget } from '@ibm-vibe/types';
 
 // Re-export types for use in components
 export type { Agent, Test, TestResult };
@@ -415,6 +415,21 @@ export const api = {
 		if (!response.ok) {
 			const error = await response.json();
 			throw new Error(error.error || 'Failed to create result');
+		}
+
+		return response.json();
+	},
+
+	async scoreResult(resultId: number, llmConfigId?: number): Promise<TestResult> {
+		const response = await fetch(`${API_URL}/api/results/${resultId}/score`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ llm_config_id: llmConfigId })
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to score result');
 		}
 
 		return response.json();

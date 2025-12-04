@@ -3,7 +3,7 @@ import {
 	Agent,
 	AgentRequestTemplate,
 	AgentResponseMap
-} from '../../types';
+} from '@ibm-vibe/types';
 
 /**
  * Create a new agent

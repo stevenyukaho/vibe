@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
 import { api, Agent, Test, LLMConfig, TestResult } from './api';
-import type { LLMRequestOptions, LLMResponse } from '../../../types';
+import type { LLMRequestOptions, LLMResponse } from '@ibm-vibe/types';
 
 // Define the context state shape
 interface AppDataContextState {

@@ -5,7 +5,7 @@ import { Tag, ProgressIndicator, Table, TableHead, TableRow, TableHeader, TableB
 import { useAppData } from '../lib/AppDataContext';
 import { useResultOperations } from '../lib/AppDataContext';
 import { api, SuiteRun, Job, TestResult } from '../lib/api';
-import type { StatsResponse } from '../../../types';
+import type { StatsResponse } from '@ibm-vibe/types';
 import { useEffect, useState } from 'react';
 import styles from './page.module.scss';
 import TileWrapper from './components/TileWrapper';

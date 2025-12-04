@@ -14,14 +14,14 @@ import {
 	JobStatus,
 	Job,
 	JobFilters
-} from '../types';
+} from '@ibm-vibe/types';
 // Import functions directly from db/queries to avoid TypeScript errors
 import * as dbQueries from '../db/queries';
 import { suiteProcessingService } from './suite-processing-service';
 import { getAgentJobType } from '../utils/agent-utils';
 
 // Export types from the main types file
-export { Job, JobStatus, JobFilters } from '../types';
+export { Job, JobStatus, JobFilters } from '@ibm-vibe/types';
 
 /**
  * Generate a unique job ID

@@ -9,7 +9,7 @@ import {
 	getFullSessionTranscript,
 	createExecutionSession
 } from '../db/queries';
-import type { ExecutionSession } from '../types';
+import type { ExecutionSession } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();

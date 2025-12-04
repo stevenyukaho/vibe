@@ -13,7 +13,7 @@ import type {
 	ConversationMessage,
 	ExecutionSession,
 	SessionMessage
-} from '../types';
+} from '@ibm-vibe/types';
 import db from '../db/database';
 
 export function conversationToLegacyTest(conversation: Conversation, messages?: ConversationMessage[]): Test {

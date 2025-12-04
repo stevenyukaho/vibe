@@ -5,7 +5,7 @@
  * It supports both explicit token mapping and automatic detection using popular formats.
  */
 
-import type { TokenUsage, TokenMapping } from '../../../types';
+import type { TokenUsage, TokenMapping } from '@ibm-vibe/types';
 
 /**
  * Popular token usage formats for automatic detection

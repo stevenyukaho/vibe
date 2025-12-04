@@ -1,5 +1,5 @@
 import db from '../database';
-import { Test, TestResult } from '../../types';
+import { Test, TestResult } from '@ibm-vibe/types';
 
 // Test queries
 export const createTest = (test: Test) => {

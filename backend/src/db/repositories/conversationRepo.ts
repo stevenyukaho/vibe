@@ -1,5 +1,5 @@
 import db from '../database';
-import { Conversation, ConversationMessage, ConversationTurnTarget } from '../../types';
+import { Conversation, ConversationMessage, ConversationTurnTarget } from '@ibm-vibe/types';
 import { normalizeConversationMessageInsert } from '../normalizers';
 
 export const createConversation = (conversation: Conversation) => {

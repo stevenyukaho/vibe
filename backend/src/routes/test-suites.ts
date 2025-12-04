@@ -16,11 +16,11 @@ import {
 	getConversationMessages
 } from '../db/queries';
 import { suiteProcessingService } from '../services/suite-processing-service';
-import { 
-	conversationToLegacyTest, 
-	isSingleTurnConversation 
+import {
+	conversationToLegacyTest,
+	isSingleTurnConversation
 } from '../adapters/legacy-adapter';
-import type { TestSuite } from '../types';
+import type { TestSuite } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
@@ -183,7 +183,7 @@ router.get('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =>
 
 		// Get entries from new suite_entries table
 		const entries = getEntriesInSuite(id);
-		
+
 		// Transform conversation entries to legacy test format
 		const tests = await Promise.all(
 			entries
@@ -192,9 +192,9 @@ router.get('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =>
 					try {
 						const conversation = await getConversationById(entry.conversation_id!);
 						if (!conversation) return null;
-						
+
 						const messages = await getConversationMessages(entry.conversation_id!);
-						
+
 						// Only include single-turn conversations as "tests"
 						if (isSingleTurnConversation(conversation, messages)) {
 							const legacyTest = conversationToLegacyTest(conversation, messages);
@@ -215,7 +215,7 @@ router.get('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =>
 		const validTests = tests
 			.filter(test => test !== null)
 			.sort((a, b) => (a?.sequence || 0) - (b?.sequence || 0));
-		
+
 		return res.json(validTests);
 	} catch (error) {
 		console.error(`Error fetching tests for suite ${req.params.id}:`, error);
@@ -246,7 +246,7 @@ router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =
 		}
 
 		const conversationId = parseInt(test_id); // test_id maps to conversation_id
-		
+
 		// Verify the conversation exists and is single-turn (valid as a "test")
 		const conversation = await getConversationById(conversationId);
 		if (!conversation) {
@@ -264,7 +264,7 @@ router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =
 			conversation_id: conversationId,
 			sequence: sequence || null
 		});
-		
+
 		return res.status(201).json(result);
 	} catch (error) {
 		console.error(`Error adding test to suite ${req.params.id}:`, error);
@@ -294,7 +294,7 @@ router.delete('/:id/tests/:testId', (async (req: Request<{ id: string, testId: s
 		// Find and delete the suite entry for this conversation
 		const entries = getEntriesInSuite(suiteId);
 		const entryToDelete = entries.find(entry => entry.conversation_id === conversationId);
-		
+
 		if (!entryToDelete) {
 			return res.status(404).json({ error: 'Test not found in suite' });
 		}
@@ -334,11 +334,11 @@ router.put('/:id/tests/reorder', (async (req: Request<{ id: string }>, res: Resp
 		const entryOrders = test_orders.map(order => {
 			const conversationId = order.test_id; // test_id maps to conversation_id
 			const entry = entries.find(e => e.conversation_id === conversationId);
-			
+
 			if (!entry) {
 				throw new Error(`Test ${conversationId} not found in suite ${suiteId}`);
 			}
-			
+
 			return {
 				entry_id: entry.id,
 				sequence: order.sequence

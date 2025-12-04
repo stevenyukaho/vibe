@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LLMConfig } from '../types';
+import { LLMConfig } from '@ibm-vibe/types';
 
 export interface LLMRequestOptions {
 	prompt: string;

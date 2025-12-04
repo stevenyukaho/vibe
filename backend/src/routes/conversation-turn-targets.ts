@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import db from '../db/database';
-import type { ConversationTurnTarget } from '../types';
+import type { ConversationTurnTarget } from '@ibm-vibe/types';
 
 const router = Router();
 

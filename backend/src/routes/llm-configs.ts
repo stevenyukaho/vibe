@@ -1,6 +1,6 @@
 import express from 'express';
 import type { Request, Response } from 'express';
-import { LLMConfig } from '../types';
+import { LLMConfig } from '@ibm-vibe/types';
 import { llmConfigService, LLMRequestOptions } from '../services/llm-config-service';
 import { createLLMConfig, updateLLMConfig, deleteLLMConfig, getLLMConfigsWithCount } from '../db/queries';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';

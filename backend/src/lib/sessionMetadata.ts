@@ -6,7 +6,7 @@ import {
 	countUserTurnsUpTo,
 	getConversationTurnTarget
 } from '../db/queries';
-import type { ExecutionSession, SessionMessage } from '../types';
+import type { ExecutionSession, SessionMessage } from '@ibm-vibe/types';
 
 export function parseSessionMetadata(metadata?: string | null): any {
 	if (!metadata) {

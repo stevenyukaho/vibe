@@ -14,7 +14,7 @@ import {
 	deleteConversationMessage,
 	reorderConversationMessages
 } from '../db/queries';
-import type { Conversation, ConversationMessage } from '../types';
+import type { Conversation, ConversationMessage } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();

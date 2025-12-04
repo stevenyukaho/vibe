@@ -11,8 +11,27 @@ import {
 	Conversation,
 	AgentSettings,
 	JobStatus
-} from '../types';
+} from '@ibm-vibe/types';
 import { BACKEND_CONFIG } from '../config';
+
+const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
+	if (!value || !value.trim()) return fallback;
+	try {
+		return JSON.parse(value) as T;
+	} catch {
+		return fallback;
+	}
+};
+
+const getErrorMessage = (error: unknown): string => {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (typeof error === 'string') {
+		return error;
+	}
+	return JSON.stringify(error);
+};
 
 interface RequestTemplate {
 	id: number;
@@ -32,6 +51,10 @@ interface AgentConfig {
 	defaultTemplate?: RequestTemplate;
 	defaultMap?: ResponseMap;
 }
+
+type ConversationScriptMessage = Omit<ConversationMessage, 'metadata'> & {
+	metadata?: Record<string, unknown>;
+};
 
 /**
  * Job Poller Service - Polls backend for jobs and executes them using ApiService
@@ -91,8 +114,8 @@ export class JobPollerService {
 
 		try {
 			// Get available jobs for external API type
-			const response = await axios.get(`${this.backendUrl}/api/jobs/available/external_api?limit=5`);
-			const jobs: Job[] = response.data;
+			const response = await axios.get<Job[]>(`${this.backendUrl}/api/jobs/available/external_api?limit=5`);
+			const jobs: Job[] = response.data || [];
 
 			if (jobs.length === 0) {
 				return; // No jobs available
@@ -102,8 +125,8 @@ export class JobPollerService {
 			for (const job of jobs) {
 				await this.executeJob(job);
 			}
-		} catch (error: any) {
-			console.error('Error polling for jobs:', error);
+		} catch (error: unknown) {
+			console.error('Error polling for jobs:', getErrorMessage(error));
 		} finally {
 			this.isCurrentlyPolling = false;
 		}
@@ -124,19 +147,19 @@ export class JobPollerService {
 			}
 
 			// Get agent details
-			const agentResponse = await axios.get(`${this.backendUrl}/api/agents/${job.agent_id}`);
+			const agentResponse = await axios.get<Agent>(`${this.backendUrl}/api/agents/${job.agent_id}`);
 			const agent: Agent = agentResponse.data;
-			const settings: AgentSettings = JSON.parse(agent.settings);
+			const settings = parseJson<AgentSettings>(agent.settings, {} as AgentSettings);
 			const agentType = settings.type;
 
 			if (agentType !== 'external_api') {
 				const errorMsg = `Job ${job.id} is not for external API agent (type: ${agentType})`;
 				console.warn(errorMsg);
-				await this.updateJobStatus(job.id, 'failed', 0, undefined, errorMsg);
+				await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMsg);
 				return;
 			}
 
-			await this.updateJobStatus(job.id, 'running', 10);
+			await this.updateJobStatus(job.id, JobStatus.RUNNING, 10);
 
 			// Determine if this is a conversation or legacy test job
 			if (job.conversation_id) {
@@ -146,18 +169,19 @@ export class JobPollerService {
 			} else {
 				const errorMsg = `Job ${job.id} has neither conversation_id nor test_id`;
 				console.error(errorMsg);
-				await this.updateJobStatus(job.id, 'failed', 0, undefined, errorMsg);
+				await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMsg);
 			}
-		} catch (error: any) {
-			console.error(`Error executing job ${job.id}:`, error.message);
-			await this.updateJobStatus(job.id, 'failed', 0, undefined, error.message);
+		} catch (error: unknown) {
+			const errorMessage = getErrorMessage(error);
+			console.error(`Error executing job ${job.id}:`, errorMessage);
+			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
 		}
 	}
 
 	private async getAgentConfig(agentId: number): Promise<AgentConfig> {
 		const [templatesRes, mapsRes] = await Promise.all([
-			axios.get(`${this.backendUrl}/api/agents/${agentId}/request-templates`),
-			axios.get(`${this.backendUrl}/api/agents/${agentId}/response-maps`)
+			axios.get<RequestTemplate[]>(`${this.backendUrl}/api/agents/${agentId}/request-templates`),
+			axios.get<ResponseMap[]>(`${this.backendUrl}/api/agents/${agentId}/response-maps`)
 		]);
 		const templates: RequestTemplate[] = templatesRes.data || [];
 		const maps: ResponseMap[] = mapsRes.data || [];
@@ -178,8 +202,10 @@ export class JobPollerService {
 			const startTime = new Date().toISOString();
 
 			// Get conversation and messages
-			const conversationResponse = await axios.get(`${this.backendUrl}/api/conversations/${job.conversation_id}`);
-			const conversation: Conversation = conversationResponse.data;
+			const conversationResponse = await axios.get<Conversation & { messages?: ConversationMessage[] }>(
+				`${this.backendUrl}/api/conversations/${job.conversation_id}`
+			);
+			const conversation = conversationResponse.data;
 
 			// Fetch agent communication configs
 			const agentConfig = await this.getAgentConfig(job.agent_id);
@@ -198,11 +224,11 @@ export class JobPollerService {
 				stop_on_failure: Boolean(conversation.stop_on_failure)
 			};
 
-			await this.updateJobStatus(job.id, 'running', 30);
+			await this.updateJobStatus(job.id, JobStatus.RUNNING, 30);
 
 			const result = await apiService.executeConversation(executionRequest);
 
-			await this.updateJobStatus(job.id, 'running', 80);
+			await this.updateJobStatus(job.id, JobStatus.RUNNING, 80);
 
 			const completionTime = new Date().toISOString();
 
@@ -215,42 +241,42 @@ export class JobPollerService {
 				result
 			);
 
-			await this.updateJobStatus(job.id, 'completed', 100, undefined, undefined, sessionId);
-		} catch (error: any) {
-			console.error(`Error executing conversation job ${job.id}:`, error.message);
-			await this.updateJobStatus(job.id, 'failed', 0, undefined, error.message);
+			await this.updateJobStatus(job.id, JobStatus.COMPLETED, 100, undefined, undefined, sessionId);
+		} catch (error: unknown) {
+			const errorMessage = getErrorMessage(error);
+			console.error(`Error executing conversation job ${job.id}:`, errorMessage);
+			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
 		}
 	}
 
-	private resolveConversationScript(conversation: Conversation, agentConfig: AgentConfig): ConversationMessage[] {
+	private resolveConversationScript(
+		conversation: Conversation & { messages?: ConversationMessage[] },
+		agentConfig: AgentConfig
+	): ConversationExecutionRequest['conversation_script'] {
 		const { templates, maps, defaultTemplate, defaultMap } = agentConfig;
 		const conversationDefaultTemplateId = conversation.default_request_template_id;
 		const conversationDefaultMapId = conversation.default_response_map_id;
 
-		// Conversation-level variables
-		let conversationVars: Record<string, any> = {};
-		try {
-			if (conversation.variables && conversation.variables.trim().length > 0) {
-				conversationVars = JSON.parse(conversation.variables);
-			}
-		} catch { }
+		const conversationVars = parseJson<Record<string, unknown>>(conversation.variables, {});
 
-		return (conversation.messages || []).map((m) => {
+		const resolvedMessages: ConversationScriptMessage[] = (conversation.messages || []).map((m) => {
 			if (m.role !== 'user') {
-				return m;
+				const metadata = typeof m.metadata === 'string'
+					? parseJson<Record<string, unknown>>(m.metadata, {})
+					: (m.metadata as Record<string, unknown> | undefined) || {};
+
+				return {
+					...m,
+					metadata
+				};
 			}
 
-			const msgOverrideTemplateId = (m as any).request_template_id as number | undefined;
-			const msgOverrideMapId = (m as any).response_map_id as number | undefined;
+			const msgOverrideTemplateId = m.request_template_id;
+			const msgOverrideMapId = m.response_map_id;
 
-			// Message-level set_variables
-			let messageVars: Record<string, any> = {};
-			try {
-				const raw = (m as any).set_variables;
-				if (raw && typeof raw === 'string' && raw.trim().length > 0) {
-					messageVars = JSON.parse(raw);
-				}
-			} catch { }
+			const messageVars = typeof m.set_variables === 'string'
+				? parseJson<Record<string, unknown>>(m.set_variables, {})
+				: {};
 
 			const effectiveTemplate =
 				(templates.find(t => t.id === msgOverrideTemplateId)?.body) ??
@@ -262,18 +288,11 @@ export class JobPollerService {
 				(maps.find(r => r.id === conversationDefaultMapId)?.spec) ??
 				(defaultMap?.spec);
 
-			// Merge variables: conversation-level first, then per-message override
 			const mergedVars = { ...conversationVars, ...messageVars };
 
-			// Parse metadata if it's a string
-			let metadata = m.metadata || {};
-			if (typeof metadata === 'string') {
-				try {
-					metadata = JSON.parse(metadata);
-				} catch {
-					metadata = {};
-				}
-			}
+			const metadata = typeof m.metadata === 'string'
+				? parseJson<Record<string, unknown>>(m.metadata, {})
+				: (m.metadata as Record<string, unknown> | undefined) || {};
 
 			const mergedMetadata = {
 				...metadata,
@@ -284,9 +303,11 @@ export class JobPollerService {
 
 			return {
 				...m,
-				metadata: mergedMetadata as any
+				metadata: mergedMetadata
 			};
 		});
+
+		return resolvedMessages as ConversationExecutionRequest['conversation_script'];
 	}
 
 	private async saveSessionResults(
@@ -306,10 +327,10 @@ export class JobPollerService {
 			success: result.success,
 			variables: JSON.stringify(result.variables || {}),
 			metadata: JSON.stringify({
-				input_tokens: result.metrics.input_tokens,
-				output_tokens: result.metrics.output_tokens,
+				input_tokens: result.metrics?.input_tokens,
+				output_tokens: result.metrics?.output_tokens,
 				token_mapping_metadata: JSON.stringify({
-					extraction_method: result.metrics.input_tokens || result.metrics.output_tokens ? 'external_api' : 'none',
+					extraction_method: (result.metrics?.input_tokens || result.metrics?.output_tokens) ? 'external_api' : 'none',
 					agent_type: 'external_api'
 				}),
 				intermediate_steps: JSON.stringify(result.intermediate_steps)
@@ -339,7 +360,7 @@ export class JobPollerService {
 	private async executeLegacyTestJob(job: Job, agent: Agent, settings: AgentSettings): Promise<void> {
 		try {
 			// Get test details
-			const testResponse = await axios.get(`${this.backendUrl}/api/tests/${job.test_id}`);
+			const testResponse = await axios.get<Test>(`${this.backendUrl}/api/tests/${job.test_id}`);
 			const test: Test = testResponse.data;
 
 			let requestTemplate = settings.request_template;
@@ -373,11 +394,11 @@ export class JobPollerService {
 				token_mapping: settings.token_mapping
 			};
 
-			await this.updateJobStatus(job.id, 'running', 30);
+			await this.updateJobStatus(job.id, JobStatus.RUNNING, 30);
 
 			const result = await apiService.executeTest(executionRequest);
 
-			await this.updateJobStatus(job.id, 'running', 80);
+			await this.updateJobStatus(job.id, JobStatus.RUNNING, 80);
 
 			// Send result back to backend (legacy results endpoint)
 			const resultResponse = await axios.post(`${this.backendUrl}/api/results`, {
@@ -390,7 +411,7 @@ export class JobPollerService {
 				input_tokens: result.metrics.input_tokens,
 				output_tokens: result.metrics.output_tokens,
 				token_mapping_metadata: JSON.stringify({
-					extraction_method: result.metrics.input_tokens || result.metrics.output_tokens ? 'external_api' : 'none',
+					extraction_method: (result.metrics.input_tokens || result.metrics.output_tokens) ? 'external_api' : 'none',
 					agent_type: 'external_api'
 				}),
 				metrics: result.metrics
@@ -398,10 +419,11 @@ export class JobPollerService {
 
 			const savedResult = resultResponse.data;
 
-			await this.updateJobStatus(job.id, 'completed', 100, savedResult.id);
-		} catch (error: any) {
-			console.error(`Error executing legacy test job ${job.id}:`, error.message);
-			await this.updateJobStatus(job.id, 'failed', 0, undefined, error.message);
+			await this.updateJobStatus(job.id, JobStatus.COMPLETED, 100, savedResult.id);
+		} catch (error: unknown) {
+			const errorMessage = getErrorMessage(error);
+			console.error(`Error executing legacy test job ${job.id}:`, errorMessage);
+			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
 		}
 	}
 
@@ -417,7 +439,7 @@ export class JobPollerService {
 		sessionId?: number
 	): Promise<void> {
 		try {
-			const updateData: any = {
+			const updateData: Pick<Job, 'status' | 'progress'> & Partial<Pick<Job, 'result_id' | 'session_id' | 'error'>> = {
 				status,
 				progress
 			};
@@ -435,8 +457,8 @@ export class JobPollerService {
 			}
 
 			await axios.put(`${this.backendUrl}/api/jobs/${jobId}`, updateData);
-		} catch (error: any) {
-			console.error(`Error updating job ${jobId} status:`, error.message);
+		} catch (error: unknown) {
+			console.error(`Error updating job ${jobId} status:`, getErrorMessage(error));
 		}
 	}
 

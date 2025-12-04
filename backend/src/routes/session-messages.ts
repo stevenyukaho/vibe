@@ -8,7 +8,7 @@ import {
 	updateSessionMessage,
 	getSessionMessageById
 } from '../db/queries';
-import type { SessionMessage } from '../types';
+import type { SessionMessage } from '@ibm-vibe/types';
 import { scoreSimilarityText } from '../services/scoring-service';
 
 /**

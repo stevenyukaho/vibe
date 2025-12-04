@@ -11,7 +11,7 @@ import {
 	getConversationTurnTarget,
 	getConversationMessages
 } from '../db/queries';
-import type { TestResult } from '../types';
+import type { TestResult } from '@ibm-vibe/types';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { extractTokenUsage, validateTokenUsage } from '../lib/tokenUsageExtractor';
@@ -162,6 +162,40 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	} catch (error) {
 		console.error('Error fetching result:', error);
 		return res.status(500).json({ error: 'Failed to fetch result' });
+	}
+}) as any);
+
+// Score a result
+router.post('/:id/score', (async (req: Request<{ id: string }>, res: Response) => {
+	try {
+		const idNum = Number(req.params.id);
+		const { llm_config_id } = req.body;
+
+		if (isNaN(idNum)) {
+			return res.status(400).json({ error: 'Invalid result ID' });
+		}
+
+		// Import legacy queries dynamically to avoid circular deps
+		const legacy = (await import('../db/queries')) as typeof import('../db/queries');
+		const result = legacy.getResultById ? legacy.getResultById(idNum) : null;
+
+		if (!result) {
+			return res.status(404).json({ error: 'Result not found' });
+		}
+
+		const test = legacy.getTestById ? legacy.getTestById(result.test_id) : null;
+		if (!test) {
+			return res.status(404).json({ error: 'Test associated with result not found' });
+		}
+
+		const { scoringService } = await import('../services/scoring-service');
+		await scoringService.scoreTestResult(result, test, llm_config_id);
+
+		const updatedResult = legacy.getResultById ? legacy.getResultById(idNum) : null;
+		return res.json(updatedResult);
+	} catch (error) {
+		console.error('Error scoring result:', error);
+		return res.status(500).json({ error: 'Failed to score result' });
 	}
 }) as any);
 

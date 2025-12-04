@@ -1,0 +1,15 @@
+{
+  "name": "ibm-vibe-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "agent-service-api",
+    "packages/*"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "build:types": "npm run build -w @ibm-vibe/types"
+  }
+}

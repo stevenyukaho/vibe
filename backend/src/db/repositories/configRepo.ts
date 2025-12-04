@@ -1,5 +1,5 @@
 import db from '../database';
-import { LLMConfig } from '../../types';
+import { LLMConfig } from '@ibm-vibe/types';
 
 // LLM Config queries
 export const createLLMConfig = (llmConfig: LLMConfig) => {

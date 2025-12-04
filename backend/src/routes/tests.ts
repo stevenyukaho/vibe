@@ -11,7 +11,7 @@ import {
 	getConversationMessages,
 	updateConversationMessage
 } from '../db/queries';
-import type { Test } from '../types';
+import type { Test } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import {
 	conversationToLegacyTest,

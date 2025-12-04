@@ -4,7 +4,7 @@ import { getSuiteRunById, getJobsBySuiteRunId, deleteSuiteRun, listSuiteRunsWith
 import { computeSessionDurationMs } from '../lib/sessionMetadata';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
-import { JobStatus } from '../types';
+import { JobStatus } from '@ibm-vibe/types';
 
 const router = Router();
 

@@ -8,17 +8,19 @@ The External API Agent Service is designed to connect to any external agent API,
 
 ## Setup
 
-1. Install dependencies:
+1. Install dependencies in the project root (required for shared types):
 
    ```bash
+   # In project root
    npm install
    ```
 
-2. Create a `.env` file in the root directory with:
+2. Create a `.env` file in the project root directory with:
 
-   ```
+   ```env
    PORT=5003
    HOST=localhost
+   BACKEND_URL=http://localhost:5000
    ```
 
 3. Build the service:
@@ -43,7 +45,7 @@ npm run dev
 
 ### Health Check
 
-```
+```http
 GET /health
 ```
 
@@ -51,7 +53,9 @@ Returns status 200 with `{ status: "ok" }` if the service is running.
 
 ### Execute Test
 
-```
+**Note**: The service also automatically polls the backend for jobs and executes them. This is the primary method of execution when integrated with the full testing suite.
+
+```http
 POST /execute-test
 ```
 
@@ -63,8 +67,10 @@ Request body:
   "test_id": 123,
   "api_endpoint": "https://api.example.com/chat",
   "api_key": "optional-api-key",
+  "http_method": "POST",
   "request_template": "{\"messages\": [{\"role\": \"user\", \"content\": \"{{input}}\"}]}",
   "response_mapping": "{\"output\": \"choices.0.message.content\", \"intermediate_steps\": \"usage\"}",
+  "token_mapping": "{\"input_tokens\": \"usage.prompt_tokens\", \"output_tokens\": \"usage.completion_tokens\"}",
   "headers": {
     "custom-header": "value"
   }
@@ -92,14 +98,16 @@ Response:
     }
   ],
   "metrics": {
-    "execution_time": 1234
+    "execution_time": 1234,
+    "input_tokens": 150,
+    "output_tokens": 75
   }
 }
 ```
 
 ## Request Template
 
-The `request_template` field allows you to specify how to format the test input for the external API. Use `{{input}}` as a placeholder for the test input. For conversations, you can also use `{{conversation_history}}`. Arbitrary variables may be injected via `{{variableName}}` when provided in the per-message metadata or conversation defaults:
+The `request_template` field allows you to specify how to format the test input for the external API. Use `{{input}}` as a placeholder for the test input. For conversations, you can also use `{{conversation_history}}`. Arbitrary variables may be injected via `{{variableName}}` when provided in the per-message metadata or conversation defaults. Variable paths support dot notation and bracket notation (e.g., `{{users[0].name}}` or `{{data['key']}}`):
 
 ```json
 {
@@ -141,7 +149,9 @@ Success criteria types:
 
 - `contains`: Check if output contains a value
 - `exact_match`: Check if output exactly matches a value
-- `json_match`: Check if a specific field in the response matches a value
+- `json_match`: Check if a specific field in the response matches a value using comparison operators
+
+For `json_match`, the following operators are supported: `==`, `===`, `!=`, `!==`, `>`, `>=`, `<`, `<=`
 
 ## Error Handling
 
@@ -158,11 +168,31 @@ The service returns a standardized error format:
 
 ### Timeout Settings
 
-The service has a default timeout of 30 seconds for API calls. You can configure this in the `.env` file:
+The service has a default timeout of 60 seconds for API calls. You can configure this in the `.env` file:
 
-```
+```env
 DEFAULT_TIMEOUT=60000
 ```
+
+### HTTP Method
+
+The service supports different HTTP methods for API calls. Specify the `http_method` field in your request:
+
+- `GET`: Query parameters are appended to the URL
+- `POST` (default): Request body is sent as JSON
+- `PUT`, `PATCH`, `DELETE`: Also supported
+
+### Token Mapping
+
+The service can automatically extract token usage from API responses. You can provide a `token_mapping` configuration:
+
+```json
+{
+  "token_mapping": "{\"input_tokens\": \"usage.prompt_tokens\", \"output_tokens\": \"usage.completion_tokens\"}"
+}
+```
+
+If no mapping is provided, the service will attempt to detect token usage using common formats (OpenAI, Anthropic, Google, Cohere, Ollama, LangChain).
 
 ### Authentication
 

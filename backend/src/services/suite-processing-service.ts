@@ -1,5 +1,5 @@
 import { getAgentById, getEntriesInSuite } from '../db/queries';
-import { SuiteEntry, Agent } from '../types';
+import { SuiteEntry, Agent } from '@ibm-vibe/types';
 
 /**
  * Interface for suite processing results

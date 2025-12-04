@@ -1,4 +1,4 @@
-import { Test, TestResult, Agent } from '../types';
+import { Test, TestResult, Agent } from '@ibm-vibe/types';
 import { llmConfigService } from './llm-config-service';
 import { parseScoringResponse } from '../lib/parseScoringResponse';
 import { updateResult, getAgentById } from '../db/queries';

@@ -20,7 +20,7 @@ import {
 	deleteAgentResponseMap,
 	setDefaultAgentResponseMap
 } from '../db/queries';
-import type { Agent, AgentRequestTemplate, AgentResponseMap } from '../types';
+import type { Agent, AgentRequestTemplate, AgentResponseMap } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();

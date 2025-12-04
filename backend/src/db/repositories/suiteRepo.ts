@@ -1,5 +1,5 @@
 import db from '../database';
-import { TestSuite, SuiteEntry, SuiteRun, SuiteRunFilters, JobStatus } from '../../types';
+import { TestSuite, SuiteEntry, SuiteRun, SuiteRunFilters, JobStatus } from '@ibm-vibe/types';
 import { normalizeSuiteEntryInsert } from '../normalizers';
 
 export const createTestSuite = (testSuite: TestSuite) => {

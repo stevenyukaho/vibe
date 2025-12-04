@@ -1,1 +1,1 @@
-export * from '../../../types';
+export * from '@ibm-vibe/types';
