@@ -11,6 +11,19 @@ import {
 import { DEFAULT_TIMEOUT } from '../config';
 import { extractTokenUsage } from './token-extractor';
 
+const serializeMetadata = (metadata?: Record<string, unknown>): string | undefined => {
+	if (!metadata) {
+		return undefined;
+	}
+
+	const entries = Object.entries(metadata).filter(([, value]) => value !== undefined && value !== null);
+	if (!entries.length) {
+		return undefined;
+	}
+
+	return JSON.stringify(Object.fromEntries(entries));
+};
+
 /**
  * Service for executing tests via external APIs.
  * This service handles communication with external AI APIs, including request formatting,
@@ -533,7 +546,7 @@ export class ApiService {
 						role: 'system',
 						content: scriptMessage.content,
 						timestamp: new Date().toISOString(),
-						metadata: { type: 'system_instruction' }
+						metadata: serializeMetadata({ type: 'system_instruction' })
 					});
 
 					conversationHistory += `System: ${scriptMessage.content}\n`;
@@ -598,10 +611,10 @@ export class ApiService {
 							role: 'user',
 							content: scriptMessage.content,
 							timestamp: new Date().toISOString(),
-							metadata: {
+							metadata: serializeMetadata({
 								script_sequence: scriptMessage.sequence,
 								variables_before: Object.keys(mergedVars).length ? mergedVars : undefined
-							}
+							})
 						});
 
 						conversationHistory += `User: ${scriptMessage.content}\n`;
@@ -661,7 +674,7 @@ export class ApiService {
 							role: 'assistant',
 							content: output,
 							timestamp: new Date().toISOString(),
-							metadata: {
+							metadata: serializeMetadata({
 								script_sequence: scriptMessage.sequence,
 								execution_time_ms: messageExecutionTime,
 								success: success,
@@ -671,7 +684,7 @@ export class ApiService {
 								variables_after: Object.keys(accumulatedVariables || {}).length ? accumulatedVariables : undefined,
 								input_tokens: tokens.input_tokens,
 								output_tokens: tokens.output_tokens
-							}
+							})
 						});
 
 						conversationHistory += `Assistant: ${output}\n`;
@@ -711,11 +724,11 @@ export class ApiService {
 							role: 'assistant',
 							content: `Error: ${messageError.message}`,
 							timestamp: new Date().toISOString(),
-							metadata: {
+							metadata: serializeMetadata({
 								script_sequence: scriptMessage.sequence,
 								error: true,
 								error_message: messageError.message
-							}
+							})
 						});
 
 						conversationSuccess = false;

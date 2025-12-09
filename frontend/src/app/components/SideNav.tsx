@@ -35,7 +35,6 @@ export default function AppSideNav() {
 		<SideNav
 			isFixedNav
 			expanded={true}
-			isChildOfHeader={true}
 			aria-label="Side navigation"
 			className={styles.sideNav}
 		>

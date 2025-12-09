@@ -22,7 +22,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ibm-vibe/types": ["../packages/types/index"],
+      "@ibm-vibe/config": ["../packages/config/src/index"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

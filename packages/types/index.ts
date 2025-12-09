@@ -122,7 +122,7 @@ export interface ExecutionSession {
 
 export interface SessionMessage {
 	id?: number;
-	session_id: number;
+	session_id?: number;
 	sequence: number;
 	role: 'user' | 'assistant' | 'system' | 'tool';
 	content: string;

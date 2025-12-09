@@ -3,6 +3,7 @@
 import React from 'react';
 import { Content, Theme, Header, HeaderName } from '@carbon/react';
 import { AppDataProvider } from '@/lib/AppDataContext';
+import { frontendConfig } from '@/lib/runtimeConfig';
 import AppSideNav from './components/SideNav';
 import './globals.scss';
 
@@ -11,7 +12,7 @@ export default function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
-	const instanceName = process.env.NEXT_PUBLIC_INSTANCE_NAME;
+	const instanceName = frontendConfig.instanceName;
 	return (
 		<html lang='en'>
 			<head>

@@ -13,15 +13,21 @@
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "outDir": "./dist",
-        "rootDir": "../",
+		"rootDir": "./src",
         "moduleResolution": "node",
-        "resolveJsonModule": true
+		"resolveJsonModule": true,
+		"baseUrl": ".",
+		"paths": {
+			"@ibm-vibe/types": ["../packages/types/index"],
+			"@ibm-vibe/config": ["../packages/config/src/index"]
+		},
+		"composite": true
     },
     "include": [
-        "src/**/*",
-        "../types/**/*.ts"
+		"src"
     ],
-    "exclude": [
-        "node_modules"
+	"references": [
+		{ "path": "../packages/types" },
+		{ "path": "../packages/config" }
     ]
 }

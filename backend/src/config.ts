@@ -1,21 +1,10 @@
-// Configuration for the backend application
+import { loadBackendConfig } from '@ibm-vibe/config';
 
-// Agent service configuration
-export const agentServiceConfig = {
-  url: process.env.AGENT_SERVICE_URL || 'http://localhost:5002',
-  timeout: 0, // No timeout
-};
+const backendConfig = loadBackendConfig();
 
-// Server configuration
-export const serverConfig = {
-  port: parseInt(process.env.PORT || '5000', 10),
-  host: process.env.HOST || 'localhost',
-};
-
-// Database configuration
-export const dbConfig = {
-  path: process.env.DB_PATH || './data/agent-testing.db',
-};
+export const agentServiceConfig = backendConfig.agentService;
+export const serverConfig = backendConfig.server;
+export const dbConfig = backendConfig.database;
 
 // Default pagination settings for large resources
 export const paginationConfig = {

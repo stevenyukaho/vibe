@@ -1,6 +1,7 @@
 import type { Agent, Test, TestResult } from '@ibm-vibe/types';
 import type { PaginatedResponse, StatsResponse, LLMRequestOptions, LLMResponse } from '@ibm-vibe/types';
 import type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget } from '@ibm-vibe/types';
+import { frontendConfig } from './runtimeConfig';
 
 // Re-export types for use in components
 export type { Agent, Test, TestResult };
@@ -16,7 +17,7 @@ export interface LLMConfig {
 	updated_at?: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = frontendConfig.apiUrl;
 
 // Job status type (frontend-specific version)
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';

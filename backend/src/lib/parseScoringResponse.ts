@@ -48,8 +48,10 @@ export function parseScoringResponse(rawResponse: string): ScoringResult {
 
 	score = Math.round(score);
 
+	const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning.trim() : '';
+
 	return {
 		score,
-		reasoning: parsed.reasoning
+		reasoning
 	};
 }
