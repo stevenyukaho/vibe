@@ -36,6 +36,7 @@ export default function AppSideNav() {
 			isFixedNav
 			expanded={true}
 			aria-label="Side navigation"
+			inert={undefined} // override Carbon's boolean inert attr to avoid React warning
 			className={styles.sideNav}
 		>
 			<SideNavItems>
@@ -102,7 +103,7 @@ export default function AppSideNav() {
 				>
                     LLM configs
 				</SideNavLink>
-                
+
 				{/* Legacy (Deprecated) Section */}
 				<SideNavMenu renderIcon={Warning} title="Legacy (Deprecated)">
 					<SideNavLink
