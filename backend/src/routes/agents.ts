@@ -18,7 +18,9 @@ import {
 	createAgentResponseMap,
 	updateAgentResponseMap,
 	deleteAgentResponseMap,
-	setDefaultAgentResponseMap
+	setDefaultAgentResponseMap,
+	listRequestTemplateCapabilityNames,
+	listResponseMapCapabilityNames
 } from '../db/queries';
 import type { Agent, AgentRequestTemplate, AgentResponseMap } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
@@ -157,6 +159,27 @@ router.delete<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res:
 			error: 'Failed to delete agent',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
+	}
+}) as any);
+
+// Capability names - for auto-complete in UI
+router.get('/capability-names/request-templates', ((_req: Request, res: Response) => {
+	try {
+		const names = listRequestTemplateCapabilityNames();
+		return res.json(names);
+	} catch (error) {
+		console.error('Error listing request template capability names:', error);
+		return res.status(500).json({ error: 'Failed to list capability names' });
+	}
+}) as any);
+
+router.get('/capability-names/response-maps', ((_req: Request, res: Response) => {
+	try {
+		const names = listResponseMapCapabilityNames();
+		return res.json(names);
+	} catch (error) {
+		console.error('Error listing response map capability names:', error);
+		return res.status(500).json({ error: 'Failed to list capability names' });
 	}
 }) as any);
 
