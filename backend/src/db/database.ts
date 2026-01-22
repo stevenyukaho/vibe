@@ -6,10 +6,13 @@ import { dbConfig } from '../config';
 // Read database path from configuration (env: DB_PATH). If the configured path
 // is relative, resolve it against the process working directory so that
 // development (ts-node-dev) and production (node dist) behave consistently.
+// Special case: :memory: is a SQLite in-memory database identifier and should not be resolved as a file path.
 const configuredDbPath = dbConfig.path;
-const resolvedDbPath = path.isAbsolute(configuredDbPath)
+const resolvedDbPath = configuredDbPath.startsWith(':memory:')
 	? configuredDbPath
-	: path.resolve(process.cwd(), configuredDbPath);
+	: path.isAbsolute(configuredDbPath)
+		? configuredDbPath
+		: path.resolve(process.cwd(), configuredDbPath);
 const db = new Database(resolvedDbPath);
 
 // Enable foreign keys
