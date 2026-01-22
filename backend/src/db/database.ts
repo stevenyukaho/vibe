@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { dbConfig } from '../config';
+import { serializeCapabilities } from '../lib/communicationCapabilities';
 
 // Database setup
 // Read database path from configuration (env: DB_PATH). If the configured path
@@ -1003,6 +1004,11 @@ try {
 	try {
 		db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_req_tmpl_default ON agent_request_templates(agent_id) WHERE is_default = 1;`);
 	} catch { } // older SQLite might not support partial indexes; enforce in code if needed
+	const reqTemplateCols = db.prepare("PRAGMA table_info('agent_request_templates')").all() as Array<{ name: string }>;
+	if (reqTemplateCols.length > 0 && !reqTemplateCols.some(col => col.name === 'capabilities')) {
+		db.exec("ALTER TABLE agent_request_templates ADD COLUMN capabilities TEXT DEFAULT '{}'");
+		db.exec("UPDATE agent_request_templates SET capabilities = '{}' WHERE capabilities IS NULL");
+	}
 
 	// 2) Ensure agent_response_maps table
 	db.exec(`
@@ -1022,6 +1028,11 @@ try {
 	try {
 		db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_resp_map_default ON agent_response_maps(agent_id) WHERE is_default = 1;`);
 	} catch { /* see note above */ }
+	const respMapCols = db.prepare("PRAGMA table_info('agent_response_maps')").all() as Array<{ name: string }>;
+	if (respMapCols.length > 0 && !respMapCols.some(col => col.name === 'capabilities')) {
+		db.exec("ALTER TABLE agent_response_maps ADD COLUMN capabilities TEXT DEFAULT '{}'");
+		db.exec("UPDATE agent_response_maps SET capabilities = '{}' WHERE capabilities IS NULL");
+	}
 
 	// 3) Add selection/variables columns to conversations
 	const convCols2 = db.prepare("PRAGMA table_info('conversations')").all() as Array<{ name: string }>;
@@ -1033,6 +1044,12 @@ try {
 	}
 	if (!convCols2.some(c => c.name === 'variables')) {
 		db.exec("ALTER TABLE conversations ADD COLUMN variables TEXT");
+	}
+	if (!convCols2.some(c => c.name === 'required_request_template_capabilities')) {
+		db.exec("ALTER TABLE conversations ADD COLUMN required_request_template_capabilities TEXT");
+	}
+	if (!convCols2.some(c => c.name === 'required_response_map_capabilities')) {
+		db.exec("ALTER TABLE conversations ADD COLUMN required_response_map_capabilities TEXT");
 	}
 	if (!convCols2.some(c => c.name === 'stop_on_failure')) {
 		db.exec("ALTER TABLE conversations ADD COLUMN stop_on_failure INTEGER DEFAULT 0");
@@ -1134,6 +1151,422 @@ try {
 	backfillTx();
 } catch (e) {
 	console.error('Templates/maps migration failed', e);
+}
+
+// Migration: Global template library (request_templates, response_maps, junction tables)
+try {
+	// 1) Create global request_templates table
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS request_templates (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE,
+			description TEXT,
+			capability TEXT,
+			body TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+	`);
+
+	// 2) Create global response_maps table
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS response_maps (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE,
+			description TEXT,
+			capability TEXT,
+			spec TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+	`);
+
+	// 3) Create agent-to-template junction table (many-to-many)
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS agent_template_links (
+			agent_id INTEGER NOT NULL,
+			template_id INTEGER NOT NULL,
+			is_default INTEGER DEFAULT 0,
+			linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (agent_id, template_id),
+			FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+			FOREIGN KEY (template_id) REFERENCES request_templates(id) ON DELETE CASCADE
+		);
+	`);
+
+	// 4) Create agent-to-response-map junction table (many-to-many)
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS agent_response_map_links (
+			agent_id INTEGER NOT NULL,
+			response_map_id INTEGER NOT NULL,
+			is_default INTEGER DEFAULT 0,
+			linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (agent_id, response_map_id),
+			FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+			FOREIGN KEY (response_map_id) REFERENCES response_maps(id) ON DELETE CASCADE
+		);
+	`);
+
+	// 5) Create legacy template mappings table (idempotent backfills)
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS legacy_template_mappings (
+			kind TEXT NOT NULL,
+			legacy_id INTEGER NOT NULL,
+			global_id INTEGER NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (kind, legacy_id)
+		);
+	`);
+
+	// Ensure linked_at columns exist on older tables
+	const templateLinkCols = db.prepare("PRAGMA table_info('agent_template_links')").all() as Array<{ name: string }>;
+	if (!templateLinkCols.some(col => col.name === 'linked_at')) {
+		db.exec("ALTER TABLE agent_template_links ADD COLUMN linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+		db.exec("UPDATE agent_template_links SET linked_at = CURRENT_TIMESTAMP WHERE linked_at IS NULL");
+	}
+
+	const mapLinkCols = db.prepare("PRAGMA table_info('agent_response_map_links')").all() as Array<{ name: string }>;
+	if (!mapLinkCols.some(col => col.name === 'linked_at')) {
+		db.exec("ALTER TABLE agent_response_map_links ADD COLUMN linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+		db.exec("UPDATE agent_response_map_links SET linked_at = CURRENT_TIMESTAMP WHERE linked_at IS NULL");
+	}
+
+	// Ensure only one default per agent before unique indexes
+	const cleanupDefaultsTx = db.transaction(() => {
+		const dupTemplateDefaults = db.prepare(`
+			SELECT agent_id FROM agent_template_links
+			WHERE is_default = 1
+			GROUP BY agent_id
+			HAVING COUNT(*) > 1
+		`).all() as Array<{ agent_id: number }>;
+
+		for (const { agent_id } of dupTemplateDefaults) {
+			const keep = db.prepare(`
+				SELECT template_id FROM agent_template_links
+				WHERE agent_id = ? AND is_default = 1
+				ORDER BY linked_at DESC, template_id DESC
+				LIMIT 1
+			`).get(agent_id) as { template_id?: number } | undefined;
+
+			if (keep?.template_id) {
+				db.prepare(`
+					UPDATE agent_template_links
+					SET is_default = CASE WHEN template_id = ? THEN 1 ELSE 0 END
+					WHERE agent_id = ?
+				`).run(keep.template_id, agent_id);
+			}
+		}
+
+		const dupMapDefaults = db.prepare(`
+			SELECT agent_id FROM agent_response_map_links
+			WHERE is_default = 1
+			GROUP BY agent_id
+			HAVING COUNT(*) > 1
+		`).all() as Array<{ agent_id: number }>;
+
+		for (const { agent_id } of dupMapDefaults) {
+			const keep = db.prepare(`
+				SELECT response_map_id FROM agent_response_map_links
+				WHERE agent_id = ? AND is_default = 1
+				ORDER BY linked_at DESC, response_map_id DESC
+				LIMIT 1
+			`).get(agent_id) as { response_map_id?: number } | undefined;
+
+			if (keep?.response_map_id) {
+				db.prepare(`
+					UPDATE agent_response_map_links
+					SET is_default = CASE WHEN response_map_id = ? THEN 1 ELSE 0 END
+					WHERE agent_id = ?
+				`).run(keep.response_map_id, agent_id);
+			}
+		}
+	});
+
+	cleanupDefaultsTx();
+
+	// Create indexes for the new tables
+	db.exec(`
+		CREATE INDEX IF NOT EXISTS idx_request_templates_capability ON request_templates(capability);
+		CREATE INDEX IF NOT EXISTS idx_request_templates_name ON request_templates(name);
+		CREATE INDEX IF NOT EXISTS idx_response_maps_capability ON response_maps(capability);
+		CREATE INDEX IF NOT EXISTS idx_response_maps_name ON response_maps(name);
+		CREATE INDEX IF NOT EXISTS idx_agent_template_links_agent ON agent_template_links(agent_id);
+		CREATE INDEX IF NOT EXISTS idx_agent_template_links_template ON agent_template_links(template_id);
+		CREATE INDEX IF NOT EXISTS idx_agent_response_map_links_agent ON agent_response_map_links(agent_id);
+		CREATE INDEX IF NOT EXISTS idx_agent_response_map_links_map ON agent_response_map_links(response_map_id);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_template_links_default ON agent_template_links(agent_id) WHERE is_default = 1;
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_response_map_links_default ON agent_response_map_links(agent_id) WHERE is_default = 1;
+		CREATE INDEX IF NOT EXISTS idx_legacy_template_mappings_global ON legacy_template_mappings(global_id);
+	`);
+} catch (e) {
+	console.error('Global template library migration failed', e);
+}
+
+// Migration: Copy existing agent-scoped templates to global tables (idempotent)
+try {
+	const legacyTemplateCount = (db.prepare('SELECT COUNT(*) as count FROM agent_request_templates').get() as { count: number }).count;
+	const legacyMapCount = (db.prepare('SELECT COUNT(*) as count FROM agent_response_maps').get() as { count: number }).count;
+
+	if (legacyTemplateCount > 0 || legacyMapCount > 0) {
+		console.log('Migrating agent-scoped templates to global template library...');
+
+		const normalizeCapability = (value: string | null) => serializeCapabilities(value);
+
+		const existingTemplates = db.prepare(`
+			SELECT id, name, description, capability, body
+			FROM request_templates
+		`).all() as Array<{ id: number; name: string; capability: string | null; body: string }>;
+
+		const existingMaps = db.prepare(`
+			SELECT id, name, description, capability, spec
+			FROM response_maps
+		`).all() as Array<{ id: number; name: string; capability: string | null; spec: string }>;
+
+		// Get all legacy request templates
+		const legacyTemplates = db.prepare(`
+			SELECT art.*, a.name as agent_name
+			FROM agent_request_templates art
+			JOIN agents a ON art.agent_id = a.id
+			ORDER BY art.agent_id, art.is_default DESC
+		`).all() as Array<{
+			id: number;
+			agent_id: number;
+			name: string;
+			description: string | null;
+			body: string;
+			capabilities: string | null;
+			is_default: number;
+			agent_name: string;
+			created_at: string | null;
+		}>;
+
+		// Get all legacy response maps
+		const legacyMaps = db.prepare(`
+			SELECT arm.*, a.name as agent_name
+			FROM agent_response_maps arm
+			JOIN agents a ON arm.agent_id = a.id
+			ORDER BY arm.agent_id, arm.is_default DESC
+		`).all() as Array<{
+			id: number;
+			agent_id: number;
+			name: string;
+			description: string | null;
+			spec: string;
+			capabilities: string | null;
+			is_default: number;
+			agent_name: string;
+			created_at: string | null;
+		}>;
+
+		// Track used names to avoid conflicts (seed from existing globals)
+		const usedTemplateNames = new Set(existingTemplates.map(t => t.name));
+		const usedMapNames = new Set(existingMaps.map(m => m.name));
+
+		// Dedupe by name + body/spec (+ capability)
+		const templateKeyToGlobalId = new Map<string, number>();
+		const mapKeyToGlobalId = new Map<string, number>();
+
+		for (const t of existingTemplates) {
+			const key = `${t.name}::${t.body}::${normalizeCapability(t.capability) ?? ''}`;
+			templateKeyToGlobalId.set(key, t.id);
+		}
+		for (const m of existingMaps) {
+			const key = `${m.name}::${m.spec}::${normalizeCapability(m.capability) ?? ''}`;
+			mapKeyToGlobalId.set(key, m.id);
+		}
+
+		// Prepared statements for insertion and linking
+		const insertGlobalTemplate = db.prepare(`
+			INSERT INTO request_templates (name, description, capability, body)
+			VALUES (@name, @description, @capability, @body)
+		`);
+		const linkTemplate = db.prepare(`
+			INSERT OR IGNORE INTO agent_template_links (agent_id, template_id, is_default, linked_at)
+			VALUES (@agent_id, @template_id, @is_default, @linked_at)
+		`);
+		const insertGlobalMap = db.prepare(`
+			INSERT INTO response_maps (name, description, capability, spec)
+			VALUES (@name, @description, @capability, @spec)
+		`);
+		const linkMap = db.prepare(`
+			INSERT OR IGNORE INTO agent_response_map_links (agent_id, response_map_id, is_default, linked_at)
+			VALUES (@agent_id, @response_map_id, @is_default, @linked_at)
+		`);
+		const insertLegacyMapping = db.prepare(`
+			INSERT OR IGNORE INTO legacy_template_mappings (kind, legacy_id, global_id)
+			VALUES (@kind, @legacy_id, @global_id)
+		`);
+
+		// Helper to generate unique name
+		const getUniqueName = (baseName: string, agentName: string, usedNames: Set<string>): string => {
+			let name = baseName;
+			if (usedNames.has(name)) {
+				name = `${baseName} (${agentName})`;
+				let counter = 2;
+				while (usedNames.has(name)) {
+					name = `${baseName} (${agentName} ${counter})`;
+					counter++;
+				}
+			}
+			usedNames.add(name);
+			return name;
+		};
+
+		// Migrate request templates
+		const migrateTemplatesTx = db.transaction(() => {
+			let inserted = 0;
+			let reused = 0;
+			for (const lt of legacyTemplates) {
+				const normalizedCapability = normalizeCapability(lt.capabilities);
+				const key = `${lt.name}::${lt.body}::${normalizedCapability ?? ''}`;
+				let globalId = templateKeyToGlobalId.get(key);
+
+				if (!globalId) {
+					const uniqueName = getUniqueName(lt.name, lt.agent_name, usedTemplateNames);
+					const result = insertGlobalTemplate.run({
+						name: uniqueName,
+						description: lt.description,
+						capability: normalizedCapability,
+						body: lt.body
+					});
+					globalId = Number(result.lastInsertRowid);
+					templateKeyToGlobalId.set(key, globalId);
+					inserted += 1;
+				} else {
+					reused += 1;
+				}
+
+				linkTemplate.run({
+					agent_id: lt.agent_id,
+					template_id: globalId,
+					is_default: lt.is_default,
+					linked_at: lt.created_at ?? null
+				});
+
+				insertLegacyMapping.run({
+					kind: 'request_template',
+					legacy_id: lt.id,
+					global_id: globalId
+				});
+			}
+
+			return { inserted, reused };
+		});
+		const templateResult = migrateTemplatesTx();
+
+		// Migrate response maps
+		const migrateMapsTx = db.transaction(() => {
+			let inserted = 0;
+			let reused = 0;
+			for (const lm of legacyMaps) {
+				const normalizedCapability = normalizeCapability(lm.capabilities);
+				const key = `${lm.name}::${lm.spec}::${normalizedCapability ?? ''}`;
+				let globalId = mapKeyToGlobalId.get(key);
+
+				if (!globalId) {
+					const uniqueName = getUniqueName(lm.name, lm.agent_name, usedMapNames);
+					const result = insertGlobalMap.run({
+						name: uniqueName,
+						description: lm.description,
+						capability: normalizedCapability,
+						spec: lm.spec
+					});
+					globalId = Number(result.lastInsertRowid);
+					mapKeyToGlobalId.set(key, globalId);
+					inserted += 1;
+				} else {
+					reused += 1;
+				}
+
+				linkMap.run({
+					agent_id: lm.agent_id,
+					response_map_id: globalId,
+					is_default: lm.is_default,
+					linked_at: lm.created_at ?? null
+				});
+
+				insertLegacyMapping.run({
+					kind: 'response_map',
+					legacy_id: lm.id,
+					global_id: globalId
+				});
+			}
+
+			return { inserted, reused };
+		});
+		const mapResult = migrateMapsTx();
+
+		console.log(
+			`Migrated ${legacyTemplates.length} legacy request templates into ${templateResult.inserted} new global templates ` +
+			`(${templateResult.reused} reused), and ${legacyMaps.length} legacy response maps into ${mapResult.inserted} new global maps ` +
+			`(${mapResult.reused} reused).`
+		);
+	}
+} catch (e) {
+	console.error('Template data migration failed', e);
+}
+
+// Migration: Backfill conversation template/map IDs to global IDs (idempotent)
+try {
+	db.exec(`
+		UPDATE conversations
+		SET default_request_template_id = (
+			SELECT global_id FROM legacy_template_mappings m
+			WHERE m.kind = 'request_template'
+			AND m.legacy_id = conversations.default_request_template_id
+		)
+		WHERE default_request_template_id IS NOT NULL
+		AND EXISTS (
+			SELECT 1 FROM legacy_template_mappings m
+			WHERE m.kind = 'request_template'
+			AND m.legacy_id = conversations.default_request_template_id
+		);
+	`);
+
+	db.exec(`
+		UPDATE conversations
+		SET default_response_map_id = (
+			SELECT global_id FROM legacy_template_mappings m
+			WHERE m.kind = 'response_map'
+			AND m.legacy_id = conversations.default_response_map_id
+		)
+		WHERE default_response_map_id IS NOT NULL
+		AND EXISTS (
+			SELECT 1 FROM legacy_template_mappings m
+			WHERE m.kind = 'response_map'
+			AND m.legacy_id = conversations.default_response_map_id
+		);
+	`);
+
+	db.exec(`
+		UPDATE conversation_messages
+		SET request_template_id = (
+			SELECT global_id FROM legacy_template_mappings m
+			WHERE m.kind = 'request_template'
+			AND m.legacy_id = conversation_messages.request_template_id
+		)
+		WHERE request_template_id IS NOT NULL
+		AND EXISTS (
+			SELECT 1 FROM legacy_template_mappings m
+			WHERE m.kind = 'request_template'
+			AND m.legacy_id = conversation_messages.request_template_id
+		);
+	`);
+
+	db.exec(`
+		UPDATE conversation_messages
+		SET response_map_id = (
+			SELECT global_id FROM legacy_template_mappings m
+			WHERE m.kind = 'response_map'
+			AND m.legacy_id = conversation_messages.response_map_id
+		)
+		WHERE response_map_id IS NOT NULL
+		AND EXISTS (
+			SELECT 1 FROM legacy_template_mappings m
+			WHERE m.kind = 'response_map'
+			AND m.legacy_id = conversation_messages.response_map_id
+		);
+	`);
+} catch (e) {
+	console.error('Conversation template-id backfill failed', e);
 }
 
 // Create indexes for better performance (only for tables that will remain)
