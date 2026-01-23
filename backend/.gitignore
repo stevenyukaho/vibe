@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 /data/*.db*
+
+# SQLite in-memory database test artifacts
+/:memory:*
