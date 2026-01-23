@@ -8,17 +8,35 @@ export const createConversation = (conversation: Conversation) => {
 		name: conversation.name || '',
 		description: conversation.description || '',
 		tags: conversation.tags || '[]',
-		default_request_template_id: conversation.default_request_template_id ?? null,
-		default_response_map_id: conversation.default_response_map_id ?? null,
+		// Note: default_request_template_id and default_response_map_id are deprecated
+		// Conversations now specify capability requirements instead of direct template IDs
 		variables: conversation.variables ?? null,
+		required_request_template_capabilities: conversation.required_request_template_capabilities ?? null,
+		required_response_map_capabilities: conversation.required_response_map_capabilities ?? null,
 		stop_on_failure: typeof conversation.stop_on_failure === 'boolean'
 			? (conversation.stop_on_failure ? 1 : 0)
 			: (conversation.stop_on_failure ?? 0)
 	};
 
 	const statement = db.prepare(`
-		INSERT INTO conversations (name, description, tags, default_request_template_id, default_response_map_id, variables, stop_on_failure)
-		VALUES (@name, @description, @tags, @default_request_template_id, @default_response_map_id, @variables, @stop_on_failure)
+		INSERT INTO conversations (
+			name,
+			description,
+			tags,
+			variables,
+			required_request_template_capabilities,
+			required_response_map_capabilities,
+			stop_on_failure
+		)
+		VALUES (
+			@name,
+			@description,
+			@tags,
+			@variables,
+			@required_request_template_capabilities,
+			@required_response_map_capabilities,
+			@stop_on_failure
+		)
 		RETURNING *
 	`);
 	return statement.get(conversationWithDefaults) as Conversation;
@@ -77,25 +95,9 @@ export const updateConversation = (id: number, conversation: Partial<Conversatio
 		}
 	}
 
-	if (Object.prototype.hasOwnProperty.call(normalizedConversation, 'default_request_template_id')) {
-		const value = normalizedConversation.default_request_template_id as unknown;
-
-		if (value === null || value === undefined || value === '') {
-			normalizedConversation.default_request_template_id = null;
-		} else if (typeof value === 'string' || typeof value === 'number') {
-			normalizedConversation.default_request_template_id = Number(value);
-		}
-	}
-
-	if (Object.prototype.hasOwnProperty.call(normalizedConversation, 'default_response_map_id')) {
-		const value = normalizedConversation.default_response_map_id as unknown;
-
-		if (value === null || value === undefined || value === '') {
-			normalizedConversation.default_response_map_id = null;
-		} else if (typeof value === 'string' || typeof value === 'number') {
-			normalizedConversation.default_response_map_id = Number(value);
-		}
-	}
+	// Remove deprecated fields - conversations now use capability requirements instead
+	delete normalizedConversation.default_request_template_id;
+	delete normalizedConversation.default_response_map_id;
 
 	const filteredConversation = Object.fromEntries(
 		Object.entries(normalizedConversation).filter(([_, value]) => value !== undefined)
