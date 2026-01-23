@@ -81,3 +81,5 @@ export const loadFrontendConfig = (env: EnvSource = process.env): {
 export type BackendConfig = ReturnType<typeof loadBackendConfig>;
 export type AgentServiceApiConfig = ReturnType<typeof loadAgentServiceApiConfig>;
 export type FrontendRuntimeConfig = ReturnType<typeof loadFrontendConfig>;
+
+export { matchCapabilities, parseCapabilityInput, extractCapabilityName } from './capabilityMatcher';

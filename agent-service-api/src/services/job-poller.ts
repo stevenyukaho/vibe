@@ -12,10 +12,13 @@ import {
 	AgentSettings,
 	JobStatus
 } from '@ibm-vibe/types';
+import { matchCapabilities, parseCapabilityInput } from '@ibm-vibe/config';
 import { BACKEND_CONFIG } from '../config';
 
 const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
-	if (!value || !value.trim()) return fallback;
+	if (!value || !value.trim()) {
+		return fallback;
+	}
 	try {
 		return JSON.parse(value) as T;
 	} catch {
@@ -37,12 +40,14 @@ interface RequestTemplate {
 	id: number;
 	body: string;
 	is_default?: number;
+	capabilities?: string | Record<string, unknown> | null;
 }
 
 interface ResponseMap {
 	id: number;
 	spec: string;
 	is_default?: number;
+	capabilities?: string | Record<string, unknown> | null;
 }
 
 interface AgentConfig {
@@ -259,6 +264,9 @@ export class JobPollerService {
 
 		const conversationVars = parseJson<Record<string, unknown>>(conversation.variables, {});
 
+		const findTemplateById = (id?: number | null) => templates.find(t => t.id === id);
+		const findMapById = (id?: number | null) => maps.find(m => m.id === id);
+
 		const resolvedMessages: ConversationScriptMessage[] = (conversation.messages || []).map((m) => {
 			if (m.role !== 'user') {
 				const metadata = typeof m.metadata === 'string'
@@ -278,15 +286,21 @@ export class JobPollerService {
 				? parseJson<Record<string, unknown>>(m.set_variables, {})
 				: {};
 
-			const effectiveTemplate =
-				(templates.find(t => t.id === msgOverrideTemplateId)?.body) ??
-				(templates.find(t => t.id === conversationDefaultTemplateId)?.body) ??
-				(defaultTemplate?.body);
+			const templateCandidate =
+				(msgOverrideTemplateId ? findTemplateById(msgOverrideTemplateId) : undefined) ??
+				(conversationDefaultTemplateId ? findTemplateById(conversationDefaultTemplateId) : undefined) ??
+				defaultTemplate;
 
-			const effectiveMap =
-				(maps.find(r => r.id === msgOverrideMapId)?.spec) ??
-				(maps.find(r => r.id === conversationDefaultMapId)?.spec) ??
-				(defaultMap?.spec);
+			const mapCandidate =
+				(msgOverrideMapId ? findMapById(msgOverrideMapId) : undefined) ??
+				(conversationDefaultMapId ? findMapById(conversationDefaultMapId) : undefined) ??
+				defaultMap;
+
+			const effectiveTemplate = templateCandidate?.body;
+			const effectiveTemplateCapabilities = templateCandidate ? this.parseCapabilities(templateCandidate.capabilities) : null;
+
+			const effectiveMap = mapCandidate?.spec;
+			const effectiveMapCapabilities = mapCandidate ? this.parseCapabilities(mapCandidate.capabilities) : null;
 
 			const mergedVars = { ...conversationVars, ...messageVars };
 
@@ -298,6 +312,8 @@ export class JobPollerService {
 				...metadata,
 				...(effectiveTemplate ? { request_template: effectiveTemplate } : {}),
 				...(effectiveMap ? { response_mapping: effectiveMap } : {}),
+				...(effectiveTemplateCapabilities ? { request_capabilities: effectiveTemplateCapabilities } : {}),
+				...(effectiveMapCapabilities ? { response_capabilities: effectiveMapCapabilities } : {}),
 				...(Object.keys(mergedVars).length ? { variables: mergedVars } : {})
 			};
 
@@ -306,6 +322,8 @@ export class JobPollerService {
 				metadata: mergedMetadata
 			};
 		});
+
+		this.validateConversationRequirements(conversation, resolvedMessages);
 
 		return resolvedMessages as ConversationExecutionRequest['conversation_script'];
 	}
@@ -471,6 +489,44 @@ export class JobPollerService {
 			return response.status === 200;
 		} catch (error) {
 			return false;
+		}
+	}
+
+	private parseCapabilities(value?: string | Record<string, unknown> | null) {
+		return parseCapabilityInput(value);
+	}
+
+	private validateConversationRequirements(
+		conversation: Conversation & { messages?: ConversationMessage[] },
+		resolvedMessages: ConversationScriptMessage[]
+	): void {
+		const userMessages = resolvedMessages.filter(message => message.role === 'user');
+		if (!userMessages.length) {
+			return;
+		}
+
+		const requestRequirement = parseCapabilityInput(conversation.required_request_template_capabilities);
+		if (requestRequirement) {
+			for (const message of userMessages) {
+				const metadata = (message.metadata || {}) as Record<string, unknown>;
+				const available = metadata.request_capabilities;
+				const matchResult = matchCapabilities(requestRequirement, available as Record<string, unknown> | undefined);
+				if (!matchResult.ok) {
+					throw new Error(`Request template capabilities do not satisfy conversation requirements: ${matchResult.reasons.join('; ')}`);
+				}
+			}
+		}
+
+		const responseRequirement = parseCapabilityInput(conversation.required_response_map_capabilities);
+		if (responseRequirement) {
+			for (const message of userMessages) {
+				const metadata = (message.metadata || {}) as Record<string, unknown>;
+				const available = metadata.response_capabilities;
+				const matchResult = matchCapabilities(responseRequirement, available as Record<string, unknown> | undefined);
+				if (!matchResult.ok) {
+					throw new Error(`Response map capabilities do not satisfy conversation requirements: ${matchResult.reasons.join('; ')}`);
+				}
+			}
 		}
 	}
 }
