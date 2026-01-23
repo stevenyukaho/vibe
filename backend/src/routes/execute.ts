@@ -1,9 +1,16 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { getAgentById, getConversationById, getConversationMessages } from '../db/queries';
+import {
+	getAgentById,
+	getConversationById,
+	getConversationMessages
+} from '../db/queries';
+import * as templateRepo from '../db/repositories/templateRepo';
 import { testIdToConversationId } from '../lib/legacyIdResolver';
 import { jobQueue } from '../services/job-queue';
 import { isSingleTurnConversation } from '../adapters/legacy-adapter';
+import { getAgentJobType } from '../utils/agent-utils';
+import { preflightConversationExecution } from '../lib/conversationPreflight';
 
 const router = Router();
 
@@ -81,6 +88,53 @@ router.post('/conversation', (async (req: Request<{}, {}, ExecuteConversationReq
 		}
 		if (!conversation) {
 			return res.status(404).json({ error: 'Conversation not found' });
+		}
+
+		// Preflight validation before enqueueing
+		const jobType = getAgentJobType(agent.settings);
+
+		if (jobType === 'external_api') {
+			const messages = await getConversationMessages(conversation_id);
+			const templates = templateRepo.getAgentTemplates(agent_id);
+			const maps = templateRepo.getAgentResponseMaps(agent_id);
+			const preflight = preflightConversationExecution({
+				agent_job_type: jobType,
+				conversation,
+				messages,
+				agent_templates: templates.map(t => ({
+					id: t.id!,
+					is_default: t.is_default,
+					capabilities: t.capability ?? null
+				})),
+				agent_response_maps: maps.map(m => ({
+					id: m.id!,
+					is_default: m.is_default,
+					capabilities: m.capability ?? null
+				}))
+			});
+			if (!preflight.ok) {
+				return res.status(400).json({
+					error: 'Conversation cannot be executed with this agent',
+					code: 'CONVERSATION_PREFLIGHT_FAILED',
+					details: preflight.errors
+				});
+			}
+		} else {
+			// If this conversation declares external API capability requirements, fail early for non-external_api agents.
+			const preflight = preflightConversationExecution({
+				agent_job_type: jobType,
+				conversation,
+				messages: [],
+				agent_templates: [],
+				agent_response_maps: []
+			});
+			if (!preflight.ok) {
+				return res.status(400).json({
+					error: 'Conversation cannot be executed with this agent',
+					code: 'CONVERSATION_PREFLIGHT_FAILED',
+					details: preflight.errors
+				});
+			}
 		}
 
 		// Create a job to execute the conversation

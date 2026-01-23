@@ -1,5 +1,5 @@
 import db from '../database';
-import { Job, JobFilters, ExecutionSession, SessionMessage } from '../../types';
+import { Job, JobFilters, ExecutionSession, SessionMessage } from '@ibm-vibe/types';
 
 // Job Queries
 
