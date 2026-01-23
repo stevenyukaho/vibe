@@ -91,5 +91,5 @@ export default function SimilarityScoreDisplay({ result, score, size = 'sm' }: S
 		);
 	}
 
-	return <span className={styles.notAvailable}>—</span>;
+	return <span className={styles.notAvailable}>-</span>;
 }

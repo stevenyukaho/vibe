@@ -106,6 +106,13 @@
 	}
 }
 
+.capabilityChips {
+	margin-top: 0.5rem;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+}
+
 @media (max-width: 768px) {
 	.modalContent {
 		max-height: 70vh;

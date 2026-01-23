@@ -14,10 +14,12 @@ import {
 	CodeSnippet,
 	Dropdown,
 	Tag,
-	Checkbox
+	Checkbox,
+	ComboBox
 } from '@carbon/react';
 import { Launch, TrashCan, Edit, Add } from '@carbon/icons-react';
 import { api } from '@/lib/api';
+import { extractCapabilityName, capabilityNameToJson } from '../../lib/capabilities';
 import styles from './AgentFormModal.module.scss';
 
 interface AgentFormModalProps {
@@ -34,6 +36,7 @@ interface RequestTemplate {
 	description?: string;
 	body: string;
 	is_default?: boolean;
+	capabilities?: string;
 	_isNew?: boolean;
 	_isEditing?: boolean;
 	_isDeleted?: boolean;
@@ -45,6 +48,7 @@ interface ResponseMap {
 	description?: string;
 	spec: string;
 	is_default?: boolean;
+	capabilities?: string;
 	_isNew?: boolean;
 	_isEditing?: boolean;
 	_isDeleted?: boolean;
@@ -63,12 +67,23 @@ export default function AgentFormModal({
 	const [error, setError] = useState<string | null>(null);
 
 	// State for templates and maps
-	const [requestTemplates, setRequestTemplates] = useState<RequestTemplate[]>([]);
-	const [responseMaps, setResponseMaps] = useState<ResponseMap[]>([]);
-	const [newTemplate, setNewTemplate] = useState<Partial<RequestTemplate>>({ name: '', body: '', is_default: false });
-	const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ name: '', spec: '', is_default: false });
+const [requestTemplates, setRequestTemplates] = useState<RequestTemplate[]>([]);
+const [responseMaps, setResponseMaps] = useState<ResponseMap[]>([]);
+const [newTemplate, setNewTemplate] = useState<Partial<RequestTemplate>>({ name: '', body: '', capabilities: '', is_default: false });
+const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ name: '', spec: '', capabilities: '', is_default: false });
 	const [shouldShowNewTemplateForm, setShouldShowNewTemplateForm] = useState(false);
 	const [shouldShowNewMapForm, setShouldShowNewMapForm] = useState(false);
+
+	// Capability name suggestions for auto-complete
+	const [templateCapabilityNames, setTemplateCapabilityNames] = useState<string[]>([]);
+	const [responseMapCapabilityNames, setResponseMapCapabilityNames] = useState<string[]>([]);
+
+	useEffect(() => {
+		if (isOpen) {
+			api.getRequestTemplateCapabilityNames().then(setTemplateCapabilityNames);
+			api.getResponseMapCapabilityNames().then(setResponseMapCapabilityNames);
+		}
+	}, [isOpen]);
 
 	// Update form data when initialFormData changes
 	useEffect(() => {
@@ -89,11 +104,21 @@ export default function AgentFormModal({
 					// Convert is_default from number (0/1) to boolean
 					setRequestTemplates((templates || []).map(t => ({
 						...t,
-						is_default: Number(t.is_default) === 1
+						is_default: Number(t.is_default) === 1,
+						capabilities: typeof t.capabilities === 'string'
+							? t.capabilities
+							: t.capabilities
+								? JSON.stringify(t.capabilities)
+								: ''
 					})));
 					setResponseMaps((maps || []).map(m => ({
 						...m,
-						is_default: Number(m.is_default) === 1
+						is_default: Number(m.is_default) === 1,
+						capabilities: typeof m.capabilities === 'string'
+							? m.capabilities
+							: m.capabilities
+								? JSON.stringify(m.capabilities)
+								: ''
 					})));
 				} catch (err) {
 					console.error('Failed to load templates/maps:', err);
@@ -104,8 +129,8 @@ export default function AgentFormModal({
 			// Reset for new agent
 			setRequestTemplates([]);
 			setResponseMaps([]);
-			setNewTemplate({ name: '', body: '', is_default: false });
-			setNewResponseMap({ name: '', spec: '', is_default: false });
+			setNewTemplate({ name: '', body: '', capabilities: '', is_default: false });
+			setNewResponseMap({ name: '', spec: '', capabilities: '', is_default: false });
 			setShouldShowNewTemplateForm(false);
 			setShouldShowNewMapForm(false);
 		}
@@ -126,7 +151,16 @@ export default function AgentFormModal({
 		});
 	};
 
-	// Handle form submission
+	/**
+	 * Converts a capability name (plain string) to JSON format for storage.
+	 * Returns undefined if no capability is set.
+	 */
+	const serializeCapabilitiesOrError = (raw: string | undefined): string | undefined => {
+		// With the simplified model, capabilities is just a name string
+		// We convert it to JSON: {"name": "..."} for storage
+		return capabilityNameToJson(raw || null) ?? undefined;
+	};
+
 	const handleSubmit = async () => {
 		setIsSaving(true);
 		setError(null);
@@ -138,7 +172,6 @@ export default function AgentFormModal({
 					settings = JSON.parse(formData['agent-settings']);
 				}
 			} catch (error) {
-				// JSON parsing error
 				console.error('Error parsing agent settings:', error);
 				setError('Invalid JSON in settings field');
 				setIsSaving(false);
@@ -339,10 +372,13 @@ export default function AgentFormModal({
 						// Create new template
 						try {
 							JSON.parse(template.body);
+							const capabilitiesPayload = serializeCapabilitiesOrError(template.capabilities);
+							// null is valid - means no capability set
 							await api.createAgentRequestTemplate(savedAgentId, {
 								name: template.name,
 								description: template.description,
 								body: template.body,
+								capabilities: capabilitiesPayload,
 								is_default: template.is_default
 							});
 						} catch (err) {
@@ -354,10 +390,13 @@ export default function AgentFormModal({
 						// Update existing template
 						try {
 							JSON.parse(template.body);
+							const capabilitiesPayload = serializeCapabilitiesOrError(template.capabilities);
+							// null is valid - means no capability set
 							await api.updateAgentRequestTemplate(savedAgentId, template.id, {
 								name: template.name,
 								description: template.description,
 								body: template.body,
+								capabilities: capabilitiesPayload,
 								is_default: template.is_default
 							});
 						} catch (err) {
@@ -376,10 +415,13 @@ export default function AgentFormModal({
 						// Create new map
 						try {
 							JSON.parse(map.spec);
+							const capabilitiesPayload = serializeCapabilitiesOrError(map.capabilities);
+							// null is valid - means no capability set
 							await api.createAgentResponseMap(savedAgentId, {
 								name: map.name,
 								description: map.description,
 								spec: map.spec,
+								capabilities: capabilitiesPayload,
 								is_default: map.is_default
 							});
 						} catch (err) {
@@ -391,10 +433,13 @@ export default function AgentFormModal({
 						// Update existing map
 						try {
 							JSON.parse(map.spec);
+							const capabilitiesPayload = serializeCapabilitiesOrError(map.capabilities);
+							// null is valid - means no capability set
 							await api.updateAgentResponseMap(savedAgentId, map.id, {
 								name: map.name,
 								description: map.description,
 								spec: map.spec,
+								capabilities: capabilitiesPayload,
 								is_default: map.is_default
 							});
 						} catch (err) {
@@ -687,7 +732,7 @@ export default function AgentFormModal({
 
 							{/* Request Templates Section */}
 							<Accordion>
-								<AccordionItem title="Request templates (recommended)">
+								<AccordionItem title="Request templates (recommended)" open>
 									<div className={styles.templatesSection}>
 										<p className={styles.sectionDescription}>
 											Templates define how to format requests to your API. At least one template is needed to execute conversations.
@@ -751,6 +796,20 @@ export default function AgentFormModal({
 															}}
 															rows={4}
 														/>
+														<ComboBox
+															id={`template-capabilities-${idx}`}
+															titleText="Capability"
+															placeholder="Select or type a capability name"
+															items={templateCapabilityNames}
+															selectedItem={extractCapabilityName(template.capabilities)}
+															onChange={(e) => {
+																setRequestTemplates(requestTemplates.map(t =>
+																	t.id === template.id ? { ...t, capabilities: e.selectedItem || '' } : t
+																));
+															}}
+															allowCustomValue
+															helperText="Tag this template with a capability name for matching"
+														/>
 														<Checkbox
 															id={`template-default-${idx}`}
 															labelText="Set as default"
@@ -776,6 +835,7 @@ export default function AgentFormModal({
 												kind="tertiary"
 												size="sm"
 												renderIcon={Add}
+												data-testid="open-template-form"
 												onClick={() => setShouldShowNewTemplateForm(true)}
 											>
 												Add new template
@@ -802,6 +862,16 @@ export default function AgentFormModal({
 														placeholder='{"model": "gpt-4", "messages": [{"role": "user", "content": "{{input}}"}]}'
 														rows={4}
 													/>
+													<ComboBox
+														id="new-template-capabilities"
+														titleText="Capability"
+														placeholder="Select or type a capability name"
+														items={templateCapabilityNames}
+														selectedItem={extractCapabilityName(newTemplate.capabilities)}
+														onChange={(e) => setNewTemplate({ ...newTemplate, capabilities: e.selectedItem || '' })}
+														allowCustomValue
+														helperText="Tag this template with a capability name (e.g., openai-chat, ollama-generate)"
+													/>
 													<Checkbox
 														id="new-template-default"
 														labelText="Set as default"
@@ -814,7 +884,7 @@ export default function AgentFormModal({
 															size="sm"
 															onClick={() => {
 																setShouldShowNewTemplateForm(false);
-																setNewTemplate({ name: '', body: '', is_default: false });
+																setNewTemplate({ name: '', body: '', capabilities: '', is_default: false });
 															}}
 														>
 															Cancel
@@ -823,7 +893,6 @@ export default function AgentFormModal({
 															kind="primary"
 															size="sm"
 															onClick={() => {
-																// Validate JSON
 																try {
 																	JSON.parse(newTemplate.body || '');
 																} catch (err) {
@@ -831,15 +900,19 @@ export default function AgentFormModal({
 																	return;
 																}
 
+																const normalizedCaps = serializeCapabilitiesOrError(newTemplate.capabilities);
+																// null is valid - means no capability set
+
 																// Mark as new for saving later
 																const newTpl = {
 																	...newTemplate,
+																	capabilities: normalizedCaps || '',
 																	id: Date.now(), // temporary ID
 																	_isNew: true
 																} as RequestTemplate & { _isNew: boolean };
 																setRequestTemplates([...requestTemplates, newTpl]);
 																setShouldShowNewTemplateForm(false);
-																setNewTemplate({ name: '', body: '', is_default: false });
+																setNewTemplate({ name: '', body: '', capabilities: '', is_default: false });
 																setError(null);
 															}}
 															disabled={!newTemplate.name || !newTemplate.body}
@@ -854,7 +927,7 @@ export default function AgentFormModal({
 								</AccordionItem>
 
 								{/* Response Maps Section */}
-								<AccordionItem title="Response maps (recommended)">
+								<AccordionItem title="Response maps (recommended)" open>
 									<div className={styles.templatesSection}>
 										<p className={styles.sectionDescription}>
 											Response maps define how to extract data from API responses. At least one map is needed to execute conversations.
@@ -918,6 +991,20 @@ export default function AgentFormModal({
 															}}
 															rows={4}
 														/>
+														<ComboBox
+															id={`map-capabilities-${idx}`}
+															titleText="Capability"
+															placeholder="Select or type a capability name"
+															items={responseMapCapabilityNames}
+															selectedItem={extractCapabilityName(map.capabilities)}
+															onChange={(e) => {
+																setResponseMaps(responseMaps.map(m =>
+																	m.id === map.id ? { ...m, capabilities: e.selectedItem || '' } : m
+																));
+															}}
+															allowCustomValue
+															helperText="Tag this response map with a capability name for matching"
+														/>
 														<Checkbox
 															id={`map-default-${idx}`}
 															labelText="Set as default"
@@ -969,6 +1056,16 @@ export default function AgentFormModal({
 														placeholder='{"output": "choices.0.message.content"}'
 														rows={4}
 													/>
+													<ComboBox
+														id="new-map-capabilities"
+														titleText="Capability"
+														placeholder="Select or type a capability name"
+														items={responseMapCapabilityNames}
+														selectedItem={extractCapabilityName(newResponseMap.capabilities)}
+														onChange={(e) => setNewResponseMap({ ...newResponseMap, capabilities: e.selectedItem || '' })}
+														allowCustomValue
+														helperText="Tag this response map with a capability name (e.g., openai-chat, ollama-generate)"
+													/>
 													<Checkbox
 														id="new-map-default"
 														labelText="Set as default"
@@ -981,7 +1078,7 @@ export default function AgentFormModal({
 															size="sm"
 															onClick={() => {
 																setShouldShowNewMapForm(false);
-																setNewResponseMap({ name: '', spec: '', is_default: false });
+																setNewResponseMap({ name: '', spec: '', capabilities: '', is_default: false });
 															}}
 														>
 															Cancel
@@ -998,15 +1095,19 @@ export default function AgentFormModal({
 																	return;
 																}
 
+																const normalizedCaps = serializeCapabilitiesOrError(newResponseMap.capabilities);
+																// null is valid - means no capability set
+
 																// Mark as new for saving later
 																const newMap = {
 																	...newResponseMap,
+																	capabilities: normalizedCaps || '',
 																	id: Date.now(), // temporary ID
 																	_isNew: true
 																} as ResponseMap & { _isNew: boolean };
 																setResponseMaps([...responseMaps, newMap]);
 																setShouldShowNewMapForm(false);
-																setNewResponseMap({ name: '', spec: '', is_default: false });
+																setNewResponseMap({ name: '', spec: '', capabilities: '', is_default: false });
 																setError(null);
 															}}
 															disabled={!newResponseMap.name || !newResponseMap.spec}

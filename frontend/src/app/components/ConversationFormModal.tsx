@@ -16,17 +16,24 @@ import {
 	SelectItem,
 	IconButton,
 	Checkbox,
-	Dropdown
+	ComboBox
 } from '@carbon/react';
 import { Add, TrashCan, ArrowUp, ArrowDown } from '@carbon/icons-react';
-import { api, Conversation, ConversationMessage, Agent } from '../../lib/api';
+import { api, Conversation, ConversationMessage } from '../../lib/api';
+import { extractCapabilityName, capabilityNameToJson } from '../../lib/capabilities';
+import { TemplatePreviewSelector } from './TemplateSelector';
+import { CapabilityInfoPanel } from './TemplateInfoPanel';
 import styles from './ConversationFormModal.module.scss';
 
+interface ConversationWithMessages extends Conversation {
+	messages?: ConversationMessage[];
+}
+
 interface ConversationFormModalProps {
-    open: boolean;
-    conversation?: Conversation;
-    onClose: () => void;
-    onSave: (conversation: Conversation) => void;
+	open: boolean;
+	conversation?: ConversationWithMessages;
+	onClose: () => void;
+	onSave: (conversation: Conversation) => void;
 }
 
 interface TurnTargetMap {
@@ -38,22 +45,24 @@ interface TurnTargetMap {
 }
 
 // Extended ConversationMessage type for form with optional override fields
-interface ExtendedConversationMessage extends ConversationMessage {
+type ExtendedConversationMessage = Omit<ConversationMessage, 'conversation_id'> & {
+	conversation_id?: number;
 	request_template_id?: number;
 	response_map_id?: number;
 	set_variables?: string;
-}
+};
 
 // Extended Conversation type for form data
+// Note: default_request_template_id and default_response_map_id are deprecated
+// Conversations now specify capability requirements instead
 interface ConversationFormData {
 	name: string;
 	description: string;
 	tags: string[];
 	variables: string;
 	stop_on_failure: boolean;
-	default_agent_id?: number;
-	default_request_template_id?: number;
-	default_response_map_id?: number;
+	required_request_template_capabilities?: string;
+	required_response_map_capabilities?: string;
 }
 
 export default function ConversationFormModal({
@@ -68,9 +77,8 @@ export default function ConversationFormModal({
 		tags: [],
 		variables: '',
 		stop_on_failure: false,
-		default_agent_id: undefined,
-		default_request_template_id: undefined,
-		default_response_map_id: undefined
+		required_request_template_capabilities: '',
+		required_response_map_capabilities: ''
 	});
 	const [messages, setMessages] = useState<ExtendedConversationMessage[]>([]);
 	const [turnTargets, setTurnTargets] = useState<TurnTargetMap>({});
@@ -78,33 +86,28 @@ export default function ConversationFormModal({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// State for agents and their templates/maps
-	const [agents, setAgents] = useState<Agent[]>([]);
-	const [requestTemplates, setRequestTemplates] = useState<Array<{ id: number; name: string }>>([]);
-	const [responseMaps, setResponseMaps] = useState<Array<{ id: number; name: string }>>([]);
+	// Capability name suggestions for auto-complete
+	const [templateCapabilityNames, setTemplateCapabilityNames] = useState<string[]>([]);
+	const [responseMapCapabilityNames, setResponseMapCapabilityNames] = useState<string[]>([]);
 
-	// Load agents on modal open
+	// Load capability names on mount
 	useEffect(() => {
 		if (open) {
-			api.getAgents().then(setAgents).catch(err => console.error('Failed to load agents:', err));
+			api.getRequestTemplateCapabilityNames().then(setTemplateCapabilityNames);
+			api.getResponseMapCapabilityNames().then(setResponseMapCapabilityNames);
 		}
 	}, [open]);
 
-	// Load templates and maps when default agent changes
-	useEffect(() => {
-		if (formData.default_agent_id) {
-			Promise.all([
-				api.getAgentRequestTemplates(formData.default_agent_id),
-				api.getAgentResponseMaps(formData.default_agent_id)
-			]).then(([templates, maps]) => {
-				setRequestTemplates(templates.map(t => ({ id: t.id, name: t.name })));
-				setResponseMaps(maps.map(m => ({ id: m.id, name: m.name })));
-			}).catch(err => console.error('Failed to load templates/maps:', err));
-		} else {
-			setRequestTemplates([]);
-			setResponseMaps([]);
-		}
-	}, [formData.default_agent_id]);
+
+/**
+	 * Normalizes capability requirement to JSON format for storage.
+	 * Input can be a capability name or JSON.
+	 */
+	const normalizeRequirementField = (raw: string | undefined): string | undefined => {
+		// With the simplified model, requirements are just capability names
+		// We convert to JSON format: {"name": "..."}
+		return capabilityNameToJson(raw);
+	};
 
 	useEffect(() => {
 		if (conversation) {
@@ -114,9 +117,8 @@ export default function ConversationFormModal({
 				tags: conversation.tags ? JSON.parse(conversation.tags) : [],
 				variables: conversation.variables || '',
 				stop_on_failure: Boolean((conversation as Conversation & { stop_on_failure?: boolean }).stop_on_failure),
-				default_agent_id: (conversation as Conversation & { default_agent_id?: number }).default_agent_id,
-				default_request_template_id: conversation.default_request_template_id,
-				default_response_map_id: conversation.default_response_map_id
+				required_request_template_capabilities: conversation.required_request_template_capabilities || '',
+				required_response_map_capabilities: conversation.required_response_map_capabilities || ''
 			});
 			setMessages((conversation.messages || []) as ExtendedConversationMessage[]);
 
@@ -143,9 +145,8 @@ export default function ConversationFormModal({
 				tags: [],
 				variables: '',
 				stop_on_failure: false,
-				default_agent_id: undefined,
-				default_request_template_id: undefined,
-				default_response_map_id: undefined
+				required_request_template_capabilities: '',
+				required_response_map_capabilities: ''
 			});
 			setMessages([]);
 			setTurnTargets({});
@@ -165,15 +166,21 @@ export default function ConversationFormModal({
 		}
 
 		try {
+			setError(null);
 			setLoading(true);
+
+			// Convert capability names to JSON format for storage
+			const normalizedTemplateRequirement = normalizeRequirementField(formData.required_request_template_capabilities);
+			const normalizedResponseRequirement = normalizeRequirementField(formData.required_response_map_capabilities);
+
 			const conversationData = {
 				name: formData.name,
 				description: formData.description,
 				tags: JSON.stringify(formData.tags),
 				variables: formData.variables,
 				stop_on_failure: formData.stop_on_failure,
-				default_request_template_id: formData.default_request_template_id,
-				default_response_map_id: formData.default_response_map_id,
+				required_request_template_capabilities: normalizedTemplateRequirement,
+				required_response_map_capabilities: normalizedResponseRequirement,
 				messages: messages.map((msg, index) => ({
 					...msg,
 					sequence: index + 1
@@ -292,6 +299,85 @@ export default function ConversationFormModal({
 
 				<Grid>
 					<Column sm={4} md={8} lg={16}>
+						<InlineNotification
+							kind="info"
+							lowContrast
+							hideCloseButton
+							title="External API requirements"
+							subtitle="Optional. When set, only agents with matching capabilities can execute this conversation."
+						/>
+					</Column>
+					<Column sm={4} md={4} lg={8}>
+						<div style={{ marginTop: '0.75rem' }}>
+							<ComboBox
+								id="req-template-capability"
+								titleText="Required request template capability"
+								placeholder="Select or type a capability name"
+								items={templateCapabilityNames}
+								selectedItem={extractCapabilityName(formData.required_request_template_capabilities)}
+								onChange={(e) => {
+									const capName = e.selectedItem || '';
+									setFormData(prev => ({
+										...prev,
+										required_request_template_capabilities: capName
+									}));
+								}}
+								allowCustomValue
+								helperText="Select a capability that templates must have"
+							/>
+							{/* Template preview when capability is selected */}
+							{formData.required_request_template_capabilities && (
+								<div style={{ marginTop: '1rem' }}>
+									<TemplatePreviewSelector
+										type="request"
+										capability={extractCapabilityName(formData.required_request_template_capabilities) || undefined}
+										label="Matching templates"
+										helperText="Templates that match the required capability"
+									/>
+								</div>
+							)}
+						</div>
+					</Column>
+					<Column sm={4} md={4} lg={8}>
+						<div style={{ marginTop: '0.75rem' }}>
+							<ComboBox
+								id="req-response-capability"
+								titleText="Required response map capability"
+								placeholder="Select or type a capability name"
+								items={responseMapCapabilityNames}
+								selectedItem={extractCapabilityName(formData.required_response_map_capabilities)}
+								onChange={(e) => {
+									const capName = e.selectedItem || '';
+									setFormData(prev => ({
+										...prev,
+										required_response_map_capabilities: capName
+									}));
+								}}
+								allowCustomValue
+								helperText="Select a capability that response maps must have"
+							/>
+							{/* Response map preview when capability is selected */}
+							{formData.required_response_map_capabilities && (
+								<div style={{ marginTop: '1rem' }}>
+									<TemplatePreviewSelector
+										type="response"
+										capability={extractCapabilityName(formData.required_response_map_capabilities) || undefined}
+										label="Matching response maps"
+										helperText="Response maps that match the required capability"
+									/>
+								</div>
+							)}
+						</div>
+					</Column>
+					<Column sm={4} md={8} lg={16}>
+						<div style={{ marginTop: '1rem' }}>
+							<CapabilityInfoPanel />
+						</div>
+					</Column>
+				</Grid>
+
+				<Grid>
+					<Column sm={4} md={8} lg={16}>
 						<TextInput
 							id="name"
 							labelText="Name"
@@ -345,51 +431,6 @@ export default function ConversationFormModal({
 						</div>
 					</Column>
 				</Grid>
-
-				<Grid>
-					<Column sm={4} md={8} lg={16}>
-						<Dropdown
-							id="default-agent"
-							titleText="Default agent (optional)"
-							label="Select default agent"
-							items={agents.map(a => ({ id: a.id, label: `${a.name} (v${a.version})` }))}
-							selectedItem={agents.find(a => a.id === formData.default_agent_id) ? { id: formData.default_agent_id, label: agents.find(a => a.id === formData.default_agent_id)!.name } : null}
-							onChange={(e) => {
-								setFormData(prev => ({ ...prev, default_agent_id: e.selectedItem?.id }));
-							}}
-							helperText="Selecting an agent enables template/map selection for per-turn overrides"
-						/>
-					</Column>
-				</Grid>
-
-				{formData.default_agent_id && (
-					<Grid>
-						<Column sm={4} md={8} lg={8}>
-							<Dropdown
-								id="default-template"
-								titleText="Default request template (optional)"
-								label="Select template"
-								items={requestTemplates.map(t => ({ id: t.id, label: t.name }))}
-								selectedItem={requestTemplates.find(t => t.id === formData.default_request_template_id) ? { id: formData.default_request_template_id, label: requestTemplates.find(t => t.id === formData.default_request_template_id)!.name } : null}
-								onChange={(e) => {
-									setFormData(prev => ({ ...prev, default_request_template_id: e.selectedItem?.id }));
-								}}
-							/>
-						</Column>
-						<Column sm={4} md={8} lg={8}>
-							<Dropdown
-								id="default-map"
-								titleText="Default response map (optional)"
-								label="Select map"
-								items={responseMaps.map(m => ({ id: m.id, label: m.name }))}
-								selectedItem={responseMaps.find(m => m.id === formData.default_response_map_id) ? { id: formData.default_response_map_id, label: responseMaps.find(m => m.id === formData.default_response_map_id)!.name } : null}
-								onChange={(e) => {
-									setFormData(prev => ({ ...prev, default_response_map_id: e.selectedItem?.id }));
-								}}
-							/>
-						</Column>
-					</Grid>
-				)}
 
 				<InlineNotification
 					className={styles.variablesInfo}
@@ -492,48 +533,6 @@ export default function ConversationFormModal({
 											placeholder="Enter the expected assistant response for similarity scoring"
 											rows={2}
 										/>
-										{formData.default_agent_id ? (
-											<div className={styles.targetOptions}>
-												<Dropdown
-													id={`tpl-${index}`}
-													titleText="Request template override (optional)"
-													label="Select template"
-													items={[{ id: null, label: '(use default)' }, ...requestTemplates.map(t => ({ id: t.id, label: t.name }))]}
-													selectedItem={
-														message.request_template_id
-															? requestTemplates.find(t => t.id === message.request_template_id)
-																? { id: message.request_template_id, label: requestTemplates.find(t => t.id === message.request_template_id)!.name }
-																: null
-															: { id: null, label: '(use default)' }
-													}
-													onChange={(e) => {
-														updateMessage(index, { request_template_id: e.selectedItem?.id || undefined });
-													}}
-													helperText="Use {{var}} in templates to reference variables"
-												/>
-												<Dropdown
-													id={`map-${index}`}
-													titleText="Response map override (optional)"
-													label="Select map"
-													items={[{ id: null, label: '(use default)' }, ...responseMaps.map(m => ({ id: m.id, label: m.name }))]}
-													selectedItem={
-														message.response_map_id
-															? responseMaps.find(m => m.id === message.response_map_id)
-																? { id: message.response_map_id, label: responseMaps.find(m => m.id === message.response_map_id)!.name }
-																: null
-															: { id: null, label: '(use default)' }
-													}
-													onChange={(e) => {
-														updateMessage(index, { response_map_id: e.selectedItem?.id || undefined });
-													}}
-													helperText='Define {"var": "path.to.field"} in response_mapping.variables to extract and use in next turn'
-												/>
-											</div>
-										) : (
-											<p style={{ fontSize: '0.875rem', color: '#6f6f6f', fontStyle: 'italic' }}>
-												Select a default agent above to enable per-turn template/map overrides
-											</p>
-										)}
 										<TextArea
 											id={`setvars-${index}`}
 											labelText="Override variables (JSON)"
