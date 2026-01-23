@@ -20,6 +20,7 @@ import {
 	ArrowLeft
 } from '@carbon/icons-react';
 import { api, Agent, ExecutionSession, SessionMessage } from '../../../lib/api';
+import { getRequestTemplateCapabilitySummary, getResponseMapCapabilitySummary } from '../../../lib/capabilities';
 import { agentToFormData, loadConversationsByIds, loadSessionMessages, calculateSessionStats, extractByPath } from '../../../lib/utils';
 import { calculateExecutionTime, getSimilarityScore, sortSessionsByTime } from '../../components/AgentAnalytics/analyticsUtils';
 import AgentFormModal from '../../components/AgentFormModal';
@@ -52,14 +53,14 @@ export default function AgentDetailPage() {
 			executionTime: null as number | null
 		}
 	});
-	const [requestTemplates, setRequestTemplates] = useState<Array<{ id: number; name: string; body: string; is_default?: number }>>([]);
-	const [responseMaps, setResponseMaps] = useState<Array<{ id: number; name: string; spec: string; is_default?: number }>>([]);
-	const [newTemplate, setNewTemplate] = useState<{ name: string; body: string; is_default: boolean }>({ name: '', body: '', is_default: false });
-	const [newResponseMap, setNewResponseMap] = useState<{ name: string; spec: string; is_default: boolean }>({ name: '', spec: '', is_default: false });
+	const [requestTemplates, setRequestTemplates] = useState<Array<{ id: number; name: string; body: string; is_default?: number; capabilities?: string | Record<string, unknown> | null }>>([]);
+	const [responseMaps, setResponseMaps] = useState<Array<{ id: number; name: string; spec: string; is_default?: number; capabilities?: string | Record<string, unknown> | null }>>([]);
+	const [newTemplate, setNewTemplate] = useState<{ name: string; body: string; capabilities: string; is_default: boolean }>({ name: '', body: '', capabilities: '', is_default: false });
+	const [newResponseMap, setNewResponseMap] = useState<{ name: string; spec: string; capabilities: string; is_default: boolean }>({ name: '', spec: '', capabilities: '', is_default: false });
 	const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
 	const [editingMapId, setEditingMapId] = useState<number | null>(null);
-	const [editTemplateData, setEditTemplateData] = useState<{ name: string; body: string; is_default: boolean }>({ name: '', body: '', is_default: false });
-	const [editMapData, setEditMapData] = useState<{ name: string; spec: string; is_default: boolean }>({ name: '', spec: '', is_default: false });
+	const [editTemplateData, setEditTemplateData] = useState<{ name: string; body: string; capabilities: string; is_default: boolean }>({ name: '', body: '', capabilities: '', is_default: false });
+	const [editMapData, setEditMapData] = useState<{ name: string; spec: string; capabilities: string; is_default: boolean }>({ name: '', spec: '', capabilities: '', is_default: false });
 	const [commError, setCommError] = useState<string | null>(null);
 	const [previewTemplateId, setPreviewTemplateId] = useState<number | null>(null);
 	const [previewInput, setPreviewInput] = useState<string>('');
@@ -248,6 +249,19 @@ export default function AgentDetailPage() {
 
 	const settings = agent.settings ? JSON.parse(agent.settings) : {};
 	const agentType = settings.type || 'crew_ai';
+
+	const renderCapabilityChips = (items: string[]) => {
+		if (!items.length) return null;
+		return (
+			<div className={styles.capabilityChips}>
+				{items.map(item => (
+					<Tag key={item} type="cool-gray" size="sm">
+						{item}
+					</Tag>
+				))}
+			</div>
+		);
+	};
 
 	return (
 		<div className={styles.container}>
@@ -471,6 +485,14 @@ export default function AgentDetailPage() {
 																			onChange={(e) => setEditTemplateData(prev => ({ ...prev, body: e.target.value }))}
 																			style={{ marginBottom: '0.5rem' }}
 																		/>
+																		<TextArea
+																			id={`edit-tpl-capabilities-${t.id}`}
+																			labelText="Capabilities (JSON)"
+																			rows={3}
+																			value={editTemplateData.capabilities}
+																			onChange={(e) => setEditTemplateData(prev => ({ ...prev, capabilities: e.target.value }))}
+																			style={{ marginBottom: '0.5rem' }}
+																		/>
 																		<div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
 																			<Checkbox
 																				id={`edit-tpl-default-${t.id}`}
@@ -484,9 +506,13 @@ export default function AgentDetailPage() {
 																				setCommError(null);
 																				try {
 																					JSON.parse(editTemplateData.body);
+																					const capabilitiesPayload = editTemplateData.capabilities && editTemplateData.capabilities.trim()
+																						? JSON.parse(editTemplateData.capabilities)
+																						: {};
 																					await api.updateAgentRequestTemplate(agent.id!, t.id, {
 																						name: editTemplateData.name,
 																						body: editTemplateData.body,
+																						capabilities: JSON.stringify(capabilitiesPayload),
 																						is_default: editTemplateData.is_default
 																					});
 																					setEditingTemplateId(null);
@@ -505,12 +531,18 @@ export default function AgentDetailPage() {
 																		<CodeSnippet type="multi" feedback="Copied to clipboard">
 																			{t.body}
 																		</CodeSnippet>
+																		{renderCapabilityChips(getRequestTemplateCapabilitySummary(t.capabilities))}
 																		<div className={styles.actionsRow}>
 																			<Button size="sm" kind="ghost" onClick={() => {
 																				setEditingTemplateId(t.id);
 																				setEditTemplateData({
 																					name: t.name,
 																					body: t.body,
+																					capabilities: typeof t.capabilities === 'string'
+																						? t.capabilities
+																						: t.capabilities
+																							? JSON.stringify(t.capabilities)
+																							: '',
 																					is_default: Number(t.is_default) === 1
 																				});
 																			}}>Edit</Button>
@@ -540,14 +572,18 @@ export default function AgentDetailPage() {
 														<h5>Create new template</h5>
 														<TextInput id="new-tpl-name" labelText="Name" value={newTemplate.name} onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))} />
 														<TextArea id="new-tpl-body" labelText="Body (JSON template)" rows={4} value={newTemplate.body} onChange={(e) => setNewTemplate(prev => ({ ...prev, body: e.target.value }))} />
+														<TextArea id="new-tpl-capabilities" labelText="Capabilities (JSON)" rows={3} value={newTemplate.capabilities} onChange={(e) => setNewTemplate(prev => ({ ...prev, capabilities: e.target.value }))} />
 														<div style={{ marginTop: '0.5rem' }}>
 															<Checkbox id="new-tpl-default" labelText="Set as default" checked={newTemplate.is_default} onChange={(_evt, data) => setNewTemplate(prev => ({ ...prev, is_default: data.checked }))} />
 														</div>
 														<Button size="sm" onClick={async () => {
 															setCommError(null);
 															try {
-																await api.createAgentRequestTemplate(agent.id!, { name: newTemplate.name, body: newTemplate.body, is_default: newTemplate.is_default });
-																setNewTemplate({ name: '', body: '', is_default: false });
+																const caps = newTemplate.capabilities && newTemplate.capabilities.trim()
+																	? JSON.parse(newTemplate.capabilities)
+																	: {};
+																await api.createAgentRequestTemplate(agent.id!, { name: newTemplate.name, body: newTemplate.body, capabilities: JSON.stringify(caps), is_default: newTemplate.is_default });
+																setNewTemplate({ name: '', body: '', capabilities: '', is_default: false });
 																await load();
 															} catch (e) {
 																setCommError(e instanceof Error ? e.message : 'failed to create template');
@@ -582,6 +618,14 @@ export default function AgentDetailPage() {
 																			onChange={(e) => setEditMapData(prev => ({ ...prev, spec: e.target.value }))}
 																			style={{ marginBottom: '0.5rem' }}
 																		/>
+																		<TextArea
+																			id={`edit-map-capabilities-${m.id}`}
+																			labelText="Capabilities (JSON)"
+																			rows={3}
+																			value={editMapData.capabilities}
+																			onChange={(e) => setEditMapData(prev => ({ ...prev, capabilities: e.target.value }))}
+																			style={{ marginBottom: '0.5rem' }}
+																		/>
 																		<div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
 																			<Checkbox
 																				id={`edit-map-default-${m.id}`}
@@ -596,9 +640,13 @@ export default function AgentDetailPage() {
 																				try {
 																					// Validate JSON
 																					JSON.parse(editMapData.spec);
+																					const capabilitiesPayload = editMapData.capabilities && editMapData.capabilities.trim()
+																						? JSON.parse(editMapData.capabilities)
+																						: {};
 																					await api.updateAgentResponseMap(agent.id!, m.id, {
 																						name: editMapData.name,
 																						spec: editMapData.spec,
+																						capabilities: JSON.stringify(capabilitiesPayload),
 																						is_default: editMapData.is_default
 																					});
 																					setEditingMapId(null);
@@ -617,12 +665,18 @@ export default function AgentDetailPage() {
 																		<CodeSnippet type="multi" feedback="Copied to clipboard">
 																			{m.spec}
 																		</CodeSnippet>
+																		{renderCapabilityChips(getResponseMapCapabilitySummary(m.capabilities))}
 																		<div className={styles.actionsRow}>
 																			<Button size="sm" kind="ghost" onClick={() => {
 																				setEditingMapId(m.id);
 																				setEditMapData({
 																					name: m.name,
 																					spec: m.spec,
+																					capabilities: typeof m.capabilities === 'string'
+																						? m.capabilities
+																						: m.capabilities
+																							? JSON.stringify(m.capabilities)
+																							: '',
 																					is_default: Number(m.is_default) === 1
 																				});
 																			}}>Edit</Button>
@@ -652,14 +706,18 @@ export default function AgentDetailPage() {
 														<h5>Create new response map</h5>
 														<TextInput id="new-map-name" labelText="Name" value={newResponseMap.name} onChange={(e) => setNewResponseMap(prev => ({ ...prev, name: e.target.value }))} />
 														<TextArea id="new-map-spec" labelText="Spec (JSON mapping)" rows={4} value={newResponseMap.spec} onChange={(e) => setNewResponseMap(prev => ({ ...prev, spec: e.target.value }))} />
+														<TextArea id="new-map-capabilities" labelText="Capabilities (JSON)" rows={3} value={newResponseMap.capabilities} onChange={(e) => setNewResponseMap(prev => ({ ...prev, capabilities: e.target.value }))} />
 														<div style={{ marginTop: '0.5rem' }}>
 															<Checkbox id="new-map-default" labelText="Set as default" checked={newResponseMap.is_default} onChange={(_evt, data) => setNewResponseMap(prev => ({ ...prev, is_default: data.checked }))} />
 														</div>
 														<Button size="sm" onClick={async () => {
 															setCommError(null);
 															try {
-																await api.createAgentResponseMap(agent.id!, { name: newResponseMap.name, spec: newResponseMap.spec, is_default: newResponseMap.is_default });
-																setNewResponseMap({ name: '', spec: '', is_default: false });
+																const caps = newResponseMap.capabilities && newResponseMap.capabilities.trim()
+																	? JSON.parse(newResponseMap.capabilities)
+																	: {};
+																await api.createAgentResponseMap(agent.id!, { name: newResponseMap.name, spec: newResponseMap.spec, capabilities: JSON.stringify(caps), is_default: newResponseMap.is_default });
+																setNewResponseMap({ name: '', spec: '', capabilities: '', is_default: false });
 																await load();
 															} catch (e) {
 																setCommError(e instanceof Error ? e.message : 'failed to create response map');
