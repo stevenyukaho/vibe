@@ -4,6 +4,7 @@ import {
 	AgentRequestTemplate,
 	AgentResponseMap
 } from '@ibm-vibe/types';
+import { serializeCapabilities } from '../../lib/communicationCapabilities';
 
 /**
  * Create a new agent
@@ -108,8 +109,8 @@ export function getAgentRequestTemplateById(id: number): AgentRequestTemplate | 
 export function createAgentRequestTemplate(agentId: number, payload: Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>): AgentRequestTemplate {
 	const hadDefaultStmt = db.prepare(`SELECT id FROM agent_request_templates WHERE agent_id = ? AND is_default = 1 LIMIT 1`);
 	const insertStmt = db.prepare(`
-		INSERT INTO agent_request_templates (agent_id, name, description, engine, content_type, body, tags, is_default)
-		VALUES (@agent_id, @name, @description, @engine, @content_type, @body, @tags, @is_default)
+		INSERT INTO agent_request_templates (agent_id, name, description, engine, content_type, body, tags, capabilities, is_default)
+		VALUES (@agent_id, @name, @description, @engine, @content_type, @body, @tags, @capabilities, @is_default)
 		RETURNING *
 	`);
 	const clearDefaultStmt = db.prepare(`UPDATE agent_request_templates SET is_default = 0 WHERE agent_id = ?`);
@@ -130,6 +131,7 @@ export function createAgentRequestTemplate(agentId: number, payload: Omit<AgentR
 			content_type: payload.content_type ?? 'application/json',
 			body: payload.body,
 			tags: payload.tags ?? null,
+			capabilities: serializeCapabilities(payload.capabilities),
 			is_default: wantsDefault
 		}) as AgentRequestTemplate;
 
@@ -150,7 +152,12 @@ export function updateAgentRequestTemplate(id: number, updates: Partial<Omit<Age
 	const current = getAgentRequestTemplateById(id);
 	if (!current) return undefined;
 
-	const fields = Object.entries(updates)
+	const normalizedUpdates: typeof updates = { ...updates };
+	if (Object.prototype.hasOwnProperty.call(updates, 'capabilities')) {
+		normalizedUpdates.capabilities = serializeCapabilities(updates.capabilities);
+	}
+
+	const fields = Object.entries(normalizedUpdates)
 		.filter(([k, v]) => v !== undefined && k !== 'is_default')
 		.map(([k]) => `${k} = @${k}`);
 
@@ -162,7 +169,7 @@ export function updateAgentRequestTemplate(id: number, updates: Partial<Omit<Age
 	`);
 
 	const tx = db.transaction(() => {
-		let row = updateStmt.get({ id, ...updates }) as AgentRequestTemplate;
+		let row = updateStmt.get({ id, ...normalizedUpdates }) as AgentRequestTemplate;
 		if (updates.is_default) {
 			clearDefaultStmt.run(id);
 			setDefaultStmt.run(id);
@@ -229,8 +236,8 @@ export function getAgentResponseMapById(id: number): AgentResponseMap | undefine
 export function createAgentResponseMap(agentId: number, payload: Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>): AgentResponseMap {
 	const hadDefaultStmt = db.prepare(`SELECT id FROM agent_response_maps WHERE agent_id = ? AND is_default = 1 LIMIT 1`);
 	const insertStmt = db.prepare(`
-		INSERT INTO agent_response_maps (agent_id, name, description, spec, tags, is_default)
-		VALUES (@agent_id, @name, @description, @spec, @tags, @is_default)
+		INSERT INTO agent_response_maps (agent_id, name, description, spec, tags, capabilities, is_default)
+		VALUES (@agent_id, @name, @description, @spec, @tags, @capabilities, @is_default)
 		RETURNING *
 	`);
 	const clearDefaultStmt = db.prepare(`UPDATE agent_response_maps SET is_default = 0 WHERE agent_id = ?`);
@@ -249,6 +256,7 @@ export function createAgentResponseMap(agentId: number, payload: Omit<AgentRespo
 			description: payload.description ?? null,
 			spec: payload.spec,
 			tags: payload.tags ?? null,
+			capabilities: serializeCapabilities(payload.capabilities),
 			is_default: wantsDefault
 		}) as AgentResponseMap;
 
@@ -268,7 +276,12 @@ export function updateAgentResponseMap(id: number, updates: Partial<Omit<AgentRe
 	const current = getAgentResponseMapById(id);
 	if (!current) return undefined;
 
-	const fields = Object.entries(updates)
+	const normalizedUpdates: typeof updates = { ...updates };
+	if (Object.prototype.hasOwnProperty.call(updates, 'capabilities')) {
+		normalizedUpdates.capabilities = serializeCapabilities(updates.capabilities);
+	}
+
+	const fields = Object.entries(normalizedUpdates)
 		.filter(([k, v]) => v !== undefined && k !== 'is_default')
 		.map(([k]) => `${k} = @${k}`);
 
@@ -280,7 +293,7 @@ export function updateAgentResponseMap(id: number, updates: Partial<Omit<AgentRe
 	`);
 
 	const tx = db.transaction(() => {
-		let row = updateStmt.get({ id, ...updates }) as AgentResponseMap;
+		let row = updateStmt.get({ id, ...normalizedUpdates }) as AgentResponseMap;
 		if (updates.is_default) {
 			clearDefaultStmt.run(id);
 			setDefaultStmt.run(id);
@@ -328,4 +341,62 @@ export function setDefaultAgentResponseMap(agentId: number, mapId: number): void
 		db.prepare(`UPDATE agent_response_maps SET is_default = 1 WHERE id = ? AND agent_id = ?`).run(mapId, agentId);
 	});
 	tx();
+}
+
+/**
+ * Extracts capability name from a capabilities JSON string.
+ * Supports both `name` and legacy `schema` fields.
+ */
+function extractCapabilityNameFromJson(capabilitiesJson: string | null): string | null {
+	if (!capabilitiesJson) {
+		return null;
+	}
+	try {
+		const parsed = JSON.parse(capabilitiesJson);
+		return parsed?.name || parsed?.schema || null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Lists all distinct capability names used by request templates.
+ * Returns an array of unique capability names, sorted alphabetically.
+ */
+export function listRequestTemplateCapabilityNames(): string[] {
+	const rows = db.prepare(`
+		SELECT DISTINCT capabilities FROM agent_request_templates
+		WHERE capabilities IS NOT NULL AND capabilities != '{}'
+	`).all() as Array<{ capabilities: string }>;
+
+	const names = new Set<string>();
+	for (const row of rows) {
+		const name = extractCapabilityNameFromJson(row.capabilities);
+		if (name) {
+			names.add(name);
+		}
+	}
+
+	return Array.from(names).sort();
+}
+
+/**
+ * Lists all distinct capability names used by response maps.
+ * Returns an array of unique capability names, sorted alphabetically.
+ */
+export function listResponseMapCapabilityNames(): string[] {
+	const rows = db.prepare(`
+		SELECT DISTINCT capabilities FROM agent_response_maps
+		WHERE capabilities IS NOT NULL AND capabilities != '{}'
+	`).all() as Array<{ capabilities: string }>;
+
+	const names = new Set<string>();
+	for (const row of rows) {
+		const name = extractCapabilityNameFromJson(row.capabilities);
+		if (name) {
+			names.add(name);
+		}
+	}
+
+	return Array.from(names).sort();
 }
