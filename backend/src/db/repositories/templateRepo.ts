@@ -268,8 +268,8 @@ export function linkTemplateToAgent(agentId: number, templateId: number, isDefau
 				db.prepare(`UPDATE agent_template_links SET is_default = 1 WHERE agent_id = ? AND template_id = ?`).run(agentId, templateId);
 			} else {
 				db.prepare(`
-					INSERT INTO agent_template_links (agent_id, template_id, is_default)
-					VALUES (?, ?, 1)
+					INSERT INTO agent_template_links (agent_id, template_id, is_default, linked_at)
+					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
 				`).run(agentId, templateId);
 			}
 			return;
@@ -280,8 +280,8 @@ export function linkTemplateToAgent(agentId: number, templateId: number, isDefau
 				db.prepare(`UPDATE agent_template_links SET is_default = 1 WHERE agent_id = ? AND template_id = ?`).run(agentId, templateId);
 			} else {
 				db.prepare(`
-					INSERT INTO agent_template_links (agent_id, template_id, is_default)
-					VALUES (?, ?, 1)
+					INSERT INTO agent_template_links (agent_id, template_id, is_default, linked_at)
+					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
 				`).run(agentId, templateId);
 			}
 			return;
@@ -289,8 +289,8 @@ export function linkTemplateToAgent(agentId: number, templateId: number, isDefau
 
 		if (!existingLink) {
 			db.prepare(`
-				INSERT INTO agent_template_links (agent_id, template_id, is_default)
-				VALUES (?, ?, 0)
+				INSERT INTO agent_template_links (agent_id, template_id, is_default, linked_at)
+				VALUES (?, ?, 0, CURRENT_TIMESTAMP)
 			`).run(agentId, templateId);
 		}
 	});
@@ -392,8 +392,8 @@ export function linkResponseMapToAgent(agentId: number, mapId: number, isDefault
 				db.prepare(`UPDATE agent_response_map_links SET is_default = 1 WHERE agent_id = ? AND response_map_id = ?`).run(agentId, mapId);
 			} else {
 				db.prepare(`
-					INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default)
-					VALUES (?, ?, 1)
+					INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default, linked_at)
+					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
 				`).run(agentId, mapId);
 			}
 			return;
@@ -404,8 +404,8 @@ export function linkResponseMapToAgent(agentId: number, mapId: number, isDefault
 				db.prepare(`UPDATE agent_response_map_links SET is_default = 1 WHERE agent_id = ? AND response_map_id = ?`).run(agentId, mapId);
 			} else {
 				db.prepare(`
-					INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default)
-					VALUES (?, ?, 1)
+					INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default, linked_at)
+					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
 				`).run(agentId, mapId);
 			}
 			return;
@@ -413,8 +413,8 @@ export function linkResponseMapToAgent(agentId: number, mapId: number, isDefault
 
 		if (!existingLink) {
 			db.prepare(`
-				INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default)
-				VALUES (?, ?, 0)
+				INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default, linked_at)
+				VALUES (?, ?, 0, CURRENT_TIMESTAMP)
 			`).run(agentId, mapId);
 		}
 	});
