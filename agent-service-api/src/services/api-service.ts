@@ -31,6 +31,24 @@ const serializeMetadata = (metadata?: Record<string, unknown>): string | undefin
  * configurable response mapping, and various success criteria.
  */
 export class ApiService {
+	private parseScriptMetadata(metadata: unknown): Record<string, any> {
+		if (!metadata) {
+			return {};
+		}
+		if (typeof metadata === 'string') {
+			try {
+				const parsed = JSON.parse(metadata);
+				return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : {};
+			} catch {
+				return {};
+			}
+		}
+		if (typeof metadata === 'object') {
+			return metadata as Record<string, any>;
+		}
+		return {};
+	}
+
 	/**
 	 * Executes a test using an external API.
 	 *
@@ -556,8 +574,11 @@ export class ApiService {
 				if (scriptMessage.role === 'user') {
 					// Prepare the input for the API call
 					// For conversations, we might want to include the history
-					const effectiveTemplateForMessage = (scriptMessage as any)?.metadata?.request_template || request.request_template;
-					const effectiveResponseMappingForMessage = (scriptMessage as any)?.metadata?.response_mapping || request.response_mapping;
+					const scriptMetadata = this.parseScriptMetadata((scriptMessage as any)?.metadata);
+					const effectiveTemplateForMessage = scriptMetadata.request_template || request.request_template;
+					const effectiveResponseMappingForMessage = scriptMetadata.response_mapping || request.response_mapping;
+					const scriptRequestCapabilities = scriptMetadata.request_capabilities;
+					const scriptResponseCapabilities = scriptMetadata.response_capabilities;
 					// Robustly detect if template references conversation_history (allowing whitespace)
 					const templateIncludesHistory = typeof effectiveTemplateForMessage === 'string'
 						? /\{\{\s*conversation_history\s*\}\}/.test(effectiveTemplateForMessage)
@@ -578,7 +599,7 @@ export class ApiService {
 
 					try {
 						// Format request using the template if provided (per-message override supported via metadata)
-						const varsForMessage = ((scriptMessage as any)?.metadata?.variables) || {};
+						const varsForMessage = scriptMetadata.variables || {};
 						const pointerContext = {
 							lastRequest: lastRequestPayload,
 							lastResponse: lastResponseData,
@@ -613,7 +634,8 @@ export class ApiService {
 							timestamp: new Date().toISOString(),
 							metadata: serializeMetadata({
 								script_sequence: scriptMessage.sequence,
-								variables_before: Object.keys(mergedVars).length ? mergedVars : undefined
+								variables_before: Object.keys(mergedVars).length ? mergedVars : undefined,
+								request_capabilities: scriptRequestCapabilities
 							})
 						});
 
@@ -683,7 +705,9 @@ export class ApiService {
 								variables_before: Object.keys(mergedVars || {}).length ? mergedVars : undefined,
 								variables_after: Object.keys(accumulatedVariables || {}).length ? accumulatedVariables : undefined,
 								input_tokens: tokens.input_tokens,
-								output_tokens: tokens.output_tokens
+								output_tokens: tokens.output_tokens,
+								request_capabilities: scriptRequestCapabilities,
+								response_capabilities: scriptResponseCapabilities
 							})
 						});
 
