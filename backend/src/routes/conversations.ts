@@ -76,11 +76,13 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 			name,
 			description,
 			tags,
-			default_request_template_id,
-			default_response_map_id,
+			required_request_template_capabilities,
+			required_response_map_capabilities,
 			variables,
 			stop_on_failure,
 			messages
+			// Note: default_request_template_id and default_response_map_id are deprecated
+			// Conversations now specify capability requirements instead
 		} = req.body;
 
 		// Validate required fields
@@ -96,9 +98,9 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 			name,
 			description,
 			tags,
-			default_request_template_id,
-			default_response_map_id,
 			variables,
+			required_request_template_capabilities,
+			required_response_map_capabilities,
 			stop_on_failure
 		});
 
