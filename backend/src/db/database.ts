@@ -1219,13 +1219,13 @@ try {
 	// Ensure linked_at columns exist on older tables
 	const templateLinkCols = db.prepare("PRAGMA table_info('agent_template_links')").all() as Array<{ name: string }>;
 	if (!templateLinkCols.some(col => col.name === 'linked_at')) {
-		db.exec("ALTER TABLE agent_template_links ADD COLUMN linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+		db.exec("ALTER TABLE agent_template_links ADD COLUMN linked_at TIMESTAMP");
 		db.exec("UPDATE agent_template_links SET linked_at = CURRENT_TIMESTAMP WHERE linked_at IS NULL");
 	}
 
 	const mapLinkCols = db.prepare("PRAGMA table_info('agent_response_map_links')").all() as Array<{ name: string }>;
 	if (!mapLinkCols.some(col => col.name === 'linked_at')) {
-		db.exec("ALTER TABLE agent_response_map_links ADD COLUMN linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+		db.exec("ALTER TABLE agent_response_map_links ADD COLUMN linked_at TIMESTAMP");
 		db.exec("UPDATE agent_response_map_links SET linked_at = CURRENT_TIMESTAMP WHERE linked_at IS NULL");
 	}
 
