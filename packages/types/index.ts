@@ -15,6 +15,84 @@ export interface Agent {
 	created_at?: string;
 }
 
+/**
+ * Capability metadata for request templates.
+ *
+ * A capability is identified by a `name` - a simple string tag.
+ * Conversations can require specific capabilities, and execution will fail
+ * early if the selected template doesn't have a matching capability name.
+ *
+ * Example names: "openai-chat", "ollama-generate", "watsonx-chat"
+ */
+export interface RequestTemplateCapabilities {
+	/** The capability name used for matching */
+	name?: string;
+}
+
+/**
+ * Capability metadata for response maps.
+ *
+ * A capability is identified by a `name` - a simple string tag.
+ * Conversations can require specific capabilities, and execution will fail
+ * early if the selected response map doesn't have a matching capability name.
+ *
+ * Example names: "openai-chat", "ollama-generate", "watsonx-chat"
+ */
+export interface ResponseMapCapabilities {
+	/** The capability name used for matching */
+	name?: string;
+}
+
+/**
+ * Global request template (not tied to a specific agent).
+ *
+ * Templates can be linked to multiple agents via agent_template_links.
+ */
+export interface RequestTemplate {
+	id?: number;
+	name: string;
+	description?: string;
+	/** Capability JSON string, e.g., '{"name": "openai-chat"}' */
+	capability?: string;
+	/** JSON template body with {{placeholders}} */
+	body: string;
+	created_at?: string;
+}
+
+/**
+ * Global response map (not tied to a specific agent).
+ *
+ * Response maps can be linked to multiple agents via agent_response_map_links.
+ */
+export interface ResponseMap {
+	id?: number;
+	name: string;
+	description?: string;
+	/** Capability JSON string, e.g., '{"name": "openai-chat"}' */
+	capability?: string;
+	/** JSON spec defining response parsing */
+	spec: string;
+	created_at?: string;
+}
+
+/**
+ * Template linked to an agent, includes link metadata.
+ */
+export interface AgentLinkedTemplate extends RequestTemplate {
+	is_default?: number | boolean;
+}
+
+/**
+ * Response map linked to an agent, includes link metadata.
+ */
+export interface AgentLinkedResponseMap extends ResponseMap {
+	is_default?: number | boolean;
+}
+
+/**
+ * Legacy agent-scoped request template.
+ * @deprecated Use RequestTemplate + agent linking instead
+ */
 export interface AgentRequestTemplate {
 	id?: number;
 	agent_id: number;
@@ -25,9 +103,14 @@ export interface AgentRequestTemplate {
 	body: string;
 	tags?: string;
 	is_default?: number | boolean;
+	capabilities?: string | RequestTemplateCapabilities | null;
 	created_at?: string;
 }
 
+/**
+ * Legacy agent-scoped response map.
+ * @deprecated Use ResponseMap + agent linking instead
+ */
 export interface AgentResponseMap {
 	id?: number;
 	agent_id: number;
@@ -36,6 +119,7 @@ export interface AgentResponseMap {
 	spec: string;
 	tags?: string;
 	is_default?: number | boolean;
+	capabilities?: string | ResponseMapCapabilities | null;
 	created_at?: string;
 }
 
@@ -69,16 +153,45 @@ export interface TestResult {
 	token_mapping_metadata?: string;  // JSON metadata about token extraction process
 }
 
-// New Conversation interfaces
+/**
+ * A conversation is a multi-turn test script that can be executed against an agent.
+ *
+ * Conversations can optionally require specific capabilities from templates and
+ * response maps. When executing, the system validates that the agent's templates
+ * satisfy these requirements before starting.
+ */
 export interface Conversation {
 	id?: number;
 	name: string;
 	description?: string;
-	tags?: string; // JSON array for flexible categorization
+	/** JSON array of tags for categorization */
+	tags?: string;
+	/**
+	 * @deprecated Use required_request_template_capabilities instead.
+	 * Conversations now specify capability requirements, not direct template IDs.
+	 */
 	default_request_template_id?: number;
+	/**
+	 * @deprecated Use required_response_map_capabilities instead.
+	 * Conversations now specify capability requirements, not direct template IDs.
+	 */
 	default_response_map_id?: number;
-	variables?: string; // JSON of conversation-level variables
-	stop_on_failure?: boolean; // halt execution on per-turn failure
+	/** JSON object of conversation-level variables available to all messages */
+	variables?: string;
+	/**
+	 * Required capability name for request templates.
+	 * If set, execution will fail unless the template has a matching capability name.
+	 * Stored as JSON: {"name": "openai-chat"} or just the capability name string.
+	 */
+	required_request_template_capabilities?: string;
+	/**
+	 * Required capability name for response maps.
+	 * If set, execution will fail unless the response map has a matching capability name.
+	 * Stored as JSON: {"name": "openai-chat"} or just the capability name string.
+	 */
+	required_response_map_capabilities?: string;
+	/** If true, halt execution when a turn fails */
+	stop_on_failure?: boolean;
 	created_at?: string;
 	updated_at?: string;
 }

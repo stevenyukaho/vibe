@@ -1,10 +1,10 @@
-import type { Agent, Test, TestResult } from '@ibm-vibe/types';
+import type { Agent, Test, TestResult, RequestTemplate, ResponseMap, AgentLinkedTemplate, AgentLinkedResponseMap } from '@ibm-vibe/types';
 import type { PaginatedResponse, StatsResponse, LLMRequestOptions, LLMResponse } from '@ibm-vibe/types';
 import type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget } from '@ibm-vibe/types';
 import { frontendConfig } from './runtimeConfig';
 
 // Re-export types for use in components
-export type { Agent, Test, TestResult };
+export type { Agent, Test, TestResult, RequestTemplate, ResponseMap, AgentLinkedTemplate, AgentLinkedResponseMap };
 export type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget };
 
 export interface LLMConfig {
@@ -91,7 +91,7 @@ export const api = {
 	},
 
 	// Agent communication configs: Request Templates
-	async getAgentRequestTemplates(agentId: number): Promise<Array<{ id: number; name: string; body: string; is_default?: number }>> {
+	async getAgentRequestTemplates(agentId: number): Promise<Array<{ id: number; name: string; body: string; is_default?: number; capabilities?: string | null }>> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates`);
 		if (!response.ok) {
 			const error = await response.json();
@@ -100,7 +100,7 @@ export const api = {
 		return response.json();
 	},
 
-	async createAgentRequestTemplate(agentId: number, payload: { name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; is_default?: boolean }): Promise<any> {
+	async createAgentRequestTemplate(agentId: number, payload: { name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; capabilities?: string; is_default?: boolean }): Promise<any> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -113,7 +113,7 @@ export const api = {
 		return response.json();
 	},
 
-	async updateAgentRequestTemplate(agentId: number, templateId: number, updates: Partial<{ name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; is_default?: boolean }>): Promise<any> {
+	async updateAgentRequestTemplate(agentId: number, templateId: number, updates: Partial<{ name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; capabilities?: string; is_default?: boolean }>): Promise<any> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates/${templateId}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
@@ -143,7 +143,7 @@ export const api = {
 	},
 
 	// Agent communication configs: Response Maps
-	async getAgentResponseMaps(agentId: number): Promise<Array<{ id: number; name: string; spec: string; is_default?: number }>> {
+	async getAgentResponseMaps(agentId: number): Promise<Array<{ id: number; name: string; spec: string; is_default?: number; capabilities?: string | null }>> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps`);
 		if (!response.ok) {
 			const error = await response.json();
@@ -152,7 +152,7 @@ export const api = {
 		return response.json();
 	},
 
-	async createAgentResponseMap(agentId: number, payload: { name: string; description?: string; spec: string; tags?: string; is_default?: boolean }): Promise<any> {
+	async createAgentResponseMap(agentId: number, payload: { name: string; description?: string; spec: string; tags?: string; capabilities?: string; is_default?: boolean }): Promise<any> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -165,7 +165,7 @@ export const api = {
 		return response.json();
 	},
 
-	async updateAgentResponseMap(agentId: number, mapId: number, updates: Partial<{ name: string; description?: string; spec: string; tags?: string; is_default?: boolean }>): Promise<any> {
+	async updateAgentResponseMap(agentId: number, mapId: number, updates: Partial<{ name: string; description?: string; spec: string; tags?: string; capabilities?: string; is_default?: boolean }>): Promise<any> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps/${mapId}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
@@ -188,6 +188,274 @@ export const api = {
 
 	async setDefaultAgentResponseMap(agentId: number, mapId: number): Promise<void> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps/${mapId}/default`, { method: 'POST' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to set default response map');
+		}
+	},
+
+	// Capability names - for auto-complete in dropdowns
+	async getRequestTemplateCapabilityNames(): Promise<string[]> {
+		const response = await fetch(`${API_URL}/api/templates/capability-names`);
+		if (!response.ok) {
+			console.error('Failed to fetch request template capability names');
+			return [];
+		}
+		return response.json();
+	},
+
+	async getResponseMapCapabilityNames(): Promise<string[]> {
+		const response = await fetch(`${API_URL}/api/response-maps/capability-names`);
+		if (!response.ok) {
+			console.error('Failed to fetch response map capability names');
+			return [];
+		}
+		return response.json();
+	},
+
+	// =====================
+	// GLOBAL TEMPLATES
+	// =====================
+
+	/**
+	 * Get all global request templates, optionally filtered by capability.
+	 */
+	async getTemplates(capability?: string): Promise<RequestTemplate[]> {
+		const params = new URLSearchParams();
+		if (capability) params.append('capability', capability);
+
+		const response = await fetch(`${API_URL}/api/templates?${params}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch templates');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Get a global request template by ID.
+	 */
+	async getTemplateById(id: number): Promise<RequestTemplate> {
+		const response = await fetch(`${API_URL}/api/templates/${id}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch template');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Create a new global request template.
+	 */
+	async createTemplate(template: Omit<RequestTemplate, 'id' | 'created_at'>): Promise<RequestTemplate> {
+		const response = await fetch(`${API_URL}/api/templates`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(template)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to create template');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Update a global request template.
+	 */
+	async updateTemplate(id: number, updates: Partial<Omit<RequestTemplate, 'id' | 'created_at'>>): Promise<RequestTemplate> {
+		const response = await fetch(`${API_URL}/api/templates/${id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updates)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update template');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Delete a global request template.
+	 */
+	async deleteTemplate(id: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/templates/${id}`, { method: 'DELETE' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete template');
+		}
+	},
+
+	/**
+	 * Get all global response maps, optionally filtered by capability.
+	 */
+	async getResponseMaps(capability?: string): Promise<ResponseMap[]> {
+		const params = new URLSearchParams();
+		if (capability) params.append('capability', capability);
+
+		const response = await fetch(`${API_URL}/api/response-maps?${params}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch response maps');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Get a global response map by ID.
+	 */
+	async getResponseMapById(id: number): Promise<ResponseMap> {
+		const response = await fetch(`${API_URL}/api/response-maps/${id}`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch response map');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Create a new global response map.
+	 */
+	async createResponseMap(map: Omit<ResponseMap, 'id' | 'created_at'>): Promise<ResponseMap> {
+		const response = await fetch(`${API_URL}/api/response-maps`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(map)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to create response map');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Update a global response map.
+	 */
+	async updateResponseMap(id: number, updates: Partial<Omit<ResponseMap, 'id' | 'created_at'>>): Promise<ResponseMap> {
+		const response = await fetch(`${API_URL}/api/response-maps/${id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updates)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update response map');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Delete a global response map.
+	 */
+	async deleteResponseMap(id: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/response-maps/${id}`, { method: 'DELETE' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete response map');
+		}
+	},
+
+	// =====================
+	// AGENT-TEMPLATE LINKING
+	// =====================
+
+	/**
+	 * Get all global templates linked to an agent.
+	 */
+	async getAgentLinkedTemplates(agentId: number): Promise<AgentLinkedTemplate[]> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/linked-templates`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch linked templates');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Link a global template to an agent, or create a new template and link it.
+	 * Pass template_id to link existing, or name/body/etc to create new.
+	 */
+	async linkTemplateToAgent(agentId: number, payload: { template_id?: number; is_default?: boolean } | (Omit<RequestTemplate, 'id' | 'created_at'> & { is_default?: boolean })): Promise<RequestTemplate> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/linked-templates`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to link template');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Unlink a global template from an agent (does not delete the template).
+	 */
+	async unlinkTemplateFromAgent(agentId: number, templateId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/linked-templates/${templateId}`, { method: 'DELETE' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to unlink template');
+		}
+	},
+
+	/**
+	 * Set a linked template as the default for an agent.
+	 */
+	async setAgentLinkedTemplateDefault(agentId: number, templateId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/linked-templates/${templateId}/default`, { method: 'POST' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to set default template');
+		}
+	},
+
+	/**
+	 * Get all global response maps linked to an agent.
+	 */
+	async getAgentLinkedResponseMaps(agentId: number): Promise<AgentLinkedResponseMap[]> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/linked-response-maps`);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to fetch linked response maps');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Link a global response map to an agent, or create a new one and link it.
+	 */
+	async linkResponseMapToAgent(agentId: number, payload: { response_map_id?: number; is_default?: boolean } | (Omit<ResponseMap, 'id' | 'created_at'> & { is_default?: boolean })): Promise<ResponseMap> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/linked-response-maps`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to link response map');
+		}
+		return response.json();
+	},
+
+	/**
+	 * Unlink a global response map from an agent.
+	 */
+	async unlinkResponseMapFromAgent(agentId: number, mapId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/linked-response-maps/${mapId}`, { method: 'DELETE' });
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to unlink response map');
+		}
+	},
+
+	/**
+	 * Set a linked response map as the default for an agent.
+	 */
+	async setAgentLinkedResponseMapDefault(agentId: number, mapId: number): Promise<void> {
+		const response = await fetch(`${API_URL}/api/agents/${agentId}/linked-response-maps/${mapId}/default`, { method: 'POST' });
 		if (!response.ok) {
 			const error = await response.json();
 			throw new Error(error.error || 'Failed to set default response map');
@@ -1022,8 +1290,17 @@ export const api = {
 			body: JSON.stringify({ agent_id, conversation_id })
 		});
 		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || 'Failed to execute conversation');
+			let errorPayload: any = null;
+			try {
+				errorPayload = await response.json();
+			} catch {
+				errorPayload = null;
+			}
+			const details = Array.isArray(errorPayload?.details)
+				? errorPayload.details.join('\n')
+				: (typeof errorPayload?.details === 'string' ? errorPayload.details : '');
+			const message = errorPayload?.error || 'Failed to execute conversation';
+			throw new Error(details ? `${message}\n${details}` : message);
 		}
 		return response.json();
 	},
