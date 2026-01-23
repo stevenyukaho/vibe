@@ -20,7 +20,7 @@ const renderMetadata = (metadata?: string) => {
 		return (
 			<>
 				{meta.execution_time_ms !== undefined && (
-					<span className={styles.metaChip}>⏱ {meta.execution_time_ms}ms</span>
+					<span className={styles.metaChip}>time: {meta.execution_time_ms}ms</span>
 				)}
 				{meta.input_tokens !== undefined && (
 					<span className={styles.metaChip}>in: {meta.input_tokens}</span>
@@ -33,6 +33,16 @@ const renderMetadata = (metadata?: string) => {
 				)}
 				{meta.response_mapping_used && (
 					<span className={styles.metaChip}>map: {meta.response_mapping_used}</span>
+				)}
+				{(meta.request_capabilities?.name || meta.request_capabilities?.schema) && (
+					<span className={styles.metaChip}>
+						req cap: {meta.request_capabilities?.name || meta.request_capabilities?.schema}
+					</span>
+				)}
+				{(meta.response_capabilities?.name || meta.response_capabilities?.schema) && (
+					<span className={styles.metaChip}>
+						resp cap: {meta.response_capabilities?.name || meta.response_capabilities?.schema}
+					</span>
 				)}
 				{(meta.variables_before || meta.variables_after || meta.variables_snapshot) && (
 					<span className={styles.metaChip}>
