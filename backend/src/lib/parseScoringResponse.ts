@@ -5,7 +5,7 @@ export interface ScoringResult {
 
 /**
  * Parse LLM response for similarity scoring
- * Expects JSON with { "score": number, "reasoning": string }
+ * Expects JSON with { "score": number, "reasoning"?: string }
  * Handles markdown code fences and clamps score to 0-100 range
  */
 export function parseScoringResponse(rawResponse: string): ScoringResult {
