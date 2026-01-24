@@ -83,10 +83,18 @@ router.post('/', (async (req: Request<{}, {}, Omit<SessionMessage, 'id'>>, res: 
 		// If this is an assistant message, kick off in-process similarity scoring
 		if (message.role === 'assistant') {
 			try {
-				const session = await getExecutionSessionById(message.session_id);
+			if (message.session_id == null) {
+				console.warn('Session message missing session_id; skipping similarity scoring.', {
+					message_id: message.id
+				});
+				return res.status(201).json(message);
+			}
+
+			const sessionId = message.session_id;
+			const session = await getExecutionSessionById(sessionId);
 				if (session?.conversation_id) {
 					// Determine user turn index k up to this assistant message
-					const k = countUserTurnsUpTo(message.session_id, message.sequence);
+				const k = countUserTurnsUpTo(sessionId, message.sequence);
 					const target = getConversationTurnTarget(session.conversation_id, k);
 					if (target && message.id && target.id) {
 						// Mark pending immediately
@@ -126,13 +134,18 @@ router.post('/:id/regenerate-score', (async (req: Request<{ id: string }>, res: 
 		}
 
 		// Get the session and conversation
-		const session = await getExecutionSessionById(message.session_id);
+	if (message.session_id == null) {
+		return res.status(400).json({ error: 'Session ID missing' });
+	}
+
+	const sessionId = message.session_id;
+	const session = await getExecutionSessionById(sessionId);
 		if (!session?.conversation_id) {
 			return res.status(400).json({ error: 'Session or conversation not found' });
 		}
 
 		// Determine user turn index k up to this assistant message
-		const k = countUserTurnsUpTo(message.session_id, message.sequence);
+	const k = countUserTurnsUpTo(sessionId, message.sequence);
 		const target = getConversationTurnTarget(session.conversation_id, k);
 		if (!target || !target.id) {
 			return res.status(400).json({ error: 'No target found for this turn' });
