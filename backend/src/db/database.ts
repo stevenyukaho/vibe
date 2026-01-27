@@ -14,7 +14,7 @@ const resolvedDbPath = configuredDbPath.startsWith(':memory:')
 	: path.isAbsolute(configuredDbPath)
 		? configuredDbPath
 		: path.resolve(process.cwd(), configuredDbPath);
-const db = new Database(resolvedDbPath);
+const db: Database.Database = new Database(resolvedDbPath);
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
