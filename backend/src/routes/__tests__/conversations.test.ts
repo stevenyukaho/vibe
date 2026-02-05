@@ -106,6 +106,15 @@ describe('conversation routes', () => {
 			expect(response.statusCode).toBe(500);
 			expect((response.body as any).error).toBe('Failed to fetch conversations');
 		});
+
+		it('returns 400 for invalid pagination params', async () => {
+			const response = await callRoute(conversationRoutes, 'get', '/', {
+				query: { limit: 'invalid' }
+			});
+
+			expect(response.statusCode).toBe(400);
+			expect((response.body as any).error).toBe('Invalid limit parameter');
+		});
 	});
 
 	describe('GET /api/conversations/:id', () => {
@@ -374,6 +383,20 @@ describe('conversation routes', () => {
 			expect(response.statusCode).toBe(404);
 			expect((response.body as any).error).toBe('Conversation not found');
 		});
+
+		it('handles errors gracefully', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.getConversationMessages as any).mockImplementation(() => {
+				throw new Error('Database error');
+			});
+
+			const response = await callRoute(conversationRoutes, 'get', '/:id/messages', {
+				params: { id: '1' }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).error).toBe('Failed to fetch conversation messages');
+		});
 	});
 
 	describe('POST /api/conversations/:id/messages', () => {
@@ -441,6 +464,207 @@ describe('conversation routes', () => {
 
 			expect(response.statusCode).toBe(404);
 			expect((response.body as any).error).toBe('Conversation not found');
+		});
+
+		it('handles errors gracefully', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.addMessageToConversation as any).mockImplementation(() => {
+				throw new Error('Insert failed');
+			});
+
+			const response = await callRoute(conversationRoutes, 'post', '/:id/messages', {
+				params: { id: '1' },
+				body: { role: 'user', content: 'hello' }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).error).toBe('Failed to create message');
+			expect((response.body as any).details).toBe('Insert failed');
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.addMessageToConversation as any).mockImplementation(() => {
+				throw { code: 'unknown' };
+			});
+
+			const response = await callRoute(conversationRoutes, 'post', '/:id/messages', {
+				params: { id: '1' },
+				body: { role: 'user', content: 'hello' }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).details).toBe('Unknown error');
+		});
+	});
+
+	describe('PUT /api/conversations/:id/messages/:messageId', () => {
+		it('returns 404 when conversation not found', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue(null);
+
+			const response = await callRoute(conversationRoutes, 'put', '/:id/messages/:messageId', {
+				params: { id: '1', messageId: '1' },
+				body: { content: 'updated' }
+			});
+
+			expect(response.statusCode).toBe(404);
+			expect((response.body as any).error).toBe('Conversation not found');
+		});
+
+		it('returns 404 when message not found', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.updateConversationMessage as any).mockReturnValue(null);
+
+			const response = await callRoute(conversationRoutes, 'put', '/:id/messages/:messageId', {
+				params: { id: '1', messageId: '99' },
+				body: { content: 'updated' }
+			});
+
+			expect(response.statusCode).toBe(404);
+			expect((response.body as any).error).toBe('Message not found');
+		});
+
+		it('handles errors gracefully', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.updateConversationMessage as any).mockImplementation(() => {
+				throw new Error('Update failed');
+			});
+
+			const response = await callRoute(conversationRoutes, 'put', '/:id/messages/:messageId', {
+				params: { id: '1', messageId: '1' },
+				body: { content: 'updated' }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).error).toBe('Failed to update message');
+		});
+	});
+
+	describe('DELETE /api/conversations/:id/messages/:messageId', () => {
+		it('deletes a message', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.deleteConversationMessage as any).mockReturnValue(undefined);
+
+			const response = await callRoute(conversationRoutes, 'delete', '/:id/messages/:messageId', {
+				params: { id: '1', messageId: '1' }
+			});
+
+			expect(response.statusCode).toBe(204);
+			expect(mockedQueries.deleteConversationMessage).toHaveBeenCalledWith(1);
+		});
+
+		it('returns 404 when conversation not found', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue(null);
+
+			const response = await callRoute(conversationRoutes, 'delete', '/:id/messages/:messageId', {
+				params: { id: '1', messageId: '1' }
+			});
+
+			expect(response.statusCode).toBe(404);
+			expect((response.body as any).error).toBe('Conversation not found');
+		});
+
+		it('handles errors gracefully', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.deleteConversationMessage as any).mockImplementation(() => {
+				throw new Error('Delete failed');
+			});
+
+			const response = await callRoute(conversationRoutes, 'delete', '/:id/messages/:messageId', {
+				params: { id: '1', messageId: '1' }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).error).toBe('Failed to delete message');
+			expect((response.body as any).details).toBe('Delete failed');
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.deleteConversationMessage as any).mockImplementation(() => {
+				throw { code: 'unknown' };
+			});
+
+			const response = await callRoute(conversationRoutes, 'delete', '/:id/messages/:messageId', {
+				params: { id: '1', messageId: '1' }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).details).toBe('Unknown error');
+		});
+	});
+
+	describe('PUT /api/conversations/:id/messages/reorder', () => {
+		it('reorders messages and returns updated list', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.reorderConversationMessages as any).mockReturnValue(undefined);
+			(mockedQueries.getConversationMessages as any).mockReturnValue([
+				{ id: 2, sequence: 1 },
+				{ id: 1, sequence: 2 }
+			]);
+
+			const response = await callRoute(conversationRoutes, 'put', '/:id/messages/reorder', {
+				params: { id: '1' },
+				body: { messages: [{ id: 2, sequence: 1 }] }
+			});
+
+			expect(response.statusCode).toBe(200);
+			expect(response.body).toHaveLength(2);
+		});
+
+		it('returns 404 when conversation not found', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue(null);
+
+			const response = await callRoute(conversationRoutes, 'put', '/:id/messages/reorder', {
+				params: { id: '1' },
+				body: { messages: [{ id: 1, sequence: 1 }] }
+			});
+
+			expect(response.statusCode).toBe(404);
+			expect((response.body as any).error).toBe('Conversation not found');
+		});
+
+		it('returns 400 when messages array is missing', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+
+			const response = await callRoute(conversationRoutes, 'put', '/:id/messages/reorder', {
+				params: { id: '1' },
+				body: { messages: null as any }
+			});
+
+			expect(response.statusCode).toBe(400);
+			expect((response.body as any).error).toBe('Invalid request');
+		});
+
+		it('handles errors gracefully', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.reorderConversationMessages as any).mockImplementation(() => {
+				throw new Error('Reorder failed');
+			});
+
+			const response = await callRoute(conversationRoutes, 'put', '/:id/messages/reorder', {
+				params: { id: '1' },
+				body: { messages: [{ id: 1, sequence: 1 }] }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).error).toBe('Failed to reorder messages');
+			expect((response.body as any).details).toBe('Reorder failed');
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			(mockedQueries.getConversationById as any).mockReturnValue({ id: 1, name: 'Test' });
+			(mockedQueries.reorderConversationMessages as any).mockImplementation(() => {
+				throw { code: 'unknown' };
+			});
+
+			const response = await callRoute(conversationRoutes, 'put', '/:id/messages/reorder', {
+				params: { id: '1' },
+				body: { messages: [{ id: 1, sequence: 1 }] }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).details).toBe('Unknown error');
 		});
 	});
 });
