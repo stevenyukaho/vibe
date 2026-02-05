@@ -269,6 +269,99 @@ describe('Suite Runs Routes', () => {
 			);
 		});
 
+		it('recalculates status to completed when all jobs finished', async () => {
+			const mockSuiteRuns = [
+				{
+					id: 10,
+					suite_id: 1,
+					agent_id: 1,
+					status: 'running',
+					completed_tests: 0,
+					successful_tests: 0,
+					failed_tests: 0,
+					progress: 0,
+					created_at: '2024-01-01'
+				}
+			];
+			const mockJobs = [
+				{ id: 1, suite_run_id: 10, status: 'completed', session_id: 1 },
+				{ id: 2, suite_run_id: 10, status: 'completed', session_id: 2 }
+			];
+
+			(mockListSuiteRunsWithCount as any).mockReturnValue({
+				data: mockSuiteRuns,
+				total: 1
+			});
+			(mockGetJobsBySuiteRunId as any).mockResolvedValue(mockJobs);
+			(mockGetExecutionSessionsByIds as any).mockReturnValue([]);
+			(mockGetSessionMessages as any).mockResolvedValue([]);
+
+			const handler = getRouteHandler('get', '/');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith({
+				data: expect.arrayContaining([
+					expect.objectContaining({
+						id: 10,
+						status: 'completed',
+						progress: 100,
+						completed_tests: 2,
+						successful_tests: 2
+					})
+				]),
+				total: 1,
+				limit: 50,
+				offset: 0
+			});
+		});
+
+		it('sets status running, total time 0, and logs similarity errors', async () => {
+			const mockSuiteRuns = [
+				{
+					id: 11,
+					suite_id: 2,
+					agent_id: 1,
+					status: 'pending',
+					completed_tests: 1,
+					successful_tests: 1,
+					failed_tests: 0,
+					progress: 0,
+					created_at: '2024-01-01'
+				}
+			];
+			const mockJobs = [
+				{ id: 1, suite_run_id: 11, status: 'running', session_id: 10 },
+				{ id: 2, suite_run_id: 11, status: 'pending', session_id: 11 }
+			];
+
+			(mockListSuiteRunsWithCount as any).mockReturnValue({
+				data: mockSuiteRuns,
+				total: 1
+			});
+			(mockGetJobsBySuiteRunId as any).mockResolvedValue(mockJobs);
+			(mockGetExecutionSessionsByIds as any).mockReturnValue([]);
+			(mockGetSessionMessages as any).mockRejectedValue(new Error('messages failed'));
+
+			const handler = getRouteHandler('get', '/');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith({
+				data: expect.arrayContaining([
+					expect.objectContaining({
+						id: 11,
+						status: 'running',
+						total_execution_time: 0,
+						completed_tests: 0,
+						successful_tests: 0,
+						failed_tests: 0
+					})
+				]),
+				total: 1,
+				limit: 50,
+				offset: 0
+			});
+		});
+
 		it('should recalculate progress when database values are incorrect', async () => {
 			const mockSuiteRuns = [
 				{
@@ -434,6 +527,83 @@ describe('Suite Runs Routes', () => {
 					completed_tests: 2,
 					successful_tests: 2
 				})
+			);
+		});
+
+		it('recalculates status to completed when all jobs finish', async () => {
+			mockReq.params = { id: '1' };
+
+			(mockGetSuiteRunById as any).mockResolvedValue({
+				id: 1,
+				status: 'running',
+				completed_tests: 0,
+				successful_tests: 0,
+				failed_tests: 0,
+				progress: 0
+			});
+			(mockGetJobsBySuiteRunId as any).mockResolvedValue([
+				{ id: 1, suite_run_id: 1, status: 'completed', session_id: 1 },
+				{ id: 2, suite_run_id: 1, status: 'completed', session_id: 2 }
+			]);
+			(mockGetExecutionSessionsByIds as any).mockReturnValue([]);
+			(mockGetSessionMessages as any).mockResolvedValue([]);
+
+			const handler = getRouteHandler('get', '/:id');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith(
+				expect.objectContaining({ status: 'completed', progress: 100 })
+			);
+		});
+
+		it('recalculates status to running when jobs are in progress', async () => {
+			mockReq.params = { id: '2' };
+
+			(mockGetSuiteRunById as any).mockResolvedValue({
+				id: 2,
+				status: 'pending',
+				completed_tests: 1,
+				successful_tests: 0,
+				failed_tests: 0,
+				progress: 0
+			});
+			(mockGetJobsBySuiteRunId as any).mockResolvedValue([
+				{ id: 1, suite_run_id: 2, status: 'running', session_id: 1 },
+				{ id: 2, suite_run_id: 2, status: 'pending', session_id: 2 }
+			]);
+			(mockGetExecutionSessionsByIds as any).mockReturnValue([]);
+			(mockGetSessionMessages as any).mockResolvedValue([]);
+
+			const handler = getRouteHandler('get', '/:id');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith(
+				expect.objectContaining({ status: 'running' })
+			);
+		});
+
+		it('sets total execution time to 0 and handles similarity errors', async () => {
+			mockReq.params = { id: '3' };
+
+			(mockGetSuiteRunById as any).mockResolvedValue({
+				id: 3,
+				status: 'pending',
+				completed_tests: 0,
+				successful_tests: 0,
+				failed_tests: 0,
+				progress: 0
+			});
+			(mockGetJobsBySuiteRunId as any).mockResolvedValue([
+				{ id: 1, suite_run_id: 3, status: 'pending', session_id: 10 }
+			]);
+			(mockGetExecutionSessionsByIds as any).mockReturnValue([]);
+			(mockGetSessionMessages as any).mockRejectedValue(new Error('messages failed'));
+
+			const handler = getRouteHandler('get', '/:id');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith(
+				expect.objectContaining({ total_execution_time: 0 })
 			);
 		});
 
