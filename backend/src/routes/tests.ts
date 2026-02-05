@@ -21,6 +21,15 @@ import {
 import db from '../db/database';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logError = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.error(...args);
+};
+const logWarn = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.warn(...args);
+};
 
 // Get all tests (from conversations)
 router.get('/', (async (req: Request, res: Response) => {
@@ -75,7 +84,7 @@ router.get('/', (async (req: Request, res: Response) => {
 
 		return res.json(filteredTests);
 	} catch (error) {
-		console.error('Error fetching tests:', error);
+		logError('Error fetching tests:', error);
 		return res.status(500).json({ error: 'Failed to fetch tests' });
 	}
 }) as any);
@@ -100,7 +109,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		const legacyTest = conversationToLegacyTest(conversation, messages);
 		return res.json(legacyTest);
 	} catch (error) {
-		console.error('Error fetching test:', error);
+		logError('Error fetching test:', error);
 		return res.status(500).json({ error: 'Failed to fetch test' });
 	}
 }) as any);
@@ -139,7 +148,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
 				`);
 			}
 		} catch (e) {
-			console.warn('Failed to set turn target from legacy expected_output on create', e);
+			logWarn('Failed to set turn target from legacy expected_output on create', e);
 		}
 
 		// Transform back to legacy test format for response
@@ -147,7 +156,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
 
 		return res.status(201).json(legacyTest);
 	} catch (error) {
-		console.error('Error creating test:', error);
+		logError('Error creating test:', error);
 		return res.status(500).json({
 			error: 'Failed to create test',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -200,7 +209,7 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res:
 				`);
 			}
 		} catch (e) {
-			console.warn('Failed to set turn target from legacy expected_output on update', e);
+			logWarn('Failed to set turn target from legacy expected_output on update', e);
 		}
 
 		// Get updated messages and return as legacy test
@@ -209,7 +218,7 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res:
 
 		return res.json(legacyTest);
 	} catch (error) {
-		console.error('Error updating test:', error);
+		logError('Error updating test:', error);
 		return res.status(500).json({ error: 'Failed to update test' });
 	}
 }) as any);
@@ -233,7 +242,7 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		await deleteConversation(conversationId);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error deleting test:', error);
+		logError('Error deleting test:', error);
 		return res.status(500).json({
 			error: 'Failed to delete test',
 			details: error instanceof Error ? error.message : 'Unknown error'
