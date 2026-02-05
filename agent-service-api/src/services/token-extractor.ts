@@ -57,7 +57,7 @@ function extractByPath(obj: any, path: string): any {
 		}
 
 		return current;
-	} catch (error) {
+	} catch (_error) {
 		return undefined;
 	}
 }
@@ -93,7 +93,7 @@ export function extractTokenUsage(
 	tokenMapping?: string
 ): { tokens: TokenUsage; metadata: any } {
 	let tokens: TokenUsage = {};
-	let metadata: any = {
+	const metadata: any = {
 		extraction_method: 'none',
 		attempted_formats: [],
 		success: false

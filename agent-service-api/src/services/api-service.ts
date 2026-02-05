@@ -198,9 +198,9 @@ export class ApiService {
 			const escapedInput = this.escapeForJsonTemplate(input);
 
 			// Replace input placeholder in template with escaped input
-			const formattedTemplate = template.replace(/\{\{input\}\}/g, escapedInput);
+			const formattedTemplate = template.replace(/{{input}}/g, escapedInput);
 			return JSON.parse(formattedTemplate);
-		} catch (error: any) {
+		} catch (_error: unknown) {
 			// Fallback to simple input
 			return { input };
 		}
@@ -349,7 +349,7 @@ export class ApiService {
 		const dotParts = path.split('.');
 
 		for (const part of dotParts) {
-			const regex = /([^\[\]]+)|\[(\d+|'.*?'|".*?")\]/g;
+			const regex = /([^[\]]+)|\[(\d+|'.*?'|".*?")\]/g;
 			let match: RegExpExecArray | null;
 
 			while ((match = regex.exec(part)) !== null) {
@@ -406,7 +406,7 @@ export class ApiService {
 			if (!path || typeof path !== 'string') return undefined;
 			const tokens = this.tokenizePath(path);
 			return this.traverseByTokens(obj, tokens);
-		} catch (error) {
+		} catch (_error) {
 			return undefined;
 		}
 	}
@@ -577,7 +577,7 @@ export class ApiService {
 					const scriptResponseCapabilities = scriptMetadata.response_capabilities;
 					// Robustly detect if template references conversation_history (allowing whitespace)
 					const templateIncludesHistory = typeof effectiveTemplateForMessage === 'string'
-						? /\{\{\s*conversation_history\s*\}\}/.test(effectiveTemplateForMessage)
+						? /{{\s*conversation_history\s*}}/.test(effectiveTemplateForMessage)
 						: false;
 					// History-first mode should include the current user message in input
 					const historyIncludingCurrent = `${conversationHistory}User: ${scriptMessage.content}\n`;
@@ -823,12 +823,12 @@ export class ApiService {
 			const escapedHistory = this.escapeForJsonTemplate(conversationHistory);
 
 			let formatted = template
-				.replace(/\{\{\s*input\s*\}\}/g, escapedCurrentInput)
-				.replace(/\{\{\s*conversation_history\s*\}\}/g, escapedHistory);
+				.replace(/{{\s*input\s*}}/g, escapedCurrentInput)
+				.replace(/{{\s*conversation_history\s*}}/g, escapedHistory);
 
 			// Replace any {{var}} placeholders with string-escaped versions by default
 			// Now supports bracket notation like users[0].name or data['key']
-			formatted = formatted.replace(/\{\{\s*([a-zA-Z0-9_\.\[\]'"]+)\s*\}\}/g, (_match, p1: string) => {
+			formatted = formatted.replace(/{{\s*([a-zA-Z0-9_.['"\]]+)\s*}}/g, (_match, p1: string) => {
 				// skip ones we've already replaced
 				if (p1 === 'input' || p1 === 'conversation_history') return _match;
 				// resolve nested variable paths using the robust extractByPath method
@@ -848,7 +848,7 @@ export class ApiService {
 			});
 
 			return JSON.parse(formatted);
-		} catch (error: any) {
+		} catch (_error: unknown) {
 			return { input: currentInput, variables };
 		}
 	}
