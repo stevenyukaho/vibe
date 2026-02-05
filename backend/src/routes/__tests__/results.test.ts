@@ -398,6 +398,132 @@ describe('Results Routes', () => {
 			expect(jsonMock).toHaveBeenCalledWith({ ...mockLegacyResult, success: true });
 		});
 
+		it('should default to threshold 70 when target is missing', async () => {
+			mockReq.params = { id: '1' };
+
+			const mockSession = {
+				id: 1,
+				agent_id: 1,
+				conversation_id: 1,
+				status: 'completed',
+				created_at: '2024-01-01'
+			};
+			const mockMessages = [
+				{
+					id: 1,
+					session_id: 1,
+					role: 'assistant',
+					content: 'response',
+					sequence: 2,
+					similarity_scoring_status: 'completed',
+					similarity_score: 70
+				}
+			];
+			const mockLegacyResult = {
+				id: 1,
+				agent_id: 1,
+				test_id: 1,
+				output: 'result',
+				success: false,
+				created_at: '2024-01-01'
+			};
+
+			(mockGetExecutionSessionById as any).mockResolvedValue(mockSession);
+			(mockGetSessionMessages as any).mockResolvedValue(mockMessages);
+			(mockSessionToLegacyResult as any).mockReturnValue(mockLegacyResult);
+			(mockCountUserTurnsUpTo as any).mockReturnValue(1);
+			(mockGetConversationTurnTarget as any).mockReturnValue(undefined);
+
+			const handler = getRouteHandler('get', '/:id');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith({ ...mockLegacyResult, success: true });
+		});
+
+		it('should return result without overriding success when assistant has no completed scoring', async () => {
+			mockReq.params = { id: '1' };
+
+			const mockSession = {
+				id: 1,
+				agent_id: 1,
+				conversation_id: 1,
+				status: 'completed',
+				created_at: '2024-01-01'
+			};
+			const mockMessages = [
+				{
+					id: 1,
+					session_id: 1,
+					role: 'assistant',
+					content: 'response',
+					sequence: 2,
+					similarity_scoring_status: 'pending',
+					similarity_score: null
+				}
+			];
+			const mockLegacyResult = {
+				id: 1,
+				agent_id: 1,
+				test_id: 1,
+				output: 'result',
+				success: false,
+				created_at: '2024-01-01'
+			};
+
+			(mockGetExecutionSessionById as any).mockResolvedValue(mockSession);
+			(mockGetSessionMessages as any).mockResolvedValue(mockMessages);
+			(mockSessionToLegacyResult as any).mockReturnValue(mockLegacyResult);
+
+			const handler = getRouteHandler('get', '/:id');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith(mockLegacyResult);
+		});
+
+		it('should return result without overriding success when similarity calculation throws', async () => {
+			mockReq.params = { id: '1' };
+
+			const mockSession = {
+				id: 1,
+				agent_id: 1,
+				conversation_id: 1,
+				status: 'completed',
+				created_at: '2024-01-01'
+			};
+			const mockMessages = [
+				{
+					id: 1,
+					session_id: 1,
+					role: 'assistant',
+					content: 'response',
+					sequence: 2,
+					similarity_scoring_status: 'completed',
+					similarity_score: 85
+				}
+			];
+			const mockLegacyResult = {
+				id: 1,
+				agent_id: 1,
+				test_id: 1,
+				output: 'result',
+				success: false,
+				created_at: '2024-01-01'
+			};
+
+			(mockGetExecutionSessionById as any).mockResolvedValue(mockSession);
+			(mockGetSessionMessages as any).mockResolvedValue(mockMessages);
+			(mockSessionToLegacyResult as any).mockReturnValue(mockLegacyResult);
+			(mockCountUserTurnsUpTo as any).mockReturnValue(1);
+			(mockGetConversationTurnTarget as any).mockImplementation(() => {
+				throw new Error('DB error');
+			});
+
+			const handler = getRouteHandler('get', '/:id');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith(mockLegacyResult);
+		});
+
 		it('should fallback to legacy result if session not found', async () => {
 			mockReq.params = { id: '999' };
 
@@ -511,6 +637,92 @@ describe('Results Routes', () => {
 			expect(mockGetResultById).toHaveBeenCalledWith(1);
 			expect(mockGetTestById).toHaveBeenCalledWith(1);
 			expect(jsonMock).toHaveBeenCalledWith(mockUpdatedResult);
+		});
+
+		it('should return 404 when legacy result accessor is missing', async () => {
+			mockReq.params = { id: '1' };
+			mockReq.body = { llm_config_id: 5 };
+
+			const queriesModule = require('../../db/queries');
+			const originalGetResultById = queriesModule.getResultById;
+			queriesModule.getResultById = undefined;
+
+			try {
+				const handler = getRouteHandler('post', '/:id/score');
+				await callRoute(handler, mockReq, mockRes);
+
+				expect(statusMock).toHaveBeenCalledWith(404);
+				expect(jsonMock).toHaveBeenCalledWith({ error: 'Result not found' });
+			} finally {
+				queriesModule.getResultById = originalGetResultById;
+			}
+		});
+
+		it('should return 404 when legacy test accessor is missing', async () => {
+			mockReq.params = { id: '1' };
+			mockReq.body = { llm_config_id: 5 };
+
+			const mockResult = {
+				id: 1,
+				agent_id: 1,
+				test_id: 1,
+				output: 'result',
+				success: true,
+				created_at: '2024-01-01'
+			};
+
+			(mockGetResultById as any).mockReturnValue(mockResult);
+
+			const queriesModule = require('../../db/queries');
+			const originalGetTestById = queriesModule.getTestById;
+			queriesModule.getTestById = undefined;
+
+			try {
+				const handler = getRouteHandler('post', '/:id/score');
+				await callRoute(handler, mockReq, mockRes);
+
+				expect(statusMock).toHaveBeenCalledWith(404);
+				expect(jsonMock).toHaveBeenCalledWith({ error: 'Test associated with result not found' });
+			} finally {
+				queriesModule.getTestById = originalGetTestById;
+			}
+		});
+
+		it('should return null when updated result is missing', async () => {
+			mockReq.params = { id: '1' };
+			mockReq.body = { llm_config_id: 5 };
+
+			const mockResult = {
+				id: 1,
+				agent_id: 1,
+				test_id: 1,
+				output: 'result',
+				success: true,
+				created_at: '2024-01-01'
+			};
+			const mockTest = {
+				id: 1,
+				name: 'Test',
+				input: 'test input',
+				expected_output: 'expected'
+			};
+
+			(mockGetResultById as any)
+				.mockReturnValueOnce(mockResult)
+				.mockReturnValueOnce(null);
+			(mockGetTestById as any).mockReturnValue(mockTest);
+
+			const mockScoringService = {
+				scoreTestResult: jest.fn().mockResolvedValue(undefined)
+			};
+			jest.doMock('../../services/scoring-service', () => ({
+				scoringService: mockScoringService
+			}));
+
+			const handler = getRouteHandler('post', '/:id/score');
+			await callRoute(handler, mockReq, mockRes);
+
+			expect(jsonMock).toHaveBeenCalledWith(null);
 		});
 
 		it('should return 400 for invalid ID', async () => {
@@ -728,6 +940,83 @@ describe('Results Routes', () => {
 				input_tokens: 10,
 				output_tokens: 20
 			});
+			expect(statusMock).toHaveBeenCalledWith(201);
+		});
+
+		it('should skip token metadata when extraction yields no tokens', async () => {
+			mockReq.body = {
+				agent_id: 1,
+				test_id: 1,
+				output: 'test output',
+				intermediate_steps: '[]',
+				success: true,
+				execution_time: 1000
+			};
+
+			const mockConversation = {
+				id: 1,
+				name: 'Test Conversation',
+				created_at: '2024-01-01'
+			};
+			const mockAuthoredMessages = [
+				{ id: 1, conversation_id: 1, role: 'assistant', content: 'assistant message', sequence: 1 }
+			];
+			const mockSession = {
+				agent_id: 1,
+				conversation_id: 1,
+				status: 'completed'
+			};
+			const mockMessages = [
+				{ role: 'assistant', content: 'test output', sequence: 1 }
+			];
+			const mockCreatedSession = {
+				id: 1,
+				...mockSession,
+				created_at: '2024-01-01'
+			};
+			const mockCreatedMessage = {
+				id: 1,
+				session_id: 1,
+				role: 'assistant',
+				content: 'test output',
+				sequence: 1
+			};
+			const mockLegacyResult = {
+				id: 1,
+				agent_id: 1,
+				test_id: 1,
+				output: 'test output',
+				success: true,
+				created_at: '2024-01-01'
+			};
+
+			(mockTestIdToConversationId as any).mockReturnValue(1);
+			(mockGetConversationById as any).mockResolvedValue(mockConversation);
+			(mockGetConversationMessages as any).mockResolvedValue(mockAuthoredMessages);
+			(mockExtractTokenUsage as any).mockReturnValue({
+				tokens: { input_tokens: undefined, output_tokens: undefined },
+				metadata: { source: 'intermediate_steps' }
+			});
+			(mockValidateTokenUsage as any).mockReturnValue({
+				input_tokens: undefined,
+				output_tokens: undefined
+			});
+			(mockLegacyResultToSession as any).mockReturnValue({
+				session: mockSession,
+				messages: mockMessages
+			});
+			(mockCreateExecutionSession as any).mockResolvedValue(mockCreatedSession);
+			(mockAddSessionMessage as any).mockResolvedValue(mockCreatedMessage);
+			(mockSessionToLegacyResult as any).mockReturnValue(mockLegacyResult);
+
+			const handler = getRouteHandler('post', '/');
+			await callRoute(handler, mockReq, mockRes);
+
+			const [passedResult, passedInput] = mockLegacyResultToSession.mock.calls[0];
+			expect(passedInput).toBe('');
+			expect(Object.prototype.hasOwnProperty.call(passedResult, 'input_tokens')).toBe(false);
+			expect(Object.prototype.hasOwnProperty.call(passedResult, 'output_tokens')).toBe(false);
+			expect(Object.prototype.hasOwnProperty.call(passedResult, 'token_mapping_metadata')).toBe(false);
 			expect(statusMock).toHaveBeenCalledWith(201);
 		});
 
