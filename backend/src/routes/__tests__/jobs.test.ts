@@ -117,6 +117,25 @@ describe('jobs routes', () => {
 			});
 		});
 
+		it('lists jobs with custom pagination but no offset', async () => {
+			mockReq.query = { limit: '10' };
+			(mockHasPaginationParams as any).mockReturnValue(true);
+			(mockValidatePaginationOrError as any).mockReturnValue({ limit: 10 });
+			(mockListJobsWithCount as any).mockResolvedValue({
+				data: [{ id: '1', status: JobStatus.PENDING }],
+				total: 1
+			});
+
+			await callRoute('get', '/');
+
+			expect(jsonMock).toHaveBeenCalledWith({
+				data: [{ id: '1', status: JobStatus.PENDING }],
+				total: 1,
+				limit: 10,
+				offset: 0
+			});
+		});
+
 		it('filters jobs by status', async () => {
 			mockReq.query = { status: JobStatus.COMPLETED };
 			(mockHasPaginationParams as any).mockReturnValue(false);
@@ -183,6 +202,30 @@ describe('jobs routes', () => {
 				details: 'Database error'
 			});
 		});
+
+		it('handles unknown errors gracefully', async () => {
+			(mockHasPaginationParams as any).mockReturnValue(false);
+			(mockListJobsWithCount as any).mockRejectedValue({ not: 'an Error' });
+
+			await callRoute('get', '/');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to list jobs',
+				details: 'Unknown error'
+			});
+		});
+
+		it('returns early when pagination validation fails', async () => {
+			(mockHasPaginationParams as any).mockReturnValue(true);
+			(mockValidatePaginationOrError as any).mockReturnValue(null);
+
+			await callRoute('get', '/');
+
+			expect(mockValidatePaginationOrError).toHaveBeenCalledWith(mockReq, mockRes);
+			expect(mockListJobsWithCount).not.toHaveBeenCalled();
+			expect(jsonMock).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('GET /api/jobs/available/:job_type?', () => {
@@ -221,6 +264,19 @@ describe('jobs routes', () => {
 			expect(jsonMock).toHaveBeenCalledWith({
 				error: 'Failed to get available jobs',
 				details: 'Queue error'
+			});
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			mockReq.params = {};
+			(mockGetAvailableJobs as any).mockRejectedValue('not an Error');
+
+			await callRoute('get', '/available/:job_type?');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to get available jobs',
+				details: 'Unknown error'
 			});
 		});
 	});
@@ -264,6 +320,26 @@ describe('jobs routes', () => {
 			);
 		});
 
+		it('returns job without result when session_id points to missing session', async () => {
+			mockReq.params = { id: 'job-123' };
+			(mockGetJob as any).mockResolvedValue({
+				id: 'job-123',
+				session_id: 'session-missing',
+				status: JobStatus.COMPLETED
+			});
+			(mockGetExecutionSessionById as any).mockResolvedValue(null);
+
+			await callRoute('get', '/:id');
+
+			expect(mockGetExecutionSessionById).toHaveBeenCalledWith('session-missing');
+			expect(mockSessionToLegacyResult).not.toHaveBeenCalled();
+			expect(jsonMock).toHaveBeenCalledWith({
+				id: 'job-123',
+				session_id: 'session-missing',
+				status: JobStatus.COMPLETED
+			});
+		});
+
 		it('enriches job with legacy result_id', async () => {
 			mockReq.params = { id: 'job-123' };
 			(mockGetJob as any).mockResolvedValue({
@@ -283,6 +359,44 @@ describe('jobs routes', () => {
 			expect(jsonMock).toHaveBeenCalledWith(
 				expect.objectContaining({ result: { legacy: 'result' } })
 			);
+		});
+
+		it('handles session enrichment errors', async () => {
+			mockReq.params = { id: 'job-err' };
+			(mockGetJob as any).mockResolvedValue({
+				id: 'job-err',
+				session_id: 'session-err',
+				status: JobStatus.COMPLETED
+			});
+			(mockGetExecutionSessionById as any).mockRejectedValue(new Error('session fail'));
+
+			await callRoute('get', '/:id');
+
+			expect(jsonMock).toHaveBeenCalledWith({
+				id: 'job-err',
+				session_id: 'session-err',
+				status: JobStatus.COMPLETED
+			});
+			expect(mockSessionToLegacyResult).not.toHaveBeenCalled();
+		});
+
+		it('handles legacy result enrichment errors', async () => {
+			mockReq.params = { id: 'job-legacy-err' };
+			(mockGetJob as any).mockResolvedValue({
+				id: 'job-legacy-err',
+				result_id: 'result-err',
+				status: JobStatus.COMPLETED
+			});
+			(mockGetExecutionSessionById as any).mockRejectedValue(new Error('legacy fail'));
+
+			await callRoute('get', '/:id');
+
+			expect(jsonMock).toHaveBeenCalledWith({
+				id: 'job-legacy-err',
+				result_id: 'result-err',
+				status: JobStatus.COMPLETED
+			});
+			expect(mockSessionToLegacyResult).not.toHaveBeenCalled();
 		});
 
 		it('returns 404 when job not found', async () => {
@@ -307,6 +421,19 @@ describe('jobs routes', () => {
 				details: 'Database error'
 			});
 		});
+
+		it('handles unknown errors gracefully', async () => {
+			mockReq.params = { id: 'job-123' };
+			(mockGetJob as any).mockRejectedValue({ not: 'an Error' });
+
+			await callRoute('get', '/:id');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to get job',
+				details: 'Unknown error'
+			});
+		});
 	});
 
 	describe('POST /api/jobs', () => {
@@ -328,6 +455,24 @@ describe('jobs routes', () => {
 				job_id: 'job-456',
 				message: 'Job created and queued for execution'
 			});
+		});
+
+		it('falls back to using test_id as conversation id when legacy mapping is missing', async () => {
+			mockReq.body = { agent_id: 1, test_id: 100 };
+			(mockTestIdToConversationId as any).mockReturnValue(undefined);
+			(mockGetAgentById as any).mockResolvedValue({ id: 1, name: 'Agent' });
+			(mockGetConversationById as any).mockResolvedValue({ id: 100, name: 'Test' });
+			(mockGetConversationMessages as any).mockResolvedValue([
+				{ id: 1, role: 'user', content: 'Hello' }
+			]);
+			(mockIsSingleTurnConversation as any).mockReturnValue(true);
+			(mockCreateConversationJob as any).mockResolvedValue('job-456');
+
+			await callRoute('post', '/');
+
+			expect(mockGetConversationById).toHaveBeenCalledWith(100);
+			expect(mockGetConversationMessages).toHaveBeenCalledWith(100);
+			expect(mockCreateConversationJob).toHaveBeenCalledWith(1, 100);
 		});
 
 		it('validates required agent_id', async () => {
@@ -407,6 +552,20 @@ describe('jobs routes', () => {
 				details: 'Database error'
 			});
 		});
+
+		it('handles unknown errors gracefully', async () => {
+			mockReq.body = { agent_id: 1, test_id: 100 };
+			(mockTestIdToConversationId as any).mockReturnValue(10);
+			(mockGetAgentById as any).mockRejectedValue({ not: 'an Error' });
+
+			await callRoute('post', '/');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to create job',
+				details: 'Unknown error'
+			});
+		});
 	});
 
 	describe('POST /api/jobs/:id/cancel', () => {
@@ -482,6 +641,19 @@ describe('jobs routes', () => {
 				details: 'Database error'
 			});
 		});
+
+		it('handles unknown errors gracefully', async () => {
+			mockReq.params = { id: 'job-123' };
+			(mockGetJob as any).mockRejectedValue({ not: 'an Error' });
+
+			await callRoute('post', '/:id/cancel');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to cancel job',
+				details: 'Unknown error'
+			});
+		});
 	});
 
 	describe('DELETE /api/jobs/:id', () => {
@@ -518,6 +690,19 @@ describe('jobs routes', () => {
 			expect(jsonMock).toHaveBeenCalledWith({
 				error: 'Failed to delete job',
 				details: 'Database error'
+			});
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			mockReq.params = { id: 'job-123' };
+			(mockDeleteJob as any).mockRejectedValue({ not: 'an Error' });
+
+			await callRoute('delete', '/:id');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to delete job',
+				details: 'Unknown error'
 			});
 		});
 	});
@@ -574,6 +759,20 @@ describe('jobs routes', () => {
 			expect(jsonMock).toHaveBeenCalledWith({
 				error: 'Failed to claim job',
 				details: 'Database error'
+			});
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			mockReq.params = { id: 'job-123' };
+			mockReq.body = { service_id: 'service-1' };
+			(mockClaimJob as any).mockRejectedValue({ not: 'an Error' });
+
+			await callRoute('post', '/:id/claim');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to claim job',
+				details: 'Unknown error'
 			});
 		});
 	});
@@ -643,6 +842,20 @@ describe('jobs routes', () => {
 			expect(jsonMock).toHaveBeenCalledWith({
 				error: 'Failed to update job',
 				details: 'Database error'
+			});
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			mockReq.params = { id: 'job-123' };
+			mockReq.body = { status: JobStatus.COMPLETED };
+			(mockUpdateJob as any).mockRejectedValue('not an Error');
+
+			await callRoute('put', '/:id');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to update job',
+				details: 'Unknown error'
 			});
 		});
 	});
