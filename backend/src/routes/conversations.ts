@@ -18,6 +18,11 @@ import type { Conversation, ConversationMessage } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logError = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.error(...args);
+};
 
 // Get all conversations
 router.get('/', (async (req: Request, res: Response) => {
@@ -41,7 +46,7 @@ router.get('/', (async (req: Request, res: Response) => {
 		const conversations = await getConversations();
 		return res.json(conversations);
 	} catch (error) {
-		console.error('Error fetching conversations:', error);
+		logError('Error fetching conversations:', error);
 		return res.status(500).json({ error: 'Failed to fetch conversations' });
 	}
 }) as any);
@@ -64,7 +69,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 			messages
 		});
 	} catch (error) {
-		console.error('Error fetching conversation:', error);
+		logError('Error fetching conversation:', error);
 		return res.status(500).json({ error: 'Failed to fetch conversation' });
 	}
 }) as any);
@@ -130,7 +135,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 
 		return res.status(201).json(conversation);
 	} catch (error) {
-		console.error('Error creating conversation:', error);
+		logError('Error creating conversation:', error);
 		return res.status(500).json({
 			error: 'Failed to create conversation',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -181,7 +186,7 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Conversation
 
 		return res.json(conversation);
 	} catch (error) {
-		console.error('Error updating conversation:', error);
+		logError('Error updating conversation:', error);
 		return res.status(500).json({ error: 'Failed to update conversation' });
 	}
 }) as any);
@@ -200,7 +205,7 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		await deleteConversation(id);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error deleting conversation:', error);
+		logError('Error deleting conversation:', error);
 		return res.status(500).json({
 			error: 'Failed to delete conversation',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -222,7 +227,7 @@ router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response)
 		const messages = await getConversationMessages(conversationId);
 		return res.json(messages);
 	} catch (error) {
-		console.error('Error fetching conversation messages:', error);
+		logError('Error fetching conversation messages:', error);
 		return res.status(500).json({ error: 'Failed to fetch conversation messages' });
 	}
 }) as any);
@@ -267,7 +272,7 @@ router.post('/:id/messages', (async (req: Request<{ id: string }, {}, Omit<Conve
 
 		return res.status(201).json(message);
 	} catch (error) {
-		console.error('Error creating message:', error);
+		logError('Error creating message:', error);
 		return res.status(500).json({
 			error: 'Failed to create message',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -294,7 +299,7 @@ router.put('/:id/messages/:messageId', (async (req: Request<{ id: string; messag
 
 		return res.json(message);
 	} catch (error) {
-		console.error('Error updating message:', error);
+		logError('Error updating message:', error);
 		return res.status(500).json({ error: 'Failed to update message' });
 	}
 }) as any);
@@ -314,7 +319,7 @@ router.delete('/:id/messages/:messageId', (async (req: Request<{ id: string; mes
 		await deleteConversationMessage(messageId);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error deleting message:', error);
+		logError('Error deleting message:', error);
 		return res.status(500).json({
 			error: 'Failed to delete message',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -347,7 +352,7 @@ router.put('/:id/messages/reorder', (async (req: Request<{ id: string }, {}, { m
 		const updatedMessages = await getConversationMessages(conversationId);
 		return res.json(updatedMessages);
 	} catch (error) {
-		console.error('Error reordering messages:', error);
+		logError('Error reordering messages:', error);
 		return res.status(500).json({
 			error: 'Failed to reorder messages',
 			details: error instanceof Error ? error.message : 'Unknown error'
