@@ -81,6 +81,24 @@ describe('tokenUsageExtractor', () => {
 
 				expect(tokens.total_tokens).toBe(200);
 			});
+
+			it('falls back to popular formats when explicit mapping yields no data', () => {
+				const responseData = {
+					usage: {
+						prompt_tokens: 12,
+						completion_tokens: 8
+					}
+				};
+				const mapping = {
+					input_tokens: 'usage.nonexistent'
+				};
+
+				const { tokens, metadata } = extractTokenUsage(responseData, mapping);
+
+				expect(tokens.input_tokens).toBe(12);
+				expect(tokens.output_tokens).toBe(8);
+				expect(metadata.extraction_method).toBe('popular_format_1');
+			});
 		});
 
 		describe('popular formats detection', () => {
@@ -237,6 +255,14 @@ describe('tokenUsageExtractor', () => {
 
 				expect(tokens.total_tokens).toBe(200);
 				expect(metadata.extraction_method).toBe('intermediate_steps');
+			});
+
+			it('handles invalid JSON in intermediate steps string', () => {
+				const { tokens, metadata } = extractTokenUsage({}, undefined, '{invalid');
+
+				expect(tokens).toEqual({});
+				expect(metadata.extraction_method).toBe('failed');
+				expect(metadata.success).toBe(false);
 			});
 		});
 

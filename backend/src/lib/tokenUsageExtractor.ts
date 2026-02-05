@@ -85,7 +85,6 @@ function extractByPath(obj: any, path: string): any {
 
 		return current;
 	} catch (error) {
-		console.error('Error extracting path:', path, error);
 		return undefined;
 	}
 }
@@ -198,7 +197,6 @@ function extractTokensFromIntermediateSteps(intermediateSteps: string | any[]): 
 
 		return {};
 	} catch (error) {
-		console.error('Error extracting tokens from intermediate steps:', error);
 		return {};
 	}
 }
@@ -238,7 +236,6 @@ export function extractTokenUsage(
 				return { tokens, metadata };
 			}
 		} catch (error) {
-			console.error('Error parsing token mapping:', error);
 			metadata.explicit_mapping_error = error instanceof Error ? error.message : 'Unknown error';
 		}
 	}
