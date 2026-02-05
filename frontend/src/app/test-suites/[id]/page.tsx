@@ -159,7 +159,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 				setSuite(found);
 			}
 		} catch (err) {
-			console.error('Error refreshing suite data:', err);
+			setError(err instanceof Error ? err.message : 'Failed to refresh suite data');
 		}
 	};
 
@@ -305,7 +305,6 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 				message = e;
 			}
 			setError(`Failed to update entry agent: ${message}`);
-			console.error(e);
 		}
 	};
 
