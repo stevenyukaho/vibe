@@ -25,6 +25,8 @@ The central API server for IBM VIBE. It handles
    cp .env.example .env
    ```
 
+   **Note**: The backend does NOT auto-load `.env` files. Environment variables must be exported to `process.env` (e.g., `export $(cat .env | xargs)`) or provided by runner scripts like `start-instance.sh`. The backend uses `@ibm-vibe/config` which reads from `process.env`.
+
 3. **Run Service**:
 
    ```bash
