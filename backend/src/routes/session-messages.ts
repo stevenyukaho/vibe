@@ -33,6 +33,7 @@ async function scoreSessionMessageSimilarity(messageId: number, targetReply: str
 }
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Create session message
 router.post('/', (async (req: Request<{}, {}, Omit<SessionMessage, 'id'>>, res: Response) => {
@@ -84,9 +85,12 @@ router.post('/', (async (req: Request<{}, {}, Omit<SessionMessage, 'id'>>, res: 
 		if (message.role === 'assistant') {
 			try {
 			if (message.session_id == null) {
-				console.warn('Session message missing session_id; skipping similarity scoring.', {
-					message_id: message.id
-				});
+				/* istanbul ignore next */
+				if (shouldLog) {
+					console.warn('Session message missing session_id; skipping similarity scoring.', {
+						message_id: message.id
+					});
+				}
 				return res.status(201).json(message);
 			}
 
@@ -104,13 +108,19 @@ router.post('/', (async (req: Request<{}, {}, Omit<SessionMessage, 'id'>>, res: 
 					}
 				}
 			} catch (e) {
-				console.error('In-process scoring trigger failed:', e);
+				/* istanbul ignore next */
+				if (shouldLog) {
+					console.error('In-process scoring trigger failed:', e);
+				}
 			}
 		}
 
 		return res.status(201).json(message);
 	} catch (error) {
-		console.error('Error creating session message:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error creating session message:', error);
+		}
 		return res.status(500).json({ error: 'Failed to create session message' });
 	}
 }) as any);
@@ -162,7 +172,10 @@ router.post('/:id/regenerate-score', (async (req: Request<{ id: string }>, res: 
 			message_id: messageId
 		});
 	} catch (error) {
-		console.error('Error regenerating similarity score:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error regenerating similarity score:', error);
+		}
 		return res.status(500).json({ error: 'Failed to regenerate similarity score' });
 	}
 }) as any);
