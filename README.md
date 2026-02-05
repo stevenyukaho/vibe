@@ -74,7 +74,23 @@ The application is separated into three main components:
 npm install
 ```
 
-#### 2. Services Setup
+#### 2. Run the app (recommended)
+
+From the repository root:
+
+```bash
+npm run dev
+```
+
+This starts:
+
+- **Backend**: `http://localhost:5000`
+- **Agent Service API**: `http://localhost:5003`
+- **Frontend**: `http://localhost:3000`
+
+Note: the Python `agent-service` is not started by `npm run dev`. Start it separately if you want to run CrewAI executions.
+
+#### 3. Services Setup (advanced)
 
 ##### Frontend
 
@@ -93,7 +109,7 @@ cp .env.example .env
 # or provided by runner scripts (e.g., start-instance.sh). Export variables manually:
 # export $(cat .env | xargs)
 # Or use start-instance.sh which handles this automatically
-npm start
+npm run dev
 ```
 
 ##### Agent Service (Python)
@@ -113,7 +129,7 @@ python run.py
 
 ```bash
 cd agent-service-api
-npm start
+npm run dev
 ```
 
 ## Workflow
@@ -128,11 +144,14 @@ npm start
 
 To keep the monorepo healthy, run the shared quality gates before opening a PR:
 
+- `npm run format` - format supported files with Prettier
 - `npm run lint` - run eslint across backend, frontend, and agent-service-api
 - `npm run typecheck` - ensure all TypeScript workspaces type-check cleanly
-- `npm run test` - execute Jest suites (backend, frontend, agent-service-api) and the agent-service pytest suite
+- `npm run test:ts` - execute Jest suites (backend, frontend, agent-service-api)
 
 Each workspace also exposes its own `lint`, `typecheck`, and `test` scripts if you want to run a single service in isolation.
+
+The Python agent service test suite is available via `npm run test:agent-service` (requires the `agent-service` Python environment).
 
 ## Why This Matters
 

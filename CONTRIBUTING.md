@@ -27,6 +27,14 @@ From the repository root:
 npm install
 ```
 
+### Run the stack (development)
+
+From the repository root:
+
+```bash
+npm run dev
+```
+
 ### Quality gates
 
 Before opening a pull request, please run:
@@ -35,6 +43,12 @@ Before opening a pull request, please run:
 npm run lint
 npm run typecheck
 npm run test:ts
+```
+
+If your changes affect formatting, you can format supported files with:
+
+```bash
+npm run format
 ```
 
 You can also run checks per workspace:
