@@ -46,7 +46,7 @@ export default function ConversationExecutor() {
 			const response = await api.getConversations({ limit: 100, offset: 0 });
 			setConversations(response.data || []);
 		} catch (error) {
-			console.error('Error fetching conversations:', error);
+			setConversations([]);
 			setError('Failed to fetch conversations');
 		} finally {
 			setLoadingConversations(false);

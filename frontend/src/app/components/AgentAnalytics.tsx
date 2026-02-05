@@ -66,7 +66,7 @@ export default function AgentAnalytics({ sessions }: AgentAnalyticsProps) {
 				const allConversations = await api.getConversations({ limit: 1000, offset: 0 });
 				setConversations(allConversations.data);
 			} catch (err) {
-				console.error('Failed to load conversations:', err);
+				setConversations([]);
 			}
 		};
 		loadConversations();
@@ -88,14 +88,14 @@ export default function AgentAnalytics({ sessions }: AgentAnalyticsProps) {
 								const messages = await api.getSessionTranscript(session.id);
 								messagesMap.set(session.id, messages);
 							} catch (err) {
-								console.warn(`Failed to load messages for session ${session.id}:`, err);
+								// Best-effort: missing transcript data just omits some analytics
 							}
 						}
 					})
 				);
 				setSessionMessages(messagesMap);
 			} catch (err) {
-				console.error('Failed to load session messages:', err);
+				setSessionMessages(new Map());
 			} finally {
 				setLoading(false);
 			}
