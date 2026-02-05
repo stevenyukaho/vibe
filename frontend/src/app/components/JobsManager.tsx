@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
-	DataTable,
 	Table,
 	TableHead,
 	TableRow,
@@ -79,7 +78,6 @@ export default function JobsManager({
 			setJobs(response.data);
 			setTotalItems(response.total);
 		} catch (err) {
-			console.error('Error fetching jobs:', err);
 			setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
 		} finally {
 			setIsLoading(false);
@@ -168,7 +166,6 @@ export default function JobsManager({
 			fetchJobs();
 			setSuccessMessage('Job deleted successfully');
 		} catch (error) {
-			console.error('Error deleting job:', error);
 			setError(error instanceof Error ? error.message : 'Failed to delete job');
 		} finally {
 			setDeletingJob(false);
@@ -196,7 +193,6 @@ export default function JobsManager({
 			fetchJobs();
 			setSuccessMessage('Job canceled successfully');
 		} catch (error) {
-			console.error('Error canceling job:', error);
 			setError(error instanceof Error ? error.message : 'Failed to cancel job');
 		} finally {
 			setCancelingJob(false);
@@ -270,7 +266,6 @@ export default function JobsManager({
 									}
 									fetchJobs();
 								} catch (err) {
-									console.error('Error re-running job:', err);
 									setError(err instanceof Error ? err.message : 'Failed to re-run job');
 								} finally {
 									setRerunningJob(false);
@@ -282,7 +277,7 @@ export default function JobsManager({
 						/>
 						{isPendingOrRunning && (
 							<Button
-								kind="danger"
+								kind="ghost"
 								size="sm"
 								renderIcon={StopFilled}
 								onClick={() => handleCancelJobOpen(job.id)}
@@ -292,7 +287,7 @@ export default function JobsManager({
 							/>
 						)}
 						<Button
-							kind="danger--ghost"
+							kind="ghost"
 							size="sm"
 							renderIcon={TrashCan}
 							onClick={() => handleDeleteJobOpen(job.id)}
@@ -347,38 +342,32 @@ export default function JobsManager({
 			{jobs.length === 0 ? (
 				<p>No jobs found. Start a new test execution to create a job.</p>
 			) : (
-				<DataTable rows={rows} headers={headers}>
-					{({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
-						<Table {...getTableProps()}>
-							<TableHead>
-								<TableRow>
-									{headers.map((header, index) => (
-										<TableHeader {...getHeaderProps({ header })} key={`header-${header.key}-${index}`}>
-											{header.header}
-										</TableHeader>
-									))}
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{rows.map(row => (
-									<TableRow {...getRowProps({ row })} key={row.id}>
-										{row.cells.map(cell => {
-											if (cell.info.header === 'similarity_score') {
-												return (
-													<TableCell key={cell.id}>
-														<SimilarityScoreDisplay result={cell.value} />
-													</TableCell>
-												);
-											}
-
-											return <TableCell key={cell.id}>{cell.value}</TableCell>;
-										})}
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					)}
-				</DataTable>
+				<Table size="md">
+					<TableHead>
+						<TableRow>
+							{headers.map((header) => (
+								<TableHeader key={header.key}>{header.header}</TableHeader>
+							))}
+						</TableRow>
+					</TableHead>
+					<TableBody>
+						{rows.map((row) => (
+							<TableRow key={row.id}>
+								{headers.map((header) => {
+									const value = (row as any)[header.key];
+									if (header.key === 'similarity_score') {
+										return (
+											<TableCell key={`${row.id}-${header.key}`}>
+												<SimilarityScoreDisplay result={value} />
+											</TableCell>
+										);
+									}
+									return <TableCell key={`${row.id}-${header.key}`}>{value}</TableCell>;
+								})}
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
 			)}
 
 			{/* Pagination */}
@@ -408,8 +397,14 @@ export default function JobsManager({
 					open={jobModalOpen}
 					onRequestClose={() => setJobModalOpen(false)}
 					modalHeading={`Job #${selectedJob.id} Details`}
-                    primaryButtonText={(getJobId(selectedJob) || selectedJob.conversation_id) ? 'View Session' : null}
-                    primaryButtonDisabled={!(getJobId(selectedJob) || selectedJob.conversation_id)}
+					primaryButtonText={
+						getJobId(selectedJob)
+							? 'View session'
+							: selectedJob.conversation_id
+								? 'View conversation'
+								: 'View'
+					}
+					primaryButtonDisabled={!Boolean(getJobId(selectedJob) || selectedJob.conversation_id)}
 					onRequestSubmit={handleViewResult}
 					secondaryButtonText="Close"
 					onSecondarySubmit={() => setJobModalOpen(false)}
