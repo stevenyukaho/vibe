@@ -220,7 +220,6 @@ export default function SuiteRunDetailPage() {
 				}
 				return [id, result] as [number, TestResult];
 			} catch (err) {
-				console.error(`Failed to fetch result ${id}:`, err);
 				// On failure, skip next N polling cycles for this id (e.g., ~10s at 2s interval)
 				const SKIP_POLLS = 5;
 				setSkipCounts(prev => new Map(prev).set(id, SKIP_POLLS));
@@ -267,7 +266,6 @@ export default function SuiteRunDetailPage() {
 					const conversation = await api.getConversationById(id);
 					return [id, conversation] as [number, Conversation];
 				} catch (err) {
-					console.warn(`Failed to fetch conversation ${id}:`, err);
 					return null;
 				}
 			});
@@ -277,7 +275,7 @@ export default function SuiteRunDetailPage() {
 
 			setConversations(new Map(validConversations));
 		} catch (err) {
-			console.warn('Failed to fetch conversations:', err);
+			setConversations(new Map());
 		}
 	};
 
