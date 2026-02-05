@@ -20,7 +20,7 @@ export function getAgentJobType(agentSettings: string): AgentJobType {
 		}
 
 		return 'crewai';
-	} catch (error) {
+	} catch {
 		return 'crewai';
 	}
 }

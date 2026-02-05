@@ -169,7 +169,7 @@ export function updateAgentRequestTemplate(id: number, updates: Partial<Omit<Age
 	`);
 
 	const tx = db.transaction(() => {
-		let row = updateStmt.get({ id, ...normalizedUpdates }) as AgentRequestTemplate;
+		const row = updateStmt.get({ id, ...normalizedUpdates }) as AgentRequestTemplate;
 		if (updates.is_default) {
 			clearDefaultStmt.run(id);
 			setDefaultStmt.run(id);
@@ -293,7 +293,7 @@ export function updateAgentResponseMap(id: number, updates: Partial<Omit<AgentRe
 	`);
 
 	const tx = db.transaction(() => {
-		let row = updateStmt.get({ id, ...normalizedUpdates }) as AgentResponseMap;
+		const row = updateStmt.get({ id, ...normalizedUpdates }) as AgentResponseMap;
 		if (updates.is_default) {
 			clearDefaultStmt.run(id);
 			setDefaultStmt.run(id);

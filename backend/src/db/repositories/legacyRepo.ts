@@ -118,7 +118,7 @@ export const createResult = (result: TestResult) => {
 		// Try to serialize output if it's not a string
 		try {
 			result.output = JSON.stringify(result.output);
-		} catch (e) {
+		} catch {
 			throw new Error('Invalid output: must be a string or JSON-serializable');
 		}
 	}
@@ -135,7 +135,7 @@ export const createResult = (result: TestResult) => {
 			// If it's an array or object, try to serialize it
 			try {
 				serializedIntermediateSteps = JSON.stringify(result.intermediate_steps);
-			} catch (e) {
+			} catch {
 				throw new Error('Invalid intermediate_steps: must be a string or JSON-serializable');
 			}
 		}
@@ -176,7 +176,7 @@ export const createResult = (result: TestResult) => {
 		} else {
 			try {
 				tokenMappingMetadata = JSON.stringify(result.token_mapping_metadata);
-			} catch (e) {
+			} catch {
 				logWarn('Invalid token_mapping_metadata: must be a string or JSON-serializable');
 			}
 		}

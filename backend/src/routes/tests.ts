@@ -115,7 +115,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 }) as any);
 
 // Create new test (as conversation)
-router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | 'updated_at'>>, res: Response) => {
+router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<Test, 'id' | 'created_at' | 'updated_at'>>, res: Response) => {
 	try {
 		const { name, input } = req.body;
 
@@ -165,7 +165,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<Test, 'id' | 'created_at' | '
 }) as any);
 
 // Update test (conversation)
-router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Test>>, res: Response) => {
+router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<Test>>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 

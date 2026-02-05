@@ -26,7 +26,7 @@ interface ExecuteConversationRequest {
 }
 
 // Execute a test with a specific agent (maps to conversation execution)
-router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response) => {
+router.post('/', (async (req: Request<Record<string, never>, unknown, ExecuteTestRequest>, res: Response) => {
 	try {
 		const { agent_id, test_id } = req.body;
 
@@ -74,7 +74,7 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
 }) as any);
 
 // Execute a conversation with a specific agent
-router.post('/conversation', (async (req: Request<{}, {}, ExecuteConversationRequest>, res: Response) => {
+router.post('/conversation', (async (req: Request<Record<string, never>, unknown, ExecuteConversationRequest>, res: Response) => {
 	try {
 		const { agent_id, conversation_id } = req.body;
 

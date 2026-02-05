@@ -106,7 +106,7 @@ router.get<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res: Re
 }) as any);
 
 // Create new agent
-router.post<{}, {}, Omit<Agent, 'id' | 'created_at'>>('/', (async (req: Request<{}, {}, Omit<Agent, 'id' | 'created_at'>>, res: Response) => {
+router.post<Record<string, never>, unknown, Omit<Agent, 'id' | 'created_at'>>('/', (async (req: Request<Record<string, never>, unknown, Omit<Agent, 'id' | 'created_at'>>, res: Response) => {
 	try {
 		const { name, version, prompt, settings } = req.body;
 
@@ -123,7 +123,7 @@ router.post<{}, {}, Omit<Agent, 'id' | 'created_at'>>('/', (async (req: Request<
 			if (typeof settings === 'string') {
 				JSON.parse(settings);
 			}
-		} catch (e) {
+		} catch {
 			return res.status(400).json({
 				error: 'Failed to create agent',
 				details: 'Settings must be valid JSON'
@@ -142,7 +142,7 @@ router.post<{}, {}, Omit<Agent, 'id' | 'created_at'>>('/', (async (req: Request<
 }) as any);
 
 // Update existing agent
-router.put<{ id: string }, {}, Partial<Agent>>('/:id', (async (req: Request<{ id: string }, {}, Partial<Agent>>, res: Response) => {
+router.put<{ id: string }, unknown, Partial<Agent>>('/:id', (async (req: Request<{ id: string }, unknown, Partial<Agent>>, res: Response) => {
 	try {
 		const id = Number(req.params.id);
 
@@ -158,7 +158,7 @@ router.put<{ id: string }, {}, Partial<Agent>>('/:id', (async (req: Request<{ id
 				if (typeof req.body.settings === 'string') {
 					JSON.parse(req.body.settings);
 				}
-			} catch (e) {
+			} catch {
 				return res.status(400).json({
 					error: 'Failed to update agent',
 					details: 'Settings must be valid JSON'
@@ -232,7 +232,7 @@ router.get<{ id: string }>('/:id/request-templates', ((req: Request<{ id: string
 	}
 }) as any);
 
-router.post<{ id: string }, {}, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>('/:id/request-templates', ((req: Request<{ id: string }, {}, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
+router.post<{ id: string }, unknown, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>('/:id/request-templates', ((req: Request<{ id: string }, unknown, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const agent = getAgentById(agentId);
@@ -274,7 +274,7 @@ router.post<{ id: string }, {}, Omit<AgentRequestTemplate, 'id' | 'agent_id' | '
 	}
 }) as any);
 
-router.patch<{ id: string; templateId: string }, {}, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>('/:id/request-templates/:templateId', ((req: Request<{ id: string; templateId: string }, {}, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
+router.patch<{ id: string; templateId: string }, unknown, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>('/:id/request-templates/:templateId', ((req: Request<{ id: string; templateId: string }, unknown, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const tplId = Number(req.params.templateId);
@@ -388,7 +388,7 @@ router.get<{ id: string }>('/:id/response-maps', ((req: Request<{ id: string }>,
 	}
 }) as any);
 
-router.post<{ id: string }, {}, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>('/:id/response-maps', ((req: Request<{ id: string }, {}, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
+router.post<{ id: string }, unknown, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>('/:id/response-maps', ((req: Request<{ id: string }, unknown, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const agent = getAgentById(agentId);
@@ -430,7 +430,7 @@ router.post<{ id: string }, {}, Omit<AgentResponseMap, 'id' | 'agent_id' | 'crea
 	}
 }) as any);
 
-router.patch<{ id: string; mapId: string }, {}, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>('/:id/response-maps/:mapId', ((req: Request<{ id: string; mapId: string }, {}, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
+router.patch<{ id: string; mapId: string }, unknown, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>('/:id/response-maps/:mapId', ((req: Request<{ id: string; mapId: string }, unknown, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const mapId = Number(req.params.mapId);

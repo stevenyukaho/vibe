@@ -75,7 +75,7 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 }) as any);
 
 // Create new conversation
-router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created_at' | 'updated_at'> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
+router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<Conversation, 'id' | 'created_at' | 'updated_at'> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
 	try {
 		const {
 			name,
@@ -144,7 +144,7 @@ router.post('/', (async (req: Request<{}, {}, Omit<Conversation, 'id' | 'created
 }) as any);
 
 // Update conversation
-router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<Conversation> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
+router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<Conversation> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const { messages, ...conversationData } = req.body;
@@ -233,7 +233,7 @@ router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response)
 }) as any);
 
 // Add message to conversation
-router.post('/:id/messages', (async (req: Request<{ id: string }, {}, Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>>, res: Response) => {
+router.post('/:id/messages', (async (req: Request<{ id: string }, unknown, Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const { sequence, role, content, metadata } = req.body;
@@ -281,7 +281,7 @@ router.post('/:id/messages', (async (req: Request<{ id: string }, {}, Omit<Conve
 }) as any);
 
 // Update message in conversation
-router.put('/:id/messages/:messageId', (async (req: Request<{ id: string; messageId: string }, {}, Partial<ConversationMessage>>, res: Response) => {
+router.put('/:id/messages/:messageId', (async (req: Request<{ id: string; messageId: string }, unknown, Partial<ConversationMessage>>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const messageId = Number(req.params.messageId);
@@ -328,7 +328,7 @@ router.delete('/:id/messages/:messageId', (async (req: Request<{ id: string; mes
 }) as any);
 
 // Reorder messages in conversation
-router.put('/:id/messages/reorder', (async (req: Request<{ id: string }, {}, { messages: { id: number; sequence: number }[] }>, res: Response) => {
+router.put('/:id/messages/reorder', (async (req: Request<{ id: string }, unknown, { messages: { id: number; sequence: number }[] }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const { messages } = req.body;

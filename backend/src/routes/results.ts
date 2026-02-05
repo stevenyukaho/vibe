@@ -210,9 +210,9 @@ router.post('/:id/score', (async (req: Request<{ id: string }>, res: Response) =
 }) as any);
 
 // Create new result (as execution session)
-router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_at'>>, res: Response) => {
+router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<TestResult, 'id' | 'created_at'>>, res: Response) => {
 	try {
-		let processedBody = { ...req.body };
+		const processedBody = { ...req.body };
 
 		// If token data isn't provided but we have intermediate steps, try to extract it
 		if (

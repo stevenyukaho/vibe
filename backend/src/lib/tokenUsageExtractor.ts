@@ -84,7 +84,7 @@ function extractByPath(obj: any, path: string): any {
 		}
 
 		return current;
-	} catch (error) {
+	} catch {
 		return undefined;
 	}
 }
@@ -196,7 +196,7 @@ function extractTokensFromIntermediateSteps(intermediateSteps: string | any[]): 
 		}
 
 		return {};
-	} catch (error) {
+	} catch {
 		return {};
 	}
 }
@@ -214,7 +214,7 @@ export function extractTokenUsage(
 	intermediateSteps?: string | any[]
 ): { tokens: TokenUsage; metadata: any } {
 	let tokens: TokenUsage = {};
-	let metadata: any = {
+	const metadata: any = {
 		extraction_method: 'none',
 		attempted_formats: [],
 		success: false

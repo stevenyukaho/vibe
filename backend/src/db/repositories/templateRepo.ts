@@ -222,7 +222,7 @@ const findUniqueName = (table: 'request_templates' | 'response_maps', baseName: 
 		return trimmedBase;
 	}
 
-	let candidate = `${trimmedBase} (${suffixRoot})`;
+	const candidate = `${trimmedBase} (${suffixRoot})`;
 	if (!exists(candidate)) {
 		return candidate;
 	}

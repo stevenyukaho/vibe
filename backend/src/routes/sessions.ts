@@ -118,7 +118,7 @@ router.get('/:id/transcript', (async (req: Request<{ id: string }>, res: Respons
 }) as any);
 
 // Update execution session (for status updates, completion, etc.)
-router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<ExecutionSession>>, res: Response) => {
+router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<ExecutionSession>>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
 
@@ -140,7 +140,7 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<ExecutionSes
 }) as any);
 
 // Create execution session (for agent services)
-router.post('/', (async (req: Request<{}, {}, Partial<ExecutionSession>>, res: Response) => {
+router.post('/', (async (req: Request<Record<string, never>, unknown, Partial<ExecutionSession>>, res: Response) => {
 	try {
 		// Normalize payload: ensure sqlite-compatible bindings and accept boolean or 0/1 for success
 		const payload: any = { ...(req.body || {}) };

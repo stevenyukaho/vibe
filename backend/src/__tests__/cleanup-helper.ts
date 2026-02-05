@@ -32,19 +32,19 @@ export async function cleanupTestResources(): Promise<void> {
 		if (dbModule) {
 			try {
 				dbModule.closeDatabase();
-			} catch (error) {
+			} catch {
 				// Try direct access if closeDatabase fails
 				try {
 					const db = (dbModule as any).default;
 					if (db && typeof db.close === 'function') {
 						db.close();
 					}
-				} catch (e) {
+				} catch {
 					// Ignore - database might already be closed
 				}
 			}
     }
-  } catch (error) {
+  } catch {
     // Ignore errors
   }
 }

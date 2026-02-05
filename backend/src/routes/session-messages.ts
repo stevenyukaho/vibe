@@ -36,7 +36,7 @@ const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Create session message
-router.post('/', (async (req: Request<{}, {}, Omit<SessionMessage, 'id'>>, res: Response) => {
+router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<SessionMessage, 'id'>>, res: Response) => {
 	try {
 		// Normalize payload for SQLite bindings
 		const payload: any = { ...(req.body || {}) };

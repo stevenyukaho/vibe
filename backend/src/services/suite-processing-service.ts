@@ -95,7 +95,7 @@ export class SuiteProcessingService {
 			} else if (agentType !== 'crewai' && agentType !== 'external_api') {
 				result.warnings.push(`Agent ${agentId} has unexpected type '${agentType}' - this may cause job timeout issues`);
 			}
-		} catch (e) {
+		} catch {
 			result.errors.push(`Agent ${agentId} has invalid settings JSON: ${agent.settings}`);
 			result.warnings.push(`This will likely cause job execution failures${context ? ` ${context}` : ''}`);
 		}
