@@ -97,6 +97,11 @@ print_status "Environment file: $ENV_FILE"
 print_status "Project root: $PROJECT_ROOT"
 print_status "Ports: Backend=$BACKEND_PORT, Agent=$AGENT_SERVICE_PORT, API=$AGENT_SERVICE_API_PORT, Frontend=$FRONTEND_PORT"
 
+# Install dependencies at root to link workspaces
+print_status "Installing root dependencies (linking workspaces)..."
+cd "$PROJECT_ROOT" && npm install
+
+
 # Resolve API base URL for the frontend (default to localhost and backend port)
 if [ -z "$API_BASE_URL" ]; then
     API_BASE_URL="http://localhost:$BACKEND_PORT"
