@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, TextArea, Loading, InlineNotification, FormLabel } from '@carbon/react';
 import { useLLMConfigs } from '../../../lib/AppDataContext';
-import type { LLMRequestOptions, LLMResponse } from '../../../../../types';
+import type { LLMRequestOptions, LLMResponse } from '@ibm-vibe/types';
 import styles from '../page.module.scss';
 
 interface TestLLMModalProps {
