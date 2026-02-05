@@ -58,7 +58,6 @@ function extractByPath(obj: any, path: string): any {
 
 		return current;
 	} catch (error) {
-		console.error('Error extracting path:', path, error);
 		return undefined;
 	}
 }
@@ -114,7 +113,6 @@ export function extractTokenUsage(
 				return { tokens, metadata };
 			}
 		} catch (error) {
-			console.error('Error parsing token mapping:', error);
 			metadata.explicit_mapping_error = error instanceof Error ? error.message : 'Unknown error';
 		}
 	}

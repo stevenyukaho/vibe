@@ -11,7 +11,7 @@ import {
 import { DEFAULT_TIMEOUT } from '../config';
 import { extractTokenUsage } from './token-extractor';
 
-const serializeMetadata = (metadata?: Record<string, unknown>): string | undefined => {
+export const serializeMetadata = (metadata?: Record<string, unknown>): string | undefined => {
 	if (!metadata) {
 		return undefined;
 	}
@@ -201,9 +201,6 @@ export class ApiService {
 			const formattedTemplate = template.replace(/\{\{input\}\}/g, escapedInput);
 			return JSON.parse(formattedTemplate);
 		} catch (error: any) {
-			console.error('Error formatting request:', error);
-			console.error('Template:', template);
-			console.error('Input:', input);
 			// Fallback to simple input
 			return { input };
 		}
@@ -410,7 +407,6 @@ export class ApiService {
 			const tokens = this.tokenizePath(path);
 			return this.traverseByTokens(obj, tokens);
 		} catch (error) {
-			console.error('Error extracting path:', path, error);
 			return undefined;
 		}
 	}
@@ -853,9 +849,6 @@ export class ApiService {
 
 			return JSON.parse(formatted);
 		} catch (error: any) {
-			console.error('Error formatting conversation request with variables:', error);
-			console.error('Template:', template);
-			console.error('Current input:', currentInput);
 			return { input: currentInput, variables };
 		}
 	}
