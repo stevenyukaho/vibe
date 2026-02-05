@@ -6,6 +6,7 @@ import type { Request, Response } from 'express';
 import * as templateRepo from '../db/repositories/templateRepo';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 /**
  * GET /api/response-maps
@@ -17,7 +18,10 @@ router.get('/', (async (req: Request, res: Response) => {
 		const maps = templateRepo.listResponseMaps(capability ? { capability } : undefined);
 		return res.json(maps);
 	} catch (error) {
-		console.error('Error fetching response maps:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching response maps:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch response maps' });
 	}
 }) as any);
@@ -31,7 +35,10 @@ router.get('/capability-names', (async (_req: Request, res: Response) => {
 		const names = templateRepo.listResponseMapCapabilityNames();
 		return res.json(names);
 	} catch (error) {
-		console.error('Error fetching capability names:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching capability names:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch capability names' });
 	}
 }) as any);
@@ -54,7 +61,10 @@ router.get('/:id', (async (req: Request, res: Response) => {
 
 		return res.json(map);
 	} catch (error) {
-		console.error('Error fetching response map:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching response map:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch response map' });
 	}
 }) as any);
@@ -82,7 +92,10 @@ router.post('/', (async (req: Request, res: Response) => {
 
 		return res.status(201).json(map);
 	} catch (error: any) {
-		console.error('Error creating response map:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error creating response map:', error);
+		}
 
 		if (error.message?.includes('UNIQUE constraint failed')) {
 			return res.status(409).json({
@@ -128,7 +141,10 @@ router.put('/:id', (async (req: Request, res: Response) => {
 
 		return res.json(map);
 	} catch (error: any) {
-		console.error('Error updating response map:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error updating response map:', error);
+		}
 
 		if (error.message?.includes('UNIQUE constraint failed')) {
 			return res.status(409).json({
@@ -159,7 +175,10 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 		templateRepo.deleteResponseMap(id);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error deleting response map:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error deleting response map:', error);
+		}
 		return res.status(500).json({ error: 'Failed to delete response map' });
 	}
 }) as any);
