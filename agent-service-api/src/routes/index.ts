@@ -4,6 +4,7 @@ import { apiService } from '../services/api-service';
 import { TestExecutionRequest } from '@ibm-vibe/types';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Health check endpoint
 router.get('/health', ((_req: Request, res: Response) => {
@@ -34,7 +35,10 @@ router.post('/execute-test', (async (req: Request, res: Response) => {
 		// Return the result
 		return res.status(200).json(result);
 	} catch (error: any) {
-		console.error('Error executing test:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error executing test:', error);
+		}
 		return res.status(500).json({
 			error: 'Failed to execute test',
 			details: error.message || 'Unknown error'
