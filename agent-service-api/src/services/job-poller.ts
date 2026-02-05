@@ -15,6 +15,16 @@ import {
 import { matchCapabilities, parseCapabilityInput } from '@ibm-vibe/config';
 import { BACKEND_CONFIG } from '../config';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logWarn = (...args: unknown[]) => {
+  /* istanbul ignore next */
+  if (shouldLog) console.warn(...args);
+};
+const logError = (...args: unknown[]) => {
+  /* istanbul ignore next */
+  if (shouldLog) console.error(...args);
+};
+
 const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
 	if (!value || !value.trim()) {
 		return fallback;
@@ -131,7 +141,7 @@ export class JobPollerService {
 				await this.executeJob(job);
 			}
 		} catch (error: unknown) {
-			console.error('Error polling for jobs:', getErrorMessage(error));
+			logError('Error polling for jobs:', getErrorMessage(error));
 		} finally {
 			this.isCurrentlyPolling = false;
 		}
@@ -159,7 +169,7 @@ export class JobPollerService {
 
 			if (agentType !== 'external_api') {
 				const errorMsg = `Job ${job.id} is not for external API agent (type: ${agentType})`;
-				console.warn(errorMsg);
+				logWarn(errorMsg);
 				await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMsg);
 				return;
 			}
@@ -173,12 +183,12 @@ export class JobPollerService {
 				await this.executeLegacyTestJob(job, agent, settings);
 			} else {
 				const errorMsg = `Job ${job.id} has neither conversation_id nor test_id`;
-				console.error(errorMsg);
+				logError(errorMsg);
 				await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMsg);
 			}
 		} catch (error: unknown) {
 			const errorMessage = getErrorMessage(error);
-			console.error(`Error executing job ${job.id}:`, errorMessage);
+			logError(`Error executing job ${job.id}:`, errorMessage);
 			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
 		}
 	}
@@ -249,7 +259,7 @@ export class JobPollerService {
 			await this.updateJobStatus(job.id, JobStatus.COMPLETED, 100, undefined, undefined, sessionId);
 		} catch (error: unknown) {
 			const errorMessage = getErrorMessage(error);
-			console.error(`Error executing conversation job ${job.id}:`, errorMessage);
+			logError(`Error executing conversation job ${job.id}:`, errorMessage);
 			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
 		}
 	}
@@ -396,7 +406,7 @@ export class JobPollerService {
 						responseMapping = agentConfig.defaultMap?.spec;
 					}
 				} catch (err) {
-					console.warn(`Failed to fetch default template/map for legacy test ${job.test_id}:`, err);
+					logWarn(`Failed to fetch default template/map for legacy test ${job.test_id}:`, err);
 				}
 			}
 
@@ -440,7 +450,7 @@ export class JobPollerService {
 			await this.updateJobStatus(job.id, JobStatus.COMPLETED, 100, savedResult.id);
 		} catch (error: unknown) {
 			const errorMessage = getErrorMessage(error);
-			console.error(`Error executing legacy test job ${job.id}:`, errorMessage);
+			logError(`Error executing legacy test job ${job.id}:`, errorMessage);
 			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
 		}
 	}
@@ -476,7 +486,7 @@ export class JobPollerService {
 
 			await axios.put(`${this.backendUrl}/api/jobs/${jobId}`, updateData);
 		} catch (error: unknown) {
-			console.error(`Error updating job ${jobId} status:`, getErrorMessage(error));
+			logError(`Error updating job ${jobId} status:`, getErrorMessage(error));
 		}
 	}
 
