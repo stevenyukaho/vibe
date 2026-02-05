@@ -1,0 +1,74 @@
+# Contributing to IBM VIBE
+
+Thanks for your interest in contributing to IBM VIBE (Validation & Insights for Behavioral Evaluation).
+
+By participating in this project, you agree to follow our [Code of conduct](CODE_OF_CONDUCT.md).
+
+## Ways to contribute
+
+- Report bugs and propose improvements via GitHub Issues
+- Improve documentation
+- Submit pull requests with fixes or new features
+
+## Development setup
+
+IBM VIBE is a monorepo managed with npm workspaces.
+
+### Prerequisites
+
+- Node.js (see the repository `README.md` for the supported version range)
+- npm
+
+### Install
+
+From the repository root:
+
+```bash
+npm install
+```
+
+### Quality gates
+
+Before opening a pull request, please run:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test:ts
+```
+
+You can also run checks per workspace:
+
+```bash
+npm run lint -w backend
+npm run lint -w frontend
+npm run lint -w agent-service-api
+```
+
+## Submitting a pull request
+
+1. Fork the repository and create a feature branch.
+2. Make your changes with appropriate tests.
+3. Run the quality gates above.
+4. Open a pull request and fill out the template.
+
+## Testing philosophy
+
+When changing behavior, prefer test-driven development:
+
+1. Add or update a test that fails for the current behavior.
+2. Implement the fix/change until the test passes.
+3. Refactor while keeping tests green.
+
+## Legal (DCO sign-off)
+
+This project uses a Developer Certificate of Origin (DCO). All commits must include a `Signed-off-by` line.
+
+- Read: [`DCO.md`](DCO.md)
+- Sign off commits by using:
+
+```bash
+git commit -s
+```
+
+Our CI checks will fail if commits in a pull request are missing the sign-off.
