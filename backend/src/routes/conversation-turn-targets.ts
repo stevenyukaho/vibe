@@ -4,6 +4,11 @@ import db from '../db/database';
 import type { ConversationTurnTarget } from '@ibm-vibe/types';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logError = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.error(...args);
+};
 
 // Get all turn targets for a conversation
 router.get('/conversation/:conversationId', (async (req: Request, res: Response) => {
@@ -17,7 +22,7 @@ router.get('/conversation/:conversationId', (async (req: Request, res: Response)
 
 		return res.json(targets);
 	} catch (error) {
-		console.error('Error fetching turn targets:', error);
+		logError('Error fetching turn targets:', error);
 		return res.status(500).json({ error: 'Failed to fetch turn targets' });
 	}
 }) as any);
@@ -58,7 +63,7 @@ router.put('/', (async (req: Request, res: Response) => {
 			return res.status(201).json(inserted);
 		}
 	} catch (error) {
-		console.error('Error saving turn target:', error);
+		logError('Error saving turn target:', error);
 		return res.status(500).json({ error: 'Failed to save turn target' });
 	}
 }) as any);
@@ -71,7 +76,7 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error deleting turn target:', error);
+		logError('Error deleting turn target:', error);
 
 		return res.status(500).json({ error: 'Failed to delete turn target' });
 	}
