@@ -13,6 +13,7 @@ import { getAgentJobType } from '../utils/agent-utils';
 import { preflightConversationExecution } from '../lib/conversationPreflight';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 interface ExecuteTestRequest {
 	agent_id: number;
@@ -64,7 +65,10 @@ router.post('/', (async (req: Request<{}, {}, ExecuteTestRequest>, res: Response
 			message: 'Test execution job created and queued for execution'
 		});
 	} catch (error: any) {
-		console.error('Error executing test:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error executing test:', error);
+		}
 		return res.status(500).json({ error: 'Failed to execute test', details: error instanceof Error ? error.message : 'Unknown error' });
 	}
 }) as any);
@@ -146,7 +150,10 @@ router.post('/conversation', (async (req: Request<{}, {}, ExecuteConversationReq
 			message: 'Conversation execution job created and queued for execution'
 		});
 	} catch (error: any) {
-		console.error('Error executing conversation:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error executing conversation:', error);
+		}
 		return res.status(500).json({ error: 'Failed to execute conversation', details: error instanceof Error ? error.message : 'Unknown error' });
 	}
 }) as any);
