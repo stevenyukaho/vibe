@@ -15,13 +15,16 @@ The External API Agent Service is designed to connect to any external agent API,
    npm install
    ```
 
-2. Create a `.env` file in the project root directory with:
+2. Configure environment variables:
+   Copy `.env.example` to `.env` in the `agent-service-api` directory:
 
-   ```env
-   PORT=5003
-   HOST=localhost
-   BACKEND_URL=http://localhost:5000
+   ```bash
+   # In agent-service-api directory
+   cd agent-service-api
+   cp .env.example .env
    ```
+
+   Adjust settings in `.env` as needed.
 
 3. Build the service:
 
