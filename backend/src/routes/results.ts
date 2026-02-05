@@ -22,6 +22,7 @@ import {
 import { testIdToConversationId } from '../lib/legacyIdResolver';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Get all results (from execution sessions)
 router.get('/', (async (req: Request, res: Response) => {
@@ -96,7 +97,10 @@ router.get('/', (async (req: Request, res: Response) => {
 			offset: 0
 		});
 	} catch (error) {
-		console.error('Error fetching results:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching results:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch results' });
 	}
 }) as any);
@@ -160,7 +164,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		return res.status(404).json({ error: 'Result not found' });
 	} catch (error) {
-		console.error('Error fetching result:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching result:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch result' });
 	}
 }) as any);
@@ -194,7 +201,10 @@ router.post('/:id/score', (async (req: Request<{ id: string }>, res: Response) =
 		const updatedResult = legacy.getResultById ? legacy.getResultById(idNum) : null;
 		return res.json(updatedResult);
 	} catch (error) {
-		console.error('Error scoring result:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error scoring result:', error);
+		}
 		return res.status(500).json({ error: 'Failed to score result' });
 	}
 }) as any);
@@ -224,7 +234,10 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 					});
 				}
 			} catch (error) {
-				console.warn('Failed to extract token usage from intermediate steps:', error);
+				/* istanbul ignore next */
+				if (shouldLog) {
+					console.warn('Failed to extract token usage from intermediate steps:', error);
+				}
 			}
 		} else if (processedBody.input_tokens !== undefined || processedBody.output_tokens !== undefined) {
 			const tokens = {
@@ -274,7 +287,10 @@ router.post('/', (async (req: Request<{}, {}, Omit<TestResult, 'id' | 'created_a
 
 		return res.status(201).json(formattedResult);
 	} catch (error) {
-		console.error('Error creating result:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error creating result:', error);
+		}
 		return res.status(500).json({ error: 'Failed to create result' });
 	}
 }) as any);
