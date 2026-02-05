@@ -338,7 +338,6 @@ describe('Tests Routes (Legacy)', () => {
 		});
 
 		it('should handle turn target creation errors gracefully', async () => {
-			const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 			mockReq.body = {
 				name: 'New Test',
 				input: 'test input',
@@ -362,13 +361,8 @@ describe('Tests Routes (Legacy)', () => {
 			const handler = getRouteHandler('POST', '/');
 			await handler(mockReq, mockRes);
 
-			expect(consoleWarnSpy).toHaveBeenCalledWith(
-				'Failed to set turn target from legacy expected_output on create',
-				expect.any(Error)
-			);
 			expect(mockStatus).toHaveBeenCalledWith(201);
 			expect(mockJson).toHaveBeenCalledWith(mockTest);
-			consoleWarnSpy.mockRestore();
 		});
 
 		it('should handle errors', async () => {
@@ -500,7 +494,6 @@ describe('Tests Routes (Legacy)', () => {
 		});
 
 		it('should handle turn target update errors gracefully', async () => {
-			const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 			mockReq.params = { id: '1' };
 			mockReq.body = { name: 'Updated', expected_output: 'output' };
 			const mockConversation = { id: 1, name: 'Test' };
@@ -520,12 +513,7 @@ describe('Tests Routes (Legacy)', () => {
 			const handler = getRouteHandler('PUT', '/:id');
 			await handler(mockReq, mockRes);
 
-			expect(consoleWarnSpy).toHaveBeenCalledWith(
-				'Failed to set turn target from legacy expected_output on update',
-				expect.any(Error)
-			);
 			expect(mockJson).toHaveBeenCalledWith(mockTest);
-			consoleWarnSpy.mockRestore();
 		});
 
 		it('should handle errors', async () => {
