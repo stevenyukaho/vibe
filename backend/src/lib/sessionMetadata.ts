@@ -8,6 +8,12 @@ import {
 } from '../db/queries';
 import type { ExecutionSession, SessionMessage } from '@ibm-vibe/types';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logWarn = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.warn(...args);
+};
+
 export function parseSessionMetadata(metadata?: string | null): any {
 	if (!metadata) {
 		return {};
@@ -37,7 +43,7 @@ export function mergeMetadata(existing: string | null | undefined, patch: Record
 export async function updateSessionMetadata(sessionId: number, patch: Record<string, unknown>): Promise<void> {
 	const session = await getExecutionSessionById(sessionId);
 	if (!session) {
-		console.warn(`updateSessionMetadata: session ${sessionId} not found; metadata patch ignored`);
+		logWarn(`updateSessionMetadata: session ${sessionId} not found; metadata patch ignored`);
 		return;
 	}
 	const metadata = mergeMetadata(session.metadata, patch);

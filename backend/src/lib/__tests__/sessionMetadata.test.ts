@@ -2,11 +2,18 @@ import {
 	parseSessionMetadata,
 	serializeSessionMetadata,
 	mergeMetadata,
+	updateSessionMetadata,
 	computeSessionDurationMs,
 	extractTokenUsageFromSession,
-	getAssistantOutputFromMessages
+	getAssistantOutputFromMessages,
+	getSessionOutputAndExpected
 } from '../sessionMetadata';
+import * as queries from '../../db/queries';
 import type { ExecutionSession, SessionMessage } from '@ibm-vibe/types';
+
+jest.mock('../../db/queries');
+
+const mockedQueries = queries as jest.Mocked<typeof queries>;
 
 describe('sessionMetadata', () => {
 	describe('parseSessionMetadata', () => {
@@ -255,6 +262,30 @@ describe('sessionMetadata', () => {
 		});
 	});
 
+	describe('updateSessionMetadata', () => {
+		it('returns early when session is missing', async () => {
+			mockedQueries.getExecutionSessionById.mockReturnValue(null as any);
+
+			await updateSessionMetadata(99, { key: 'value' });
+
+			expect(mockedQueries.updateExecutionSession).not.toHaveBeenCalled();
+		});
+
+		it('merges and updates metadata for existing session', async () => {
+			mockedQueries.getExecutionSessionById.mockReturnValue({
+				id: 1,
+				metadata: JSON.stringify({ a: 1 })
+			} as any);
+			mockedQueries.updateExecutionSession.mockReturnValue({} as any);
+
+			await updateSessionMetadata(1, { b: 2 });
+
+			const updateCall = mockedQueries.updateExecutionSession.mock.calls[0];
+			expect(updateCall[0]).toBe(1);
+			expect(JSON.parse((updateCall[1] as { metadata: string }).metadata)).toEqual({ a: 1, b: 2 });
+		});
+	});
+
 	describe('extractTokenUsageFromSession', () => {
 		it('extracts input and output tokens from metadata', () => {
 			const session: ExecutionSession = {
@@ -414,6 +445,43 @@ describe('sessionMetadata', () => {
 			];
 
 			expect(getAssistantOutputFromMessages(messages)).toBe('Response');
+		});
+	});
+
+	describe('getSessionOutputAndExpected', () => {
+		it('returns undefined when session is missing', async () => {
+			mockedQueries.getExecutionSessionById.mockReturnValue(null as any);
+
+			const result = await getSessionOutputAndExpected(10);
+
+			expect(result).toBeUndefined();
+		});
+
+		it('returns output without expected when conversation missing', async () => {
+			mockedQueries.getExecutionSessionById.mockReturnValue({ id: 1, conversation_id: 2 } as any);
+			mockedQueries.getConversationById.mockReturnValue(null as any);
+			mockedQueries.getSessionMessages.mockReturnValue([
+				{ role: 'assistant', content: 'hello', sequence: 2 }
+			] as any);
+
+			const result = await getSessionOutputAndExpected(1);
+
+			expect(result).toEqual({ output: 'hello', expected: undefined });
+		});
+
+		it('returns output and expected for assistant turn', async () => {
+			mockedQueries.getExecutionSessionById.mockReturnValue({ id: 1, conversation_id: 2 } as any);
+			mockedQueries.getConversationById.mockReturnValue({ id: 2 } as any);
+			mockedQueries.getSessionMessages.mockReturnValue([
+				{ role: 'user', content: 'hi', sequence: 1 },
+				{ role: 'assistant', content: 'hello', sequence: 2 }
+			] as any);
+			mockedQueries.countUserTurnsUpTo.mockReturnValue(1);
+			mockedQueries.getConversationTurnTarget.mockReturnValue({ target_reply: 'expected' } as any);
+
+			const result = await getSessionOutputAndExpected(1);
+
+			expect(result).toEqual({ output: 'hello', expected: 'expected' });
 		});
 	});
 });
