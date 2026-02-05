@@ -17,6 +17,32 @@ export interface LLMConfig {
 	updated_at?: string;
 }
 
+export interface AgentRequestTemplate {
+	id: number;
+	name: string;
+	body: string;
+	description?: string;
+	engine?: string;
+	content_type?: string;
+	tags?: string;
+	capabilities?: string | null;
+	is_default?: number;
+	created_at?: string;
+	updated_at?: string;
+}
+
+export interface AgentResponseMap {
+	id: number;
+	name: string;
+	spec: string;
+	description?: string;
+	tags?: string;
+	capabilities?: string | null;
+	is_default?: number;
+	created_at?: string;
+	updated_at?: string;
+}
+
 const API_URL = frontendConfig.apiUrl;
 
 // Job status type (frontend-specific version)
@@ -91,7 +117,7 @@ export const api = {
 	},
 
 	// Agent communication configs: Request Templates
-	async getAgentRequestTemplates(agentId: number): Promise<Array<{ id: number; name: string; body: string; is_default?: number; capabilities?: string | null }>> {
+	async getAgentRequestTemplates(agentId: number): Promise<AgentRequestTemplate[]> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates`);
 		if (!response.ok) {
 			const error = await response.json();
@@ -100,7 +126,7 @@ export const api = {
 		return response.json();
 	},
 
-	async createAgentRequestTemplate(agentId: number, payload: { name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; capabilities?: string; is_default?: boolean }): Promise<any> {
+	async createAgentRequestTemplate(agentId: number, payload: { name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; capabilities?: string; is_default?: boolean }): Promise<AgentRequestTemplate> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -113,7 +139,7 @@ export const api = {
 		return response.json();
 	},
 
-	async updateAgentRequestTemplate(agentId: number, templateId: number, updates: Partial<{ name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; capabilities?: string; is_default?: boolean }>): Promise<any> {
+	async updateAgentRequestTemplate(agentId: number, templateId: number, updates: Partial<{ name: string; description?: string; engine?: string; content_type?: string; body: string; tags?: string; capabilities?: string; is_default?: boolean }>): Promise<AgentRequestTemplate> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/request-templates/${templateId}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
@@ -143,7 +169,7 @@ export const api = {
 	},
 
 	// Agent communication configs: Response Maps
-	async getAgentResponseMaps(agentId: number): Promise<Array<{ id: number; name: string; spec: string; is_default?: number; capabilities?: string | null }>> {
+	async getAgentResponseMaps(agentId: number): Promise<AgentResponseMap[]> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps`);
 		if (!response.ok) {
 			const error = await response.json();
@@ -152,7 +178,7 @@ export const api = {
 		return response.json();
 	},
 
-	async createAgentResponseMap(agentId: number, payload: { name: string; description?: string; spec: string; tags?: string; capabilities?: string; is_default?: boolean }): Promise<any> {
+	async createAgentResponseMap(agentId: number, payload: { name: string; description?: string; spec: string; tags?: string; capabilities?: string; is_default?: boolean }): Promise<AgentResponseMap> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -165,7 +191,7 @@ export const api = {
 		return response.json();
 	},
 
-	async updateAgentResponseMap(agentId: number, mapId: number, updates: Partial<{ name: string; description?: string; spec: string; tags?: string; capabilities?: string; is_default?: boolean }>): Promise<any> {
+	async updateAgentResponseMap(agentId: number, mapId: number, updates: Partial<{ name: string; description?: string; spec: string; tags?: string; capabilities?: string; is_default?: boolean }>): Promise<AgentResponseMap> {
 		const response = await fetch(`${API_URL}/api/agents/${agentId}/response-maps/${mapId}`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
@@ -1288,16 +1314,21 @@ export const api = {
 			body: JSON.stringify({ agent_id, conversation_id })
 		});
 		if (!response.ok) {
-			let errorPayload: any = null;
+			let errorPayload: unknown = null;
 			try {
 				errorPayload = await response.json();
 			} catch {
 				errorPayload = null;
 			}
-			const details = Array.isArray(errorPayload?.details)
-				? errorPayload.details.join('\n')
-				: (typeof errorPayload?.details === 'string' ? errorPayload.details : '');
-			const message = errorPayload?.error || 'Failed to execute conversation';
+			const errorObj = errorPayload && typeof errorPayload === 'object'
+				? (errorPayload as Record<string, unknown>)
+				: null;
+			const rawDetails = errorObj?.details;
+			const rawError = errorObj?.error;
+			const details = Array.isArray(rawDetails)
+				? rawDetails.filter((d): d is string => typeof d === 'string').join('\n')
+				: (typeof rawDetails === 'string' ? rawDetails : '');
+			const message = typeof rawError === 'string' && rawError ? rawError : 'Failed to execute conversation';
 			throw new Error(details ? `${message}\n${details}` : message);
 		}
 		return response.json();
