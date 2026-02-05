@@ -4,6 +4,7 @@ import {
 	TestExecutionRequest,
 	ConversationExecutionRequest,
 	ConversationMessage,
+	ConversationMessageDraft,
 	ConversationExecutionResponse,
 	Job,
 	Agent,
@@ -217,7 +218,7 @@ export class JobPollerService {
 			const startTime = new Date().toISOString();
 
 			// Get conversation and messages
-			const conversationResponse = await axios.get<Conversation & { messages?: ConversationMessage[] }>(
+			const conversationResponse = await axios.get<Conversation & { id: number; messages?: ConversationMessageDraft[] }>(
 				`${this.backendUrl}/api/conversations/${job.conversation_id}`
 			);
 			const conversation = conversationResponse.data;
@@ -265,7 +266,7 @@ export class JobPollerService {
 	}
 
 	private resolveConversationScript(
-		conversation: Conversation & { messages?: ConversationMessage[] },
+		conversation: Conversation & { id: number; messages?: ConversationMessageDraft[] },
 		agentConfig: AgentConfig
 	): ConversationExecutionRequest['conversation_script'] {
 		const { templates, maps, defaultTemplate, defaultMap } = agentConfig;
@@ -278,6 +279,8 @@ export class JobPollerService {
 		const findMapById = (id?: number | null) => maps.find(m => m.id === id);
 
 		const resolvedMessages: ConversationScriptMessage[] = (conversation.messages || []).map((m) => {
+			const conversation_id = m.conversation_id ?? conversation.id;
+
 			if (m.role !== 'user') {
 				const metadata = typeof m.metadata === 'string'
 					? parseJson<Record<string, unknown>>(m.metadata, {})
@@ -285,6 +288,7 @@ export class JobPollerService {
 
 				return {
 					...m,
+					conversation_id,
 					metadata
 				};
 			}
@@ -329,6 +333,7 @@ export class JobPollerService {
 
 			return {
 				...m,
+				conversation_id,
 				metadata: mergedMetadata
 			};
 		});
@@ -497,7 +502,7 @@ export class JobPollerService {
 		try {
 			const response = await axios.get(`${this.backendUrl}/api/health`);
 			return response.status === 200;
-		} catch (error) {
+		} catch (_error) {
 			return false;
 		}
 	}
@@ -507,7 +512,7 @@ export class JobPollerService {
 	}
 
 	private validateConversationRequirements(
-		conversation: Conversation & { messages?: ConversationMessage[] },
+		conversation: Conversation,
 		resolvedMessages: ConversationScriptMessage[]
 	): void {
 		const userMessages = resolvedMessages.filter(message => message.role === 'user');

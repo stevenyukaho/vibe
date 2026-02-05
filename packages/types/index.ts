@@ -192,6 +192,8 @@ export interface Conversation {
 	required_response_map_capabilities?: string;
 	/** If true, halt execution when a turn fails */
 	stop_on_failure?: boolean;
+	/** Optional messages (present on some API responses) */
+	messages?: ConversationMessageDraft[];
 	created_at?: string;
 	updated_at?: string;
 }
@@ -208,6 +210,13 @@ export interface ConversationMessage {
 	set_variables?: string; // JSON for literal/bind variable assignments
 	created_at?: string;
 }
+
+/**
+ * Conversation message shape accepted by create/update endpoints.
+ *
+ * Some payloads omit `conversation_id` because the conversation is created first.
+ */
+export type ConversationMessageDraft = Omit<ConversationMessage, 'conversation_id'> & { conversation_id?: number };
 
 export interface ConversationTurnTarget {
 	id?: number;

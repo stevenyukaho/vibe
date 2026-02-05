@@ -25,13 +25,9 @@ import { TemplatePreviewSelector } from './TemplateSelector';
 import { CapabilityInfoPanel } from './TemplateInfoPanel';
 import styles from './ConversationFormModal.module.scss';
 
-interface ConversationWithMessages extends Conversation {
-	messages?: ConversationMessage[];
-}
-
 interface ConversationFormModalProps {
 	open: boolean;
-	conversation?: ConversationWithMessages;
+	conversation?: Conversation;
 	onClose: () => void;
 	onSave: (conversation: Conversation) => void;
 }
