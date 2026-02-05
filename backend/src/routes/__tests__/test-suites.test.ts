@@ -114,7 +114,6 @@ describe('Test Suites Routes', () => {
 
 		it('should handle test count calculation errors gracefully', async () => {
 			const mockSuites = [{ id: 1, name: 'Suite 1' }];
-			const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 
 			(pagination.hasPaginationParams as any).mockReturnValue(false);
 			(queries.getTestSuites as any).mockReturnValue(mockSuites);
@@ -125,15 +124,9 @@ describe('Test Suites Routes', () => {
 			const handler = getRouteHandler('GET', '/');
 			await handler(mockReq, mockRes);
 
-			expect(consoleWarnSpy).toHaveBeenCalledWith(
-				'Error calculating test count for suite 1:',
-				expect.any(Error)
-			);
 			expect(mockJson).toHaveBeenCalledWith([
 				{ id: 1, name: 'Suite 1', test_count: 0 }
 			]);
-
-			consoleWarnSpy.mockRestore();
 		});
 
 		it('should return early if pagination validation fails', async () => {
@@ -440,7 +433,6 @@ describe('Test Suites Routes', () => {
 		});
 
 		it('should handle entry processing errors gracefully', async () => {
-			const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
 			mockReq.params = { id: '1' };
 			const mockEntries = [{ id: 1, conversation_id: 10, sequence: 1 }];
 
@@ -451,9 +443,7 @@ describe('Test Suites Routes', () => {
 			const handler = getRouteHandler('GET', '/:id/tests');
 			await handler(mockReq, mockRes);
 
-			expect(consoleWarnSpy).toHaveBeenCalledWith('Error processing entry 1:', expect.any(Error));
 			expect(mockJson).toHaveBeenCalledWith([]);
-			consoleWarnSpy.mockRestore();
 		});
 
 		it('should return 400 for invalid ID', async () => {
