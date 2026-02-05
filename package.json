@@ -2,6 +2,9 @@
   "name": "ibm-vibe-monorepo",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=18.17.0"
+  },
   "workspaces": [
     "frontend",
     "backend",
