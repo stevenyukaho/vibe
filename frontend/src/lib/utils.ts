@@ -245,7 +245,6 @@ export const loadConversationsByIds = async (conversationIds: number[]): Promise
 			const conv = await api.getConversationById(convId);
 			return [convId, { name: conv.name, id: convId }] as [number, { name: string; id: number }];
 		} catch (err) {
-			console.warn(`Failed to load conversation ${convId}:`, err);
 			return null;
 		}
 	});
@@ -277,7 +276,6 @@ export const loadSessionMessages = async (sessions: ExecutionSession[]): Promise
 				const messages = await api.getSessionTranscript(session.id);
 				return [session.id, messages] as [number, SessionMessage[]];
 			} catch (err) {
-				console.warn(`Failed to load messages for session ${session.id}:`, err);
 				return [session.id, []] as [number, SessionMessage[]];
 			}
 		}
@@ -409,7 +407,6 @@ export const extractByPath = (obj: unknown, path: string): unknown => {
 
 		return traverseByTokens(obj, tokens);
 	} catch (error) {
-		console.error('Error extracting path:', path, error);
 		return undefined;
 	}
 };
