@@ -65,7 +65,6 @@ export default function TestFormModal({
 			onSuccess();
 			onClose();
 		} catch (error) {
-			console.error('Error saving test:', error);
 			setError(error instanceof Error ? error.message : 'An unknown error occurred');
 		} finally {
 			setIsSaving(false);

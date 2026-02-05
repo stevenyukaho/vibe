@@ -55,10 +55,10 @@ export default function TestSuiteFormModal({
 			setFormError('Name is required');
 			return;
 		}
-		
+
 		setIsSaving(true);
 		setFormError(null);
-		
+
 		try {
 			const suiteData = {
 				name: formData.name,
@@ -75,7 +75,6 @@ export default function TestSuiteFormModal({
 			onSuccess();
 			onClose();
 		} catch (error) {
-			console.error('Error saving test suite:', error);
 			setFormError(error instanceof Error ? error.message : 'An unknown error occurred');
 		} finally {
 			setIsSaving(false);
@@ -93,11 +92,11 @@ export default function TestSuiteFormModal({
 			primaryButtonDisabled={isSaving}
 		>
 			{formError && (
-				<InlineNotification 
-					kind="error" 
-					title="Error" 
-					subtitle={formError} 
-					hideCloseButton 
+				<InlineNotification
+					kind="error"
+					title="Error"
+					subtitle={formError}
+					hideCloseButton
 				/>
 			)}
 			<Form>

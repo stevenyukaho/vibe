@@ -85,7 +85,8 @@ export default function TemplateSelector({
 				setSelectedItem(selected || null);
 			}
 		} catch (err) {
-			console.error('Failed to load templates:', err);
+			setTemplates([]);
+			setSelectedItem(null);
 		} finally {
 			setLoading(false);
 		}
@@ -230,7 +231,8 @@ export function TemplatePreviewSelector({
 					setSelectedItem(items[0]);
 				}
 			} catch (err) {
-				console.error('Failed to load templates:', err);
+				setTemplates([]);
+				setSelectedItem(null);
 			} finally {
 				setLoading(false);
 			}
