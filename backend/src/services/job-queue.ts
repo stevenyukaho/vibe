@@ -23,6 +23,8 @@ import { getAgentJobType } from '../utils/agent-utils';
 // Export types from the main types file
 export { Job, JobStatus, JobFilters } from '@ibm-vibe/types';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+
 /**
  * Generate a unique job ID
  */
@@ -38,6 +40,7 @@ export class JobQueueService {
 	private runningJobs: Set<string>;
 	// private _maxConcurrentJobs: number; // Currently unused, reserved for future concurrency control
 	private isProcessing: boolean;
+	private processingInterval?: NodeJS.Timeout;
 
 	/**
 	 * Create a new JobQueueService
@@ -53,7 +56,24 @@ export class JobQueueService {
 		this.loadJobsFromDatabase();
 
 		// Start processing queue
-		setInterval(() => this.processQueue(), 1000);
+		this.processingInterval = setInterval(() => this.processQueue(), 1000);
+		// Don't keep the Node event loop alive just for this interval (helps tests exit cleanly).
+		this.processingInterval.unref();
+	}
+
+	/**
+	 * Cleanup resources (stop interval timer and wait for pending operations)
+	 */
+	async cleanup(): Promise<void> {
+		if (this.processingInterval) {
+			clearInterval(this.processingInterval);
+			this.processingInterval = undefined;
+		}
+
+		// Wait for any in-flight processQueue to complete
+		while (this.isProcessing) {
+			await new Promise(resolve => setTimeout(resolve, 10));
+		}
 	}
 
 	/**
@@ -72,7 +92,10 @@ export class JobQueueService {
 			}
 			console.log(`Loaded ${jobs.length} jobs from database`);
 		} catch (error) {
-			console.error('Error loading jobs from database:', error);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.error('Error loading jobs from database:', error);
+			}
 		}
 	}
 
@@ -174,9 +197,12 @@ export class JobQueueService {
 			if (job) {
 				this.jobs.set(id, job);
 			}
-			return job;
+			return job || undefined;
 		} catch (error) {
-			console.error(`Error getting job ${id}:`, error);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.error(`Error getting job ${id}:`, error);
+			}
 			return undefined;
 		}
 	}
@@ -227,7 +253,10 @@ export class JobQueueService {
 				if (job.status === JobStatus.RUNNING && job.updated_at) {
 					const updatedAt = new Date(job.updated_at).getTime();
 					if (updatedAt < staleThreshold) {
-						console.warn(`Job ${job.id} appears stale, resetting to pending`);
+						/* istanbul ignore next */
+						if (shouldLog) {
+							console.warn(`Job ${job.id} appears stale, resetting to pending`);
+						}
 						await this.updateJob(job.id, {
 							status: JobStatus.PENDING,
 							error: 'Job was reset due to inactivity'
@@ -259,7 +288,10 @@ export class JobQueueService {
 			const jobs = await dbListJobs(filters);
 			return jobs.slice(0, limit);
 		} catch (error) {
-			console.error('Error getting available jobs:', error);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.error('Error getting available jobs:', error);
+			}
 			return [];
 		}
 	}
@@ -287,7 +319,10 @@ export class JobQueueService {
 			this.runningJobs.add(jobId);
 			return true;
 		} catch (error) {
-			console.error(`Error claiming job ${jobId}:`, error);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.error(`Error claiming job ${jobId}:`, error);
+			}
 			return false;
 		}
 	}
@@ -306,7 +341,10 @@ export class JobQueueService {
 			}
 			return jobs;
 		} catch (error) {
-			console.error('Error listing jobs:', error);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.error('Error listing jobs:', error);
+			}
 			return [];
 		}
 	}
@@ -331,7 +369,10 @@ export class JobQueueService {
 
 			console.log(`Deleted ${deletedCount} old jobs`);
 		} catch (error) {
-			console.error('Error cleaning up old jobs:', error);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.error('Error cleaning up old jobs:', error);
+			}
 		}
 	}
 
@@ -371,7 +412,10 @@ export class JobQueueService {
 		const leaves = suiteProcessingService.getFlattenedLeaves(suite_id, agent_id);
 		if (!leaves || leaves.length === 0) {
 			// Instead of throwing an error, create a suite run with 0 tests that completes immediately
-			console.warn(`Suite ${suite_id} contains no executable tests. Creating empty suite run.`);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.warn(`Suite ${suite_id} contains no executable tests. Creating empty suite run.`);
+			}
 
 			const suiteRun: SuiteRun = {
 				suite_id,
