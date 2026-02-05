@@ -1,0 +1,39 @@
+sequenceDiagram
+    autonumber
+
+    actor User
+    participant UI as Frontend (Next.js)
+    participant BE as Backend (Express)
+    participant DB as SQLite DB
+    participant ASAPI as Agent-service-api (poller)
+    participant AS as Agent-service (FastAPI / CrewAI)
+
+    User->>UI: Configure conversation + agent\nClick Execute
+    UI->>BE: Create execution job (conversation_id)
+    BE->>DB: Insert job (queued)
+    BE-->>UI: Return job id
+
+    loop Job status updates
+        UI->>BE: Fetch job status
+        BE->>DB: Read job row
+        BE-->>UI: status/progress + session link (when available)
+    end
+
+    loop Poll for work
+        ASAPI->>BE: Claim next queued job
+        BE->>DB: Mark job claimed/running
+        BE-->>ASAPI: Job payload + conversation script
+    end
+
+    ASAPI->>AS: Execute conversation turn-by-turn
+    AS-->>ASAPI: Replies + tool calls + metadata
+
+    ASAPI->>BE: Post session + transcript
+    BE->>DB: Persist session + session_messages
+    BE->>DB: Mark job completed + session_id
+    BE-->>ASAPI: OK
+
+    UI->>BE: Fetch session transcript
+    BE->>DB: Read execution_session + session_messages
+    BE-->>UI: Transcript + metrics
+    UI-->>User: Render session viewer

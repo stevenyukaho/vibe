@@ -1,0 +1,128 @@
+erDiagram
+    agents {
+        int id PK
+        string name
+        string version
+    }
+
+    agent_request_templates {
+        int id PK
+        int agent_id FK
+        string name
+        int is_default
+    }
+
+    agent_response_maps {
+        int id PK
+        int agent_id FK
+        string name
+        int is_default
+    }
+
+    llm_configs {
+        int id PK
+        string name
+        string provider
+    }
+
+    conversations {
+        int id PK
+        string name
+        string tags
+        int default_request_template_id
+        int default_response_map_id
+    }
+
+    conversation_messages {
+        int id PK
+        int conversation_id FK
+        int sequence
+        string role
+        int request_template_id
+        int response_map_id
+    }
+
+    conversation_turn_targets {
+        int id PK
+        int conversation_id FK
+        int user_sequence
+    }
+
+    execution_sessions {
+        int id PK
+        int conversation_id FK
+        int agent_id FK
+        string status
+    }
+
+    session_messages {
+        int id PK
+        int session_id FK
+        int sequence
+        string role
+    }
+
+    jobs {
+        string id PK
+        int agent_id FK
+        int test_id
+        int conversation_id
+        int session_id
+        string status
+        int suite_run_id
+    }
+
+    test_suites {
+        int id PK
+        string name
+    }
+
+    suite_entries {
+        int id PK
+        int parent_suite_id FK
+        int test_id
+        int conversation_id
+        int child_suite_id
+    }
+
+    suite_runs {
+        int id PK
+        int suite_id FK
+        int agent_id FK
+        string status
+    }
+
+    %% Legacy (supported during transition)
+    tests {
+        int id PK
+        string name
+    }
+
+    results {
+        int id PK
+        int agent_id FK
+        int test_id FK
+    }
+
+    agents ||--o{ agent_request_templates : has
+    agents ||--o{ agent_response_maps : has
+
+    conversations ||--o{ conversation_messages : contains
+    conversations ||--o{ conversation_turn_targets : targets
+
+    conversations ||--o{ execution_sessions : runs
+    agents ||--o{ execution_sessions : uses
+    execution_sessions ||--o{ session_messages : captures
+
+    agents ||--o{ jobs : runs
+    tests ||--o{ jobs : legacy
+    conversations ||--o{ jobs : conversation
+    execution_sessions ||--o{ jobs : produces
+
+    test_suites ||--o{ suite_entries : contains
+    test_suites ||--o{ suite_runs : executes
+    agents ||--o{ suite_runs : uses
+    suite_runs ||--o{ jobs : groups
+
+    agents ||--o{ results : generates
+    tests ||--o{ results : used_in
