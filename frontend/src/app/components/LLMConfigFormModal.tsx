@@ -53,7 +53,7 @@ export default function LLMConfigFormModal({
 					priority: config.priority,
 					configJson: JSON.stringify(configObj, null, 2)
 				});
-			} catch (error) {
+			} catch {
 				setError('Error parsing configuration data');
 			}
 		}
@@ -140,10 +140,14 @@ export default function LLMConfigFormModal({
 
 		try {
 			// Validate JSON
-			let configObj: any;
+			let configObj: Record<string, unknown>;
 			try {
-				configObj = JSON.parse(formData.configJson);
-			} catch (err: any) {
+				const parsed = JSON.parse(formData.configJson);
+				if (!parsed || typeof parsed !== 'object') {
+					throw new Error('Invalid JSON configuration');
+				}
+				configObj = parsed as Record<string, unknown>;
+			} catch {
 				throw new Error('Invalid JSON configuration');
 			}
 
@@ -154,16 +158,19 @@ export default function LLMConfigFormModal({
 
 			// Provider-specific validation
 			if (formData.provider === 'openai' || formData.provider === 'anthropic') {
-				if (!configObj.api_key) {
+				const apiKey = configObj.api_key;
+				if (typeof apiKey !== 'string' || !apiKey.trim()) {
 					throw new Error(`API key is required for ${formData.provider}`);
 				}
 			}
 
 			if (formData.provider === 'watsonx') {
-				if (!configObj.api_key) {
+				const apiKey = configObj.api_key;
+				if (typeof apiKey !== 'string' || !apiKey.trim()) {
 					throw new Error('API key is required for watsonx');
 				}
-				if (!configObj.project_id) {
+				const projectId = configObj.project_id;
+				if (typeof projectId !== 'string' || !projectId.trim()) {
 					throw new Error('Project ID is required for watsonx');
 				}
 			}
@@ -229,7 +236,7 @@ export default function LLMConfigFormModal({
 					min={1}
 					max={1000}
 					value={formData.priority}
-					onChange={(e: any) => handleInputChange('priority', parseInt(e.target.value, 10))}
+					onChange={(_e, data) => handleInputChange('priority', parseInt(String(data.value), 10))}
 					helperText="Lower values have higher priority"
 					required
 				/>

@@ -78,6 +78,7 @@ describe('SessionsPage', () => {
 					id: 1,
 					agent_id: 2,
 					test_id: 3,
+					output: 'OK',
 					success: true,
 					input_tokens: 5,
 					output_tokens: 5,
@@ -86,7 +87,15 @@ describe('SessionsPage', () => {
 			],
 			total: 1
 		});
-		mockedApi.getAgents.mockResolvedValue([{ id: 2, name: 'Agent A' }]);
+		mockedApi.getAgents.mockResolvedValue([
+			{
+				id: 2,
+				name: 'Agent A',
+				version: '1',
+				prompt: '',
+				settings: '{}'
+			}
+		]);
 		mockedApi.getConversations.mockResolvedValue({ data: [{ id: 3, name: 'Conv' }], total: 1 });
 
 		render(<SessionsPage />);

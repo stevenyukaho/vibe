@@ -50,7 +50,7 @@ export default function Home() {
 				setJobs(jobsData);
 				setResults(resultsData.data as ResultWithStatus[]);
 				setStats(statsData);
-			} catch (error) {
+			} catch {
 				setSuiteRuns([]);
 				setJobs([]);
 				setResults([]);

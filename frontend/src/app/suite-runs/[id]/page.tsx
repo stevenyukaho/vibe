@@ -219,7 +219,7 @@ export default function SuiteRunDetailPage() {
 					result = await getResultById(id);
 				}
 				return [id, result] as [number, TestResult];
-			} catch (err) {
+			} catch {
 				// On failure, skip next N polling cycles for this id (e.g., ~10s at 2s interval)
 				const SKIP_POLLS = 5;
 				setSkipCounts(prev => new Map(prev).set(id, SKIP_POLLS));
@@ -265,7 +265,7 @@ export default function SuiteRunDetailPage() {
 				try {
 					const conversation = await api.getConversationById(id);
 					return [id, conversation] as [number, Conversation];
-				} catch (err) {
+				} catch {
 					return null;
 				}
 			});
@@ -274,7 +274,7 @@ export default function SuiteRunDetailPage() {
 			const validConversations = conversationResults.filter(Boolean) as [number, Conversation][];
 
 			setConversations(new Map(validConversations));
-		} catch (err) {
+		} catch {
 			setConversations(new Map());
 		}
 	};

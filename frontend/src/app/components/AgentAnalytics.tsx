@@ -65,7 +65,7 @@ export default function AgentAnalytics({ sessions }: AgentAnalyticsProps) {
 			try {
 				const allConversations = await api.getConversations({ limit: 1000, offset: 0 });
 				setConversations(allConversations.data);
-			} catch (err) {
+			} catch {
 				setConversations([]);
 			}
 		};
@@ -87,14 +87,14 @@ export default function AgentAnalytics({ sessions }: AgentAnalyticsProps) {
 							try {
 								const messages = await api.getSessionTranscript(session.id);
 								messagesMap.set(session.id, messages);
-							} catch (err) {
+							} catch {
 								// Best-effort: missing transcript data just omits some analytics
 							}
 						}
 					})
 				);
 				setSessionMessages(messagesMap);
-			} catch (err) {
+			} catch {
 				setSessionMessages(new Map());
 			} finally {
 				setLoading(false);

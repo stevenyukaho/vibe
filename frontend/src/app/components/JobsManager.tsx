@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import {
 	Table,
 	TableHead,
@@ -18,7 +18,8 @@ import {
 	Pagination
 } from '@carbon/react';
 import { ViewFilled, Renew, PlayFilled, TrashCan, StopFilled } from '@carbon/icons-react';
-import { api, Job } from '@/lib/api';
+import { api } from '@/lib/api';
+import type { Job, TestResult } from '@/lib/api';
 import styles from './JobsManager.module.scss';
 import { useAgents, useTests, useAppData } from '@/lib/AppDataContext';
 import SimilarityScoreDisplay from './SimilarityScoreDisplay';
@@ -28,6 +29,18 @@ interface JobsManagerProps {
 	onViewSession: (sessionId: number) => void;
 	onViewConversation: (conversationId: number) => void;
 }
+
+type JobTableRow = {
+	id: string;
+	agent: string;
+	test: string;
+	status: ReactNode;
+	similarity_score: TestResult | undefined;
+	created_at: string;
+	actions: ReactNode;
+};
+
+type JobTableHeaderKey = keyof JobTableRow;
 
 export default function JobsManager({
 	onViewSession,
@@ -202,7 +215,7 @@ export default function JobsManager({
 	};
 
 	// Define table headers
-	const headers = [
+	const headers: Array<{ key: JobTableHeaderKey; header: string }> = [
 		{ key: 'id', header: 'ID' },
 		{ key: 'agent', header: 'Agent' },
 		{ key: 'test', header: 'Test/Conversation' },
@@ -213,7 +226,7 @@ export default function JobsManager({
 	];
 
 	// Memoize expensive row mapping with O(1) lookups
-	const rows = useMemo(() => {
+	const rows = useMemo((): JobTableRow[] => {
 		const agentMap = new Map(agents.map(agent => [agent.id, agent]));
 		const testMap = new Map(tests.map(test => [test.id, test]));
 
@@ -221,7 +234,7 @@ export default function JobsManager({
 			const agent = agentMap.get(job.agent_id);
 			const test = testMap.get(job.test_id);
             const preferredId = getJobId(job);
-            const result = preferredId ? getResultById(preferredId) : null;
+            const result = preferredId !== null ? getResultById(preferredId) : undefined;
 
 			const isPendingOrRunning = job.status === 'pending' || job.status === 'running';
 
@@ -354,15 +367,14 @@ export default function JobsManager({
 						{rows.map((row) => (
 							<TableRow key={row.id}>
 								{headers.map((header) => {
-									const value = (row as any)[header.key];
 									if (header.key === 'similarity_score') {
 										return (
 											<TableCell key={`${row.id}-${header.key}`}>
-												<SimilarityScoreDisplay result={value} />
+												<SimilarityScoreDisplay result={row.similarity_score} />
 											</TableCell>
 										);
 									}
-									return <TableCell key={`${row.id}-${header.key}`}>{value}</TableCell>;
+									return <TableCell key={`${row.id}-${header.key}`}>{row[header.key]}</TableCell>;
 								})}
 							</TableRow>
 						))}

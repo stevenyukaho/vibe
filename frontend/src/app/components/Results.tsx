@@ -39,7 +39,7 @@ export default function Results({
 			});
 			setResults(response.data);
 			setTotalItems(response.total);
-		} catch (err: unknown) {
+		} catch {
 			setResults([]);
 			setTotalItems(0);
 		}

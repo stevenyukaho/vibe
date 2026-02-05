@@ -63,7 +63,7 @@ export default function TemplateFormModal({
 					? await api.getRequestTemplateCapabilityNames()
 					: await api.getResponseMapCapabilityNames();
 				setCapabilityNames(names);
-			} catch (err) {
+			} catch {
 				// Best-effort: capability autocomplete is optional
 				setCapabilityNames([]);
 			}

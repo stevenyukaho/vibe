@@ -84,7 +84,7 @@ export default function TemplateSelector({
 				const selected = items.find(item => item.id === selectedId);
 				setSelectedItem(selected || null);
 			}
-		} catch (err) {
+		} catch {
 			setTemplates([]);
 			setSelectedItem(null);
 		} finally {
@@ -230,7 +230,7 @@ export function TemplatePreviewSelector({
 				if (items.length === 1) {
 					setSelectedItem(items[0]);
 				}
-			} catch (err) {
+			} catch {
 				setTemplates([]);
 				setSelectedItem(null);
 			} finally {

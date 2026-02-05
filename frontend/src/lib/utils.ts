@@ -244,7 +244,7 @@ export const loadConversationsByIds = async (conversationIds: number[]): Promise
 		try {
 			const conv = await api.getConversationById(convId);
 			return [convId, { name: conv.name, id: convId }] as [number, { name: string; id: number }];
-		} catch (err) {
+		} catch {
 			return null;
 		}
 	});
@@ -275,7 +275,7 @@ export const loadSessionMessages = async (sessions: ExecutionSession[]): Promise
 			try {
 				const messages = await api.getSessionTranscript(session.id);
 				return [session.id, messages] as [number, SessionMessage[]];
-			} catch (err) {
+			} catch {
 				return [session.id, []] as [number, SessionMessage[]];
 			}
 		}
@@ -406,7 +406,7 @@ export const extractByPath = (obj: unknown, path: string): unknown => {
 		const tokens = tokenizePath(path);
 
 		return traverseByTokens(obj, tokens);
-	} catch (error) {
+	} catch {
 		return undefined;
 	}
 };

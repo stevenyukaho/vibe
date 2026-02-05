@@ -20,9 +20,9 @@ jest.mock('@/lib/AppDataContext', () => ({
 	useAppData: jest.fn()
 }));
 
-jest.mock('../SimilarityScoreDisplay', () => () => (
-	<div data-testid="similarity-score" />
-));
+jest.mock('../SimilarityScoreDisplay', () => function MockSimilarityScoreDisplay() {
+	return <div data-testid="similarity-score" />;
+});
 
 const mockedApi = api as jest.Mocked<typeof api>;
 const mockedUseAgents = useAgents as jest.Mock;
@@ -81,6 +81,7 @@ describe('JobsManager', () => {
 					test_id: 2,
 					session_id: 44,
 					status: 'completed',
+					progress: 100,
 					created_at: '2024-01-01T00:00:00Z',
 					updated_at: '2024-01-01T00:00:00Z'
 				}

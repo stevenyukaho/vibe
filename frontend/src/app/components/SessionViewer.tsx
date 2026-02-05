@@ -149,7 +149,9 @@ export default function SessionViewer({ session, messages }: SessionViewerProps)
 								)}
 							</div>
 							<div className={styles.metaRow}>
-								<span className={styles.timestamp}>{new Date(m.timestamp).toLocaleString()}</span>
+								<span className={styles.timestamp}>
+									{m.timestamp ? new Date(m.timestamp).toLocaleString() : 'N/A'}
+								</span>
 								{renderMetadata(m.metadata)}
 							</div>
 							{renderVariables(m.metadata)}

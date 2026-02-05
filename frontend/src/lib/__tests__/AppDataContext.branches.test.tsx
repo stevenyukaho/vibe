@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-	AppDataProvider,
-	useAppData,
-	useAgents,
-	useTests,
-	useLLMConfigs,
-	useResultOperations
-} from '../AppDataContext';
+import { AppDataProvider, useAppData } from '../AppDataContext';
 import { api } from '../api';
 import type { LLMRequestOptions } from '@ibm-vibe/types';
 

@@ -34,7 +34,7 @@ import {
 } from '@carbon/react';
 import { ComboChart } from '@carbon/charts-react';
 import '@carbon/charts/styles.css';
-import type { ChartOptions } from '@carbon/charts';
+import type { ComboChartOptions } from '@carbon/charts';
 import { CHART_COLORS } from '../../components/AgentAnalytics/chartOptions';
 import {
 	ChevronLeft,
@@ -410,7 +410,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 			}
 		},
 		theme: 'g100'
-	} as ChartOptions;
+	} as ComboChartOptions;
 
 	return (
 		<Grid>

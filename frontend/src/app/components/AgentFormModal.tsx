@@ -120,7 +120,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 								? JSON.stringify(m.capabilities)
 								: ''
 					})));
-				} catch (err) {
+				} catch {
 					// Best-effort: templates/maps are optional for editing UI
 					setRequestTemplates([]);
 					setResponseMaps([]);
@@ -173,7 +173,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 				if (formData['agent-settings']) {
 					settings = JSON.parse(formData['agent-settings']);
 				}
-			} catch (error) {
+			} catch {
 				setError('Invalid JSON in settings field');
 				setIsSaving(false);
 				return;
@@ -194,7 +194,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 				// Validate API endpoint URL format
 				try {
 					new URL(formData['agent-api-endpoint']);
-				} catch (error) {
+				} catch {
 					setError('Invalid API Endpoint URL format');
 					setIsSaving(false);
 					return;
@@ -211,7 +211,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 						} else {
 							delete settings['headers'];
 						}
-					} catch (error) {
+					} catch {
 						setError('Invalid headers JSON');
 						setIsSaving(false);
 						return;
@@ -308,7 +308,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 								...settings,
 								token_mapping: formData['agent-token-mapping']
 							};
-						} catch (error) {
+						} catch {
 							setError('Invalid JSON in token mapping');
 							setIsSaving(false);
 							return;
@@ -329,7 +329,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 						} else {
 							delete settings['headers'];
 						}
-					} catch (error) {
+					} catch {
 						setError('Invalid headers JSON');
 						setIsSaving(false);
 						return;
@@ -481,7 +481,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 			// Validate URL format
 			try {
 				new URL(formData['agent-api-endpoint']);
-			} catch (error) {
+			} catch {
 				setTestConnectionStatus({
 					loading: false,
 					success: false,
@@ -505,7 +505,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 				try {
 					const customHeaders = JSON.parse(formData['agent-headers']);
 					headers = { ...headers, ...customHeaders };
-				} catch (error) {
+				} catch {
 					setTestConnectionStatus({
 						loading: false,
 						success: false,
