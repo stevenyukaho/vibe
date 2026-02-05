@@ -110,6 +110,15 @@ describe('agent CRUD routes', () => {
 			expect(response.statusCode).toBe(500);
 			expect((response.body as any).error).toBe('Failed to fetch agents');
 		});
+
+		it('returns 400 for invalid pagination params', async () => {
+			const response = await callRoute(agentRoutes, 'get', '/', {
+				query: { limit: 'invalid' }
+			});
+
+			expect(response.statusCode).toBe(400);
+			expect((response.body as any).error).toBe('Invalid limit parameter');
+		});
 	});
 
 	describe('GET /api/agents/:id', () => {
@@ -219,6 +228,25 @@ describe('agent CRUD routes', () => {
 
 			expect(response.statusCode).toBe(500);
 			expect((response.body as any).error).toBe('Failed to create agent');
+			expect((response.body as any).details).toBe('Constraint violation');
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			(mockedQueries.createAgent as any).mockImplementation(() => {
+				throw { code: 'unknown' };
+			});
+
+			const response = await callRoute(agentRoutes, 'post', '/', {
+				body: {
+					name: 'Test',
+					version: '1.0',
+					prompt: 'prompt',
+					settings: '{}'
+				}
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).details).toBe('Unknown error');
 		});
 	});
 
@@ -299,6 +327,28 @@ describe('agent CRUD routes', () => {
 
 			expect(response.statusCode).toBe(500);
 			expect((response.body as any).error).toBe('Failed to update agent');
+			expect((response.body as any).details).toBe('Database error');
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			(mockedQueries.getAgentById as any).mockReturnValue({
+				id: 1,
+				name: 'Test',
+				version: '1.0',
+				prompt: 'prompt',
+				settings: '{}'
+			});
+			(mockedQueries.updateAgent as any).mockImplementation(() => {
+				throw { code: 'unknown' };
+			});
+
+			const response = await callRoute(agentRoutes, 'put', '/:id', {
+				params: { id: '1' },
+				body: { name: 'New Name' }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).details).toBe('Unknown error');
 		});
 	});
 
@@ -352,6 +402,27 @@ describe('agent CRUD routes', () => {
 
 			expect(response.statusCode).toBe(500);
 			expect((response.body as any).error).toBe('Failed to delete agent');
+			expect((response.body as any).details).toBe('Foreign key constraint');
+		});
+
+		it('handles unknown errors gracefully', async () => {
+			(mockedQueries.getAgentById as any).mockReturnValue({
+				id: 1,
+				name: 'Test',
+				version: '1.0',
+				prompt: 'prompt',
+				settings: '{}'
+			});
+			(mockedQueries.deleteAgent as any).mockImplementation(() => {
+				throw { code: 'unknown' };
+			});
+
+			const response = await callRoute(agentRoutes, 'delete', '/:id', {
+				params: { id: '1' }
+			});
+
+			expect(response.statusCode).toBe(500);
+			expect((response.body as any).details).toBe('Unknown error');
 		});
 	});
 });
