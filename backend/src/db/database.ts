@@ -3,6 +3,12 @@ import path from 'path';
 import { dbConfig } from '../config';
 import { serializeCapabilities } from '../lib/communicationCapabilities';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logError = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.error(...args);
+};
+
 // Database setup
 // Read database path from configuration (env: DB_PATH). If the configured path
 // is relative, resolve it against the process working directory so that
@@ -201,7 +207,7 @@ try {
         `);
     }
 } catch (e) {
-    console.error('Ensure conversation_turn_targets table failed', e);
+    logError('Ensure conversation_turn_targets table failed', e);
 }
 
 // Backfill: move generic expected outcomes into first-turn targets
@@ -228,7 +234,7 @@ try {
 		`);
 	}
 } catch (e) {
-	console.error('Backfill from conversations.expected_outcome failed', e);
+	logError('Backfill from conversations.expected_outcome failed', e);
 }
 
 try {
@@ -251,7 +257,7 @@ try {
 		`);
 	}
 } catch (e) {
-	console.error('Backfill from tests.expected_output failed', e);
+	logError('Backfill from tests.expected_output failed', e);
 }
 
 // Migration: add similarity scoring columns to results table if missing
@@ -601,7 +607,7 @@ try {
 		`);
 	}
 } catch (e) {
-	console.error('Post-migration guard failed', e);
+	logError('Post-migration guard failed', e);
 }
 
 // Migration: Add per-turn scoring columns to session_messages (after ensuring base table exists)
@@ -620,7 +626,7 @@ try {
 		db.exec("ALTER TABLE session_messages ADD COLUMN similarity_scoring_metadata TEXT");
 	}
 } catch (e) {
-	console.error('Add scoring columns to session_messages failed', e);
+	logError('Add scoring columns to session_messages failed', e);
 }
 
 // Migration: backfill per-turn similarity fields onto assistant session_messages
@@ -682,7 +688,7 @@ try {
 	});
 	backfillTx();
 } catch (e) {
-	console.error('Backfill similarity from session metadata to session_messages failed', e);
+	logError('Backfill similarity from session metadata to session_messages failed', e);
 }
 
 // ensure jobs.test_id is nullable even if earlier guarded migration didn't run
@@ -739,7 +745,7 @@ try {
 		})();
 	}
 } catch (e) {
-	console.error('Jobs test_id nullable guard failed', e);
+	logError('Jobs test_id nullable guard failed', e);
 }
 
 // Migration: ensure suite_entries.conversation_id has ON DELETE CASCADE
@@ -784,7 +790,7 @@ try {
 	}
 } catch (e) {
 	// Best-effort migration; ignore if PRAGMA not available
-	console.error('Ensure suite_entries cascade migration failed', e);
+	logError('Ensure suite_entries cascade migration failed', e);
 }
 
 function dropLegacyTablesIfSafe() {
@@ -932,7 +938,7 @@ function dropLegacyTablesIfSafe() {
 			throw new Error('Record counts changed during migration');
 		}
 	} catch (error) {
-		console.error('Drop legacy tables migration failed', error);
+		logError('Drop legacy tables migration failed', error);
 	}
 }
 
@@ -972,13 +978,13 @@ try {
 				try {
 					db.exec('PRAGMA foreign_key_check');
 				} catch (e) {
-					console.error('Foreign key check failed', e);
+					logError('Foreign key check failed', e);
 				}
 			}
 		}
 	}
 } catch (e) {
-	console.error('Conversations table rebuild failed', e);
+	logError('Conversations table rebuild failed', e);
 }
 
 // Migration: agent request templates, response maps, and selection/variables columns
@@ -1150,7 +1156,7 @@ try {
 	});
 	backfillTx();
 } catch (e) {
-	console.error('Templates/maps migration failed', e);
+	logError('Templates/maps migration failed', e);
 }
 
 // Migration: Global template library (request_templates, response_maps, junction tables)
@@ -1297,7 +1303,7 @@ try {
 		CREATE INDEX IF NOT EXISTS idx_legacy_template_mappings_global ON legacy_template_mappings(global_id);
 	`);
 } catch (e) {
-	console.error('Global template library migration failed', e);
+	logError('Global template library migration failed', e);
 }
 
 // Migration: Copy existing agent-scoped templates to global tables (idempotent)
@@ -1306,7 +1312,9 @@ try {
 	const legacyMapCount = (db.prepare('SELECT COUNT(*) as count FROM agent_response_maps').get() as { count: number }).count;
 
 	if (legacyTemplateCount > 0 || legacyMapCount > 0) {
-		console.log('Migrating agent-scoped templates to global template library...');
+		if (process.env.NODE_ENV !== 'test') {
+			console.log('Migrating agent-scoped templates to global template library...');
+		}
 
 		const normalizeCapability = (value: string | null) => serializeCapabilities(value);
 
@@ -1494,14 +1502,16 @@ try {
 		});
 		const mapResult = migrateMapsTx();
 
-		console.log(
-			`Migrated ${legacyTemplates.length} legacy request templates into ${templateResult.inserted} new global templates ` +
-			`(${templateResult.reused} reused), and ${legacyMaps.length} legacy response maps into ${mapResult.inserted} new global maps ` +
-			`(${mapResult.reused} reused).`
-		);
+		if (process.env.NODE_ENV !== 'test') {
+			console.log(
+				`Migrated ${legacyTemplates.length} legacy request templates into ${templateResult.inserted} new global templates ` +
+				`(${templateResult.reused} reused), and ${legacyMaps.length} legacy response maps into ${mapResult.inserted} new global maps ` +
+				`(${mapResult.reused} reused).`
+			);
+		}
 	}
 } catch (e) {
-	console.error('Template data migration failed', e);
+	logError('Template data migration failed', e);
 }
 
 // Migration: Backfill conversation template/map IDs to global IDs (idempotent)
@@ -1566,7 +1576,7 @@ try {
 		);
 	`);
 } catch (e) {
-	console.error('Conversation template-id backfill failed', e);
+	logError('Conversation template-id backfill failed', e);
 }
 
 // Create indexes for better performance (only for tables that will remain)
@@ -1610,10 +1620,19 @@ try {
 		db.exec("CREATE INDEX IF NOT EXISTS idx_suite_entries_conversation ON suite_entries(conversation_id)");
 	}
 } catch (e) {
-	console.error('Minimal guard for suite_entries index failed', e);
+	logError('Minimal guard for suite_entries index failed', e);
 }
 
 // Check if we can safely drop legacy tables on every startup
 dropLegacyTablesIfSafe();
+
+// Export cleanup function for tests
+export function closeDatabase(): void {
+	try {
+		db.close();
+	} catch (error) {
+		logError('Error closing database:', error);
+	}
+}
 
 export default db;
