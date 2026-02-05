@@ -14,8 +14,10 @@ app.use(cors());
 
 // Logging middleware
 app.use((req, _res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
+	if (process.env.NODE_ENV !== 'test') {
+		console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+	}
+	next();
 });
 
 // Routes
@@ -23,37 +25,45 @@ app.use('/', routes);
 
 // Default 404 handler
 app.use((_req, res) => {
-  res.status(404).json({ error: 'Not found' });
+	res.status(404).json({ error: 'Not found' });
 });
 
 // Error handler
 app.use((err: any, _req: any, res: any, _next: any) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Server error',
-    message: err.message || 'Unknown error'
-  });
+	if (process.env.NODE_ENV !== 'test') {
+		console.error('Unhandled error:', err);
+	}
+	res.status(500).json({
+		error: 'Server error',
+		message: err.message || 'Unknown error'
+	});
 });
 
 // Start server
 const { port, host } = SERVER_CONFIG;
 app.listen(port, () => {
-  console.log(`API Agent Service running at http://${host}:${port}`);
-  console.log('Press Ctrl+C to stop');
-  
-  // Start job poller
-  jobPoller.startPolling();
+	if (process.env.NODE_ENV !== 'test') {
+		console.log(`API Agent Service running at http://${host}:${port}`);
+		console.log('Press Ctrl+C to stop');
+	}
+
+	// Start job poller
+	jobPoller.startPolling();
 });
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  jobPoller.stopPolling();
-  process.exit(0);
+	if (process.env.NODE_ENV !== 'test') {
+		console.log('SIGTERM received, shutting down gracefully');
+	}
+	jobPoller.stopPolling();
+	process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  jobPoller.stopPolling();
-  process.exit(0);
+	if (process.env.NODE_ENV !== 'test') {
+		console.log('SIGINT received, shutting down gracefully');
+	}
+	jobPoller.stopPolling();
+	process.exit(0);
 });
