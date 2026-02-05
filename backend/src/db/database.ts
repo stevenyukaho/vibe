@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 import { dbConfig } from '../config';
 import { serializeCapabilities } from '../lib/communicationCapabilities';
@@ -20,6 +21,14 @@ const resolvedDbPath = configuredDbPath.startsWith(':memory:')
 	: path.isAbsolute(configuredDbPath)
 		? configuredDbPath
 		: path.resolve(process.cwd(), configuredDbPath);
+
+if (!resolvedDbPath.startsWith(':memory:')) {
+	const dbDirectory = path.dirname(resolvedDbPath);
+	if (dbDirectory && dbDirectory !== '.') {
+		fs.mkdirSync(dbDirectory, { recursive: true });
+	}
+}
+
 const db: Database.Database = new Database(resolvedDbPath);
 
 // Enable foreign keys
