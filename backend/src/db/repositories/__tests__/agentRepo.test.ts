@@ -214,6 +214,30 @@ describe('agentRepo', () => {
 				expect(queryCall).not.toContain('LIMIT');
 				expect(queryCall).not.toContain('OFFSET');
 			});
+
+			it('applies only limit when offset not provided', () => {
+				mockAll.mockReturnValue([]);
+				mockGet.mockReturnValue({ count: 0 });
+
+				agentRepo.getAgentsWithCount({ limit: 5 });
+
+				const queryCall = (mockDb.prepare as any).mock.calls[0][0];
+				expect(queryCall).toContain('LIMIT ?');
+				expect(queryCall).not.toContain('OFFSET');
+				expect(mockAll).toHaveBeenCalledWith(5);
+			});
+
+			it('applies only offset when limit not provided', () => {
+				mockAll.mockReturnValue([]);
+				mockGet.mockReturnValue({ count: 0 });
+
+				agentRepo.getAgentsWithCount({ offset: 10 });
+
+				const queryCall = (mockDb.prepare as any).mock.calls[0][0];
+				expect(queryCall).not.toContain('LIMIT');
+				expect(queryCall).toContain('OFFSET ?');
+				expect(mockAll).toHaveBeenCalledWith(10);
+			});
 		});
 
 		describe('getAgentsCount', () => {
