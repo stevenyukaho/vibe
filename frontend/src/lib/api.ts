@@ -198,7 +198,6 @@ export const api = {
 	async getRequestTemplateCapabilityNames(): Promise<string[]> {
 		const response = await fetch(`${API_URL}/api/templates/capability-names`);
 		if (!response.ok) {
-			console.error('Failed to fetch request template capability names');
 			return [];
 		}
 		return response.json();
@@ -207,7 +206,6 @@ export const api = {
 	async getResponseMapCapabilityNames(): Promise<string[]> {
 		const response = await fetch(`${API_URL}/api/response-maps/capability-names`);
 		if (!response.ok) {
-			console.error('Failed to fetch response map capability names');
 			return [];
 		}
 		return response.json();
