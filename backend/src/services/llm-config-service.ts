@@ -17,6 +17,12 @@ export interface LLMResponse {
 }
 import { getLLMConfigs, getLLMConfigById } from '../db/queries';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logError = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.error(...args);
+};
+
 /**
  * Service for managing LLM configs and making LLM requests
  */
@@ -127,7 +133,7 @@ export class LLMConfigService {
 				config_id: configData.id || 0
 			};
 		} catch (error: any) {
-			console.error('Ollama request failed:', error.message);
+			logError('Ollama request failed:', error.message);
 			throw new Error(`Ollama request failed: ${error.message}`);
 		}
 	}
@@ -169,7 +175,7 @@ export class LLMConfigService {
 				config_id: configData.id || 0
 			};
 		} catch (error: any) {
-			console.error('OpenAI request failed:', error.message);
+			logError('OpenAI request failed:', error.message);
 			throw new Error(`OpenAI request failed: ${error.message}`);
 		}
 	}
@@ -212,7 +218,7 @@ export class LLMConfigService {
 				config_id: configData.id || 0
 			};
 		} catch (error: any) {
-			console.error('Anthropic request failed:', error.message);
+			logError('Anthropic request failed:', error.message);
 			throw new Error(`Anthropic request failed: ${error.message}`);
 		}
 	}
@@ -281,7 +287,7 @@ export class LLMConfigService {
 				config_id: configData.id || 0
 			};
 		} catch (error: any) {
-			console.error('watsonx request failed:', error.message);
+			logError('watsonx request failed:', error.message);
 			throw new Error(`watsonx request failed: ${error.message}`);
 		}
 	}

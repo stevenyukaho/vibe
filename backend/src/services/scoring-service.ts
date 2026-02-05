@@ -4,6 +4,12 @@ import { parseScoringResponse } from '../lib/parseScoringResponse';
 import { updateResult, getAgentById } from '../db/queries';
 import db from '../db/database';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logError = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.error(...args);
+};
+
 /**
  * Generate scoring prompt for similarity evaluation
  */
@@ -98,7 +104,7 @@ function hasExplicitSuccessCriteria(agent: Agent): boolean {
 		const responseMapping = JSON.parse(settings.response_mapping);
 		return !!(responseMapping.success_criteria);
 	} catch (error) {
-		console.error('Error parsing agent settings or response mapping:', error);
+		logError('Error parsing agent settings or response mapping:', error);
 		return false;
 	}
 }
@@ -191,7 +197,7 @@ export class ScoringService {
 				}
 			} catch { }
 
-			console.error(`Scoring failed for result ${result.id}:`, error);
+			logError(`Scoring failed for result ${result.id}:`, error);
 		}
 	}
 }

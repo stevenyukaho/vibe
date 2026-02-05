@@ -1,6 +1,8 @@
 import { getAgentById, getEntriesInSuite } from '../db/queries';
 import { SuiteEntry, Agent } from '@ibm-vibe/types';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+
 /**
  * Interface for suite processing results
  */
@@ -35,7 +37,10 @@ export class SuiteProcessingService {
 	): number {
 		// Prevent infinite recursion by checking if we've already visited this suite
 		if (visited.has(parentSuiteId)) {
-			console.warn(`[Suite Count] Circular reference detected: Suite ${parentSuiteId} references itself. Skipping to prevent infinite recursion.`);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.warn(`[Suite Count] Circular reference detected: Suite ${parentSuiteId} references itself. Skipping to prevent infinite recursion.`);
+			}
 			return 0;
 		}
 		visited.add(parentSuiteId);
@@ -114,12 +119,15 @@ export class SuiteProcessingService {
         const validation = this.validateAgent(agentId, `for test ${contextRef}`);
 
 		// Log warnings and errors
-		validation.warnings.forEach(warning =>
-			console.warn(`[Nested Suite]   WARNING: ${warning}`)
-		);
-		validation.errors.forEach(error =>
-			console.error(`[Nested Suite]   ERROR: ${error}`)
-		);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			validation.warnings.forEach(warning =>
+				console.warn(`[Nested Suite]   WARNING: ${warning}`)
+			);
+			validation.errors.forEach(error =>
+				console.error(`[Nested Suite]   ERROR: ${error}`)
+			);
+		}
 
 		// Still return the result even if there are validation issues
 		// The job system will handle the failures appropriately
@@ -148,12 +156,15 @@ export class SuiteProcessingService {
 			const validation = this.validateAgent(childAgentId, `for child suite ${entry.child_suite_id}`);
 
 			// Log warnings and errors
-			validation.warnings.forEach(warning =>
-				console.warn(`[Nested Suite]   WARNING: Child suite agent ${warning}`)
-			);
-			validation.errors.forEach(error =>
-				console.error(`[Nested Suite]   ERROR: Child suite agent override ${error}`)
-			);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				validation.warnings.forEach(warning =>
+					console.warn(`[Nested Suite]   WARNING: Child suite agent ${warning}`)
+				);
+				validation.errors.forEach(error =>
+					console.error(`[Nested Suite]   ERROR: Child suite agent override ${error}`)
+				);
+			}
 		}
 
 		// Create a copy of visited set for this branch to track path
@@ -173,7 +184,10 @@ export class SuiteProcessingService {
 	): SuiteProcessingResult[] {
 		// Prevent infinite recursion by checking if we've already visited this suite
 		if (visited.has(parentSuiteId)) {
-			console.warn(`[Nested Suite] Circular reference detected: Suite ${parentSuiteId} references itself. Skipping to prevent infinite recursion.`);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.warn(`[Nested Suite] Circular reference detected: Suite ${parentSuiteId} references itself. Skipping to prevent infinite recursion.`);
+			}
 			return [];
 		}
 
@@ -186,9 +200,15 @@ export class SuiteProcessingService {
 		// Validate the default agent exists
 		const defaultAgentValidation = this.validateAgent(defaultAgentId, 'as default agent');
 		if (!defaultAgentValidation.isValid) {
-			console.error(`[Nested Suite] Default agent ${defaultAgentId} not found!`);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.error(`[Nested Suite] Default agent ${defaultAgentId} not found!`);
+			}
 		} else if (defaultAgentValidation.warnings.length > 0) {
-			console.warn(`[Nested Suite] Default agent ${defaultAgentId} has invalid settings JSON: ${defaultAgentValidation.agent?.settings}`);
+			/* istanbul ignore next */
+			if (shouldLog) {
+				console.warn(`[Nested Suite] Default agent ${defaultAgentId} has invalid settings JSON: ${defaultAgentValidation.agent?.settings}`);
+			}
 		}
 
 		const result: SuiteProcessingResult[] = [];
@@ -207,7 +227,10 @@ export class SuiteProcessingService {
 				result.push(...childResults);
 			} else {
 				// Invalid entry
-				console.warn(`[Nested Suite]   WARNING: Entry ${entry.id} has neither test_id nor child_suite_id - this is invalid`);
+				/* istanbul ignore next */
+				if (shouldLog) {
+					console.warn(`[Nested Suite]   WARNING: Entry ${entry.id} has neither test_id nor child_suite_id - this is invalid`);
+				}
 			}
 		}
 
