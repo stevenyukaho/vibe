@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { agentServiceConfig } from '../config';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logError = (...args: unknown[]) => {
+    /* istanbul ignore next */
+    if (shouldLog) console.error(...args);
+};
+
 /**
  * Service for communicating with the CrewAI agent service
  */
@@ -21,7 +27,7 @@ export class AgentService {
             });
             return response.status === 200;
         } catch (error) {
-            console.error('Agent service health check failed:', error);
+            logError('Agent service health check failed:', error);
             return false;
         }
     }
@@ -42,11 +48,11 @@ export class AgentService {
 
             return response.data;
         } catch (error: any) {
-            console.error('Error executing test via agent service:', error);
+            logError('Error executing test via agent service:', error);
             throw new Error(`Agent service execution failed: ${error.message}`);
         }
     }
 }
 
 // Export singleton instance
-export const agentService = new AgentService(); 
+export const agentService = new AgentService();
