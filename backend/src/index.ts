@@ -20,6 +20,7 @@ import { serverConfig } from './config';
 
 const app = express();
 const port = serverConfig.port;
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Middleware
 app.use(cors());
@@ -50,11 +51,17 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // Basic error handling middleware
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-	console.error(err.stack);
+	/* istanbul ignore next */
+	if (shouldLog) {
+		console.error(err.stack);
+	}
 	res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // Start the server
 app.listen(port, () => {
-	console.log(`Server is running on port ${port}`);
+	/* istanbul ignore next */
+	if (shouldLog) {
+		console.log(`Server is running on port ${port}`);
+	}
 });
