@@ -14,6 +14,11 @@ import { hasPaginationParams, validatePaginationOrError } from '../utils/paginat
 import { serializeCapabilities } from '../lib/communicationCapabilities';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logError = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.error(...args);
+};
 
 const getCapabilityUpdate = (payload: Record<string, unknown>): string | null | undefined => {
 	if (Object.prototype.hasOwnProperty.call(payload, 'capabilities')) {
@@ -81,7 +86,7 @@ router.get('/', (async (req: Request, res: Response) => {
 		const agents = await getAgents();
 		return res.json(agents);
 	} catch (error) {
-		console.error('Error fetching agents:', error);
+		logError('Error fetching agents:', error);
 		return res.status(500).json({ error: 'Failed to fetch agents' });
 	}
 }) as any);
@@ -95,7 +100,7 @@ router.get<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res: Re
 		}
 		return res.json(agent);
 	} catch (error) {
-		console.error('Error fetching agent:', error);
+		logError('Error fetching agent:', error);
 		return res.status(500).json({ error: 'Failed to fetch agent' });
 	}
 }) as any);
@@ -128,7 +133,7 @@ router.post<{}, {}, Omit<Agent, 'id' | 'created_at'>>('/', (async (req: Request<
 		const agent = await createAgent(req.body);
 		return res.status(201).json(agent);
 	} catch (error) {
-		console.error('Error creating agent:', error);
+		logError('Error creating agent:', error);
 		return res.status(500).json({
 			error: 'Failed to create agent',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -164,7 +169,7 @@ router.put<{ id: string }, {}, Partial<Agent>>('/:id', (async (req: Request<{ id
 		const updatedAgent = await updateAgent(id, req.body);
 		return res.json(updatedAgent);
 	} catch (error) {
-		console.error('Error updating agent:', error);
+		logError('Error updating agent:', error);
 		return res.status(500).json({
 			error: 'Failed to update agent',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -186,7 +191,7 @@ router.delete<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res:
 		await deleteAgent(id);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error deleting agent:', error);
+		logError('Error deleting agent:', error);
 		return res.status(500).json({
 			error: 'Failed to delete agent',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -200,7 +205,7 @@ router.get('/capability-names/request-templates', ((_req: Request, res: Response
 		const names = templateRepo.listRequestTemplateCapabilityNames();
 		return res.json(names);
 	} catch (error) {
-		console.error('Error listing request template capability names:', error);
+		logError('Error listing request template capability names:', error);
 		return res.status(500).json({ error: 'Failed to list capability names' });
 	}
 }) as any);
@@ -210,7 +215,7 @@ router.get('/capability-names/response-maps', ((_req: Request, res: Response) =>
 		const names = templateRepo.listResponseMapCapabilityNames();
 		return res.json(names);
 	} catch (error) {
-		console.error('Error listing response map capability names:', error);
+		logError('Error listing response map capability names:', error);
 		return res.status(500).json({ error: 'Failed to list capability names' });
 	}
 }) as any);
@@ -222,7 +227,7 @@ router.get<{ id: string }>('/:id/request-templates', ((req: Request<{ id: string
 		const templates = templateRepo.getAgentTemplates(agentId);
 		return res.json(templates.map(template => toLegacyRequestTemplate(agentId, template, template.is_default)));
 	} catch (error) {
-		console.error('Error listing request templates:', error);
+		logError('Error listing request templates:', error);
 		return res.status(500).json({ error: 'Failed to list request templates' });
 	}
 }) as any);
@@ -264,7 +269,7 @@ router.post<{ id: string }, {}, Omit<AgentRequestTemplate, 'id' | 'agent_id' | '
 
 		return res.status(201).json(response);
 	} catch (error) {
-		console.error('Error creating request template:', error);
+		logError('Error creating request template:', error);
 		return res.status(500).json({ error: 'Failed to create request template' });
 	}
 }) as any);
@@ -332,7 +337,7 @@ router.patch<{ id: string; templateId: string }, {}, Partial<Omit<AgentRequestTe
 		const updatedLink = templateRepo.getAgentTemplateLink(agentId, tplId);
 		return res.json(toLegacyRequestTemplate(agentId, updated, updatedLink?.is_default));
 	} catch (error) {
-		console.error('Error updating request template:', error);
+		logError('Error updating request template:', error);
 		return res.status(500).json({ error: 'Failed to update request template' });
 	}
 }) as any);
@@ -349,7 +354,7 @@ router.delete<{ id: string; templateId: string }>('/:id/request-templates/:templ
 
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error deleting request template:', error);
+		logError('Error deleting request template:', error);
 		return res.status(500).json({ error: 'Failed to delete request template' });
 	}
 }) as any);
@@ -366,7 +371,7 @@ router.post<{ id: string; templateId: string }>('/:id/request-templates/:templat
 
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error setting default request template:', error);
+		logError('Error setting default request template:', error);
 		return res.status(500).json({ error: 'Failed to set default request template' });
 	}
 }) as any);
@@ -378,7 +383,7 @@ router.get<{ id: string }>('/:id/response-maps', ((req: Request<{ id: string }>,
 		const maps = templateRepo.getAgentResponseMaps(agentId);
 		return res.json(maps.map(map => toLegacyResponseMap(agentId, map, map.is_default)));
 	} catch (error) {
-		console.error('Error listing response maps:', error);
+		logError('Error listing response maps:', error);
 		return res.status(500).json({ error: 'Failed to list response maps' });
 	}
 }) as any);
@@ -420,7 +425,7 @@ router.post<{ id: string }, {}, Omit<AgentResponseMap, 'id' | 'agent_id' | 'crea
 
 		return res.status(201).json(response);
 	} catch (error) {
-		console.error('Error creating response map:', error);
+		logError('Error creating response map:', error);
 		return res.status(500).json({ error: 'Failed to create response map' });
 	}
 }) as any);
@@ -488,7 +493,7 @@ router.patch<{ id: string; mapId: string }, {}, Partial<Omit<AgentResponseMap, '
 		const updatedLink = templateRepo.getAgentResponseMapLink(agentId, mapId);
 		return res.json(toLegacyResponseMap(agentId, updated, updatedLink?.is_default));
 	} catch (error) {
-		console.error('Error updating response map:', error);
+		logError('Error updating response map:', error);
 		return res.status(500).json({ error: 'Failed to update response map' });
 	}
 }) as any);
@@ -505,7 +510,7 @@ router.delete<{ id: string; mapId: string }>('/:id/response-maps/:mapId', ((req:
 
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error deleting response map:', error);
+		logError('Error deleting response map:', error);
 		return res.status(500).json({ error: 'Failed to delete response map' });
 	}
 }) as any);
@@ -522,7 +527,7 @@ router.post<{ id: string; mapId: string }>('/:id/response-maps/:mapId/default', 
 
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error setting default response map:', error);
+		logError('Error setting default response map:', error);
 		return res.status(500).json({ error: 'Failed to set default response map' });
 	}
 }) as any);
@@ -545,7 +550,7 @@ router.get<{ id: string }>('/:id/linked-templates', ((req: Request<{ id: string 
 		}
 		return res.json(templateRepo.getAgentTemplates(agentId));
 	} catch (error) {
-		console.error('Error listing linked templates:', error);
+		logError('Error listing linked templates:', error);
 		return res.status(500).json({ error: 'Failed to list linked templates' });
 	}
 }) as any);
@@ -586,7 +591,7 @@ router.post<{ id: string }>('/:id/linked-templates', ((req: Request<{ id: string
 
 		return res.status(201).json(templateToLink);
 	} catch (error: any) {
-		console.error('Error linking template:', error);
+		logError('Error linking template:', error);
 		if (error.message?.includes('UNIQUE constraint failed')) {
 			return res.status(409).json({ error: 'A template with this name already exists' });
 		}
@@ -606,7 +611,7 @@ router.delete<{ id: string; templateId: string }>('/:id/linked-templates/:templa
 		templateRepo.unlinkTemplateFromAgent(agentId, templateId);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error unlinking template:', error);
+		logError('Error unlinking template:', error);
 		return res.status(500).json({ error: 'Failed to unlink template' });
 	}
 }) as any);
@@ -623,7 +628,7 @@ router.post<{ id: string; templateId: string }>('/:id/linked-templates/:template
 		templateRepo.setAgentDefaultTemplate(agentId, templateId);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error setting default template:', error);
+		logError('Error setting default template:', error);
 		return res.status(500).json({ error: 'Failed to set default template' });
 	}
 }) as any);
@@ -641,7 +646,7 @@ router.get<{ id: string }>('/:id/linked-response-maps', ((req: Request<{ id: str
 		}
 		return res.json(templateRepo.getAgentResponseMaps(agentId));
 	} catch (error) {
-		console.error('Error listing linked response maps:', error);
+		logError('Error listing linked response maps:', error);
 		return res.status(500).json({ error: 'Failed to list linked response maps' });
 	}
 }) as any);
@@ -682,7 +687,7 @@ router.post<{ id: string }>('/:id/linked-response-maps', ((req: Request<{ id: st
 
 		return res.status(201).json(mapToLink);
 	} catch (error: any) {
-		console.error('Error linking response map:', error);
+		logError('Error linking response map:', error);
 		if (error.message?.includes('UNIQUE constraint failed')) {
 			return res.status(409).json({ error: 'A response map with this name already exists' });
 		}
@@ -702,7 +707,7 @@ router.delete<{ id: string; mapId: string }>('/:id/linked-response-maps/:mapId',
 		templateRepo.unlinkResponseMapFromAgent(agentId, mapId);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error unlinking response map:', error);
+		logError('Error unlinking response map:', error);
 		return res.status(500).json({ error: 'Failed to unlink response map' });
 	}
 }) as any);
@@ -719,7 +724,7 @@ router.post<{ id: string; mapId: string }>('/:id/linked-response-maps/:mapId/def
 		templateRepo.setAgentDefaultResponseMap(agentId, mapId);
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error setting default response map:', error);
+		logError('Error setting default response map:', error);
 		return res.status(500).json({ error: 'Failed to set default response map' });
 	}
 }) as any);
