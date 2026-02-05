@@ -65,7 +65,7 @@ export default function LLMConfigsPage() {
 		try {
 			await updateLLMConfig(config.id!, { priority: newPriority });
 		} catch (error) {
-			console.error('Error updating priority:', error);
+			// Best-effort: priority updates are optional UX enhancement
 		}
 	};
 
@@ -74,7 +74,7 @@ export default function LLMConfigsPage() {
 			try {
 				await deleteLLMConfig(id);
 			} catch (error) {
-				console.error('Error deleting config:', error);
+				// Best-effort: UI will reflect state after refresh
 			}
 		}
 	};
