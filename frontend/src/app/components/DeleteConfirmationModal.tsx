@@ -41,7 +41,6 @@ export default function DeleteConfirmationModal({
 			onSuccess();
 			onClose();
 		} catch (error) {
-			console.error(`Error deleting ${deleteType}:`, error);
 			setError(error instanceof Error ? error.message : `Failed to delete ${deleteType}`);
 		} finally {
 			setDeleting(false);

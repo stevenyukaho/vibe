@@ -96,7 +96,9 @@ export default function ResultViewModal({
 		setIsEditTestModalOpen(false);
 		// Refresh the test data after successful edit
 		if (result?.test_id) {
-			api.getTestById(result.test_id).then(setTestData).catch(console.error);
+			api.getTestById(result.test_id)
+				.then(setTestData)
+				.catch(() => setTestError('Failed to load test data'));
 		}
 		// Refresh the tests in the context for other components
 		fetchTests();

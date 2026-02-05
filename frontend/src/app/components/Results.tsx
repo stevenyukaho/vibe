@@ -40,7 +40,8 @@ export default function Results({
 			setResults(response.data);
 			setTotalItems(response.total);
 		} catch (err: unknown) {
-			console.error('Failed to fetch results:', err);
+			setResults([]);
+			setTotalItems(0);
 		}
 	};
 
