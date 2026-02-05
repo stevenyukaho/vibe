@@ -7,7 +7,19 @@ First, ensure you have installed dependencies in the root of the repository to l
 npm install
 ```
 
-Then, run the development server:
+### Environment Configuration
+
+The frontend uses Next.js environment variable handling. Copy `.env.example` to `.env.local` and adjust as needed:
+
+```bash
+cp .env.example .env.local
+```
+
+Next.js automatically loads `.env.local` files. The frontend expects:
+- `NEXT_PUBLIC_API_URL` - API base URL for backend requests (default: `http://localhost:5000`)
+- `NEXT_PUBLIC_INSTANCE_NAME` - Optional instance name for multi-instance deployments
+
+### Running the Development Server
 
 ```bash
 npm run dev
