@@ -1,5 +1,192 @@
+import {
+	conversationToLegacyTest,
+	legacyTestToConversation,
+	sessionToLegacyResult,
+	legacyResultToSession,
+	isSingleTurnConversation,
+	getLegacyTestId,
+	getLegacyResultId
+} from '../legacy-adapter';
 import type { ExecutionSession, SessionMessage, TestResult } from '@ibm-vibe/types';
-import { legacyResultToSession, sessionToLegacyResult } from '../legacy-adapter';
+import db from '../../db/database';
+
+jest.mock('../../db/database', () => ({
+	prepare: jest.fn()
+}));
+
+const mockedDb = db as jest.Mocked<typeof db>;
+
+describe('legacy-adapter', () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+	});
+
+	it('converts conversation to legacy test with expected output', () => {
+		mockedDb.prepare.mockReturnValue({
+			get: jest.fn().mockReturnValue({ target_reply: 'Expected' })
+		} as any);
+
+		const result = conversationToLegacyTest(
+			{ id: 5, name: 'Conv', description: 'desc', created_at: '2024', updated_at: '2024' } as any,
+			[
+				{ role: 'system', content: 'sys' },
+				{ role: 'user', content: 'hello' },
+				{ role: 'user', content: 'later' }
+			] as any
+		);
+
+		expect(result.input).toBe('hello');
+		expect(result.expected_output).toBe('Expected');
+	});
+
+	it('handles db errors when resolving expected output', () => {
+		mockedDb.prepare.mockImplementation(() => {
+			throw new Error('db fail');
+		});
+
+		const result = conversationToLegacyTest(
+			{ id: 6, name: 'Conv', description: 'desc' } as any,
+			[{ role: 'user', content: 'hi' }] as any
+		);
+
+		expect(result.expected_output).toBeUndefined();
+	});
+
+	it('uses empty input when no user messages exist', () => {
+		mockedDb.prepare.mockReturnValue({
+			get: jest.fn().mockReturnValue({ target_reply: 'Expected' })
+		} as any);
+
+		const result = conversationToLegacyTest(
+			{ id: 7, name: 'Conv', description: 'desc' } as any,
+			[{ role: 'system', content: 'sys' }] as any
+		);
+
+		expect(result.input).toBe('');
+		expect(result.expected_output).toBe('Expected');
+	});
+
+	it('converts legacy test to conversation', () => {
+		const converted = legacyTestToConversation({
+			name: 'Test',
+			description: 'desc',
+			input: 'hello'
+		});
+
+		expect(converted.conversation).toEqual({ name: 'Test', description: 'desc' });
+		expect(converted.messages).toEqual([
+			{ sequence: 1, role: 'user', content: 'hello' }
+		]);
+	});
+
+	it('converts session to legacy result with metadata and similarity', () => {
+		const session = {
+			id: 1,
+			agent_id: 2,
+			conversation_id: 3,
+			success: true,
+			metadata: JSON.stringify({
+				input_tokens: 5,
+				output_tokens: 7,
+				intermediate_steps: [{ action: 'step' }]
+			}),
+			started_at: '2024-01-01T00:00:00Z',
+			completed_at: '2024-01-01T00:00:02Z'
+		};
+		const messages = [
+			{
+				role: 'assistant',
+				content: 'Done',
+				sequence: 2,
+				similarity_score: 0.9,
+				similarity_scoring_status: 'completed',
+				similarity_scoring_error: null,
+				similarity_scoring_metadata: '{"a":1}'
+			}
+		];
+
+		const result = sessionToLegacyResult(session as any, messages as any);
+
+		expect(result.output).toBe('Done');
+		expect(result.intermediate_steps).toBe(JSON.stringify([{ action: 'step' }]));
+		expect(result.similarity_score).toBe(0.9);
+		expect(result.similarity_scoring_status).toBe('completed');
+		expect(result.execution_time).toBe(2000);
+		expect(result.input_tokens).toBe(5);
+		expect(result.output_tokens).toBe(7);
+	});
+
+	it('handles invalid metadata in session results', () => {
+		const session = {
+			id: 2,
+			agent_id: 3,
+			conversation_id: 4,
+			success: false,
+			metadata: '{invalid',
+			started_at: '2024-01-01T00:00:00Z',
+			completed_at: '2024-01-01T00:00:01Z'
+		};
+
+		const result = sessionToLegacyResult(session as any, [{ role: 'assistant', content: 'x' }] as any);
+
+		expect(result.output).toBe('x');
+		expect(result.intermediate_steps).toBe('');
+		expect(result.input_tokens).toBeUndefined();
+	});
+
+	it('defaults success to false and preserves string intermediate steps', () => {
+		const session = {
+			id: 3,
+			agent_id: 4,
+			conversation_id: 5,
+			metadata: JSON.stringify({
+				intermediate_steps: 'step one'
+			})
+		};
+
+		const result = sessionToLegacyResult(session as any, []);
+
+		expect(result.success).toBe(false);
+		expect(result.intermediate_steps).toBe('step one');
+	});
+
+	it('converts legacy result to session', () => {
+		const { session, messages } = legacyResultToSession(
+			{
+				agent_id: 7,
+				test_id: 9,
+				output: 'result',
+				intermediate_steps: '[]',
+				success: true,
+				similarity_score: 1,
+				input_tokens: 2,
+				output_tokens: 3
+			},
+			'input'
+		);
+
+		expect(session.agent_id).toBe(7);
+		expect(session.conversation_id).toBe(9);
+		expect(session.status).toBe('completed');
+		expect(messages).toHaveLength(2);
+		expect(messages[0].content).toBe('input');
+		expect(messages[1].content).toBe('result');
+	});
+
+	it('detects single-turn conversations', () => {
+		expect(isSingleTurnConversation({} as any)).toBe(false);
+		expect(isSingleTurnConversation({} as any, [{ role: 'user', content: 'hi' }] as any)).toBe(true);
+		expect(isSingleTurnConversation({} as any, [
+			{ role: 'user', content: 'hi' },
+			{ role: 'user', content: 'again' }
+		] as any)).toBe(false);
+	});
+
+	it('uses ids as legacy identifiers', () => {
+		expect(getLegacyTestId({ id: 5 } as any)).toBe(5);
+		expect(getLegacyResultId({ id: 7 } as any)).toBe(7);
+	});
+});
 
 describe('legacy adapter', () => {
 	it('converts execution sessions into legacy results with assistant similarity data', () => {
