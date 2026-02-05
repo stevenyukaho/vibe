@@ -8,3 +8,7 @@
 dist/
 **/dist/
 tsconfig.tsbuildinfo
+
+# Coverage artifacts
+coverage/
+.nyc_output/
