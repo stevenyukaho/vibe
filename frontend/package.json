@@ -9,9 +9,9 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "typecheck": "tsc --noEmit",
-    "test": "jest --config jest.config.mjs",
-    "test:watch": "jest --config jest.config.mjs --watch",
-    "test:coverage": "jest --config jest.config.mjs --coverage"
+    "test": "NODE_OPTIONS=--no-deprecation jest --config jest.config.mjs",
+    "test:watch": "NODE_OPTIONS=--no-deprecation jest --config jest.config.mjs --watch",
+    "test:coverage": "NODE_OPTIONS=--no-deprecation jest --config jest.config.mjs --coverage"
   },
   "dependencies": {
     "@carbon/charts-react": "^1.27.0",
