@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { getAgentsCount, getSingleTurnTestsCount } from '../db/queries';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 /**
  * GET /api/stats
@@ -15,7 +16,10 @@ router.get('/', (async (_req: Request, res: Response) => {
 
 		return res.json({ agents_total, tests_total });
 	} catch (error) {
-		console.error('Error fetching stats:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching stats:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch stats' });
 	}
 }) as any);
