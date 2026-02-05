@@ -1,6 +1,16 @@
 import db from '../database';
 import { Test, TestResult } from '@ibm-vibe/types';
 
+const shouldLog = process.env.NODE_ENV !== 'test';
+const logWarn = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.warn(...args);
+};
+const logError = (...args: unknown[]) => {
+	/* istanbul ignore next */
+	if (shouldLog) console.error(...args);
+};
+
 // Test queries
 export const createTest = (test: Test) => {
 	// Ensure description has a default value if not provided
@@ -167,7 +177,7 @@ export const createResult = (result: TestResult) => {
 			try {
 				tokenMappingMetadata = JSON.stringify(result.token_mapping_metadata);
 			} catch (e) {
-				console.warn('Invalid token_mapping_metadata: must be a string or JSON-serializable');
+				logWarn('Invalid token_mapping_metadata: must be a string or JSON-serializable');
 			}
 		}
 	}
@@ -226,8 +236,8 @@ export const createResult = (result: TestResult) => {
 			created_at: dbResult.created_at
 		};
 	} catch (error) {
-		console.error('Failed to insert result:', error);
-		console.error('Attempted to insert:', cleanResult);
+		logError('Failed to insert result:', error);
+		logError('Attempted to insert:', cleanResult);
 		throw new Error(`Failed to insert result: ${error instanceof Error ? error.message : 'Unknown error'}`);
 	}
 };
