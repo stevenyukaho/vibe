@@ -64,7 +64,8 @@ export default function TemplateFormModal({
 					: await api.getResponseMapCapabilityNames();
 				setCapabilityNames(names);
 			} catch (err) {
-				console.error('Failed to load capability names:', err);
+				// Best-effort: capability autocomplete is optional
+				setCapabilityNames([]);
 			}
 		};
 		if (isOpen) {
@@ -160,7 +161,6 @@ export default function TemplateFormModal({
 			onSave(savedTemplate);
 			onClose();
 		} catch (err) {
-			console.error('Error saving template:', err);
 			setError(err instanceof Error ? err.message : 'Failed to save template');
 		} finally {
 			setLoading(false);
