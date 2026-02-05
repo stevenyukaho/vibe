@@ -13,6 +13,7 @@ import type { ExecutionSession } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Get all execution sessions
 router.get('/', (async (req: Request, res: Response) => {
@@ -45,7 +46,10 @@ router.get('/', (async (req: Request, res: Response) => {
 		const sessions = await getExecutionSessions(baseFilters);
 		return res.json(sessions);
 	} catch (error) {
-		console.error('Error fetching execution sessions:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching execution sessions:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch execution sessions' });
 	}
 }) as any);
@@ -62,7 +66,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		return res.json(session);
 	} catch (error) {
-		console.error('Error fetching execution session:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching execution session:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch execution session' });
 	}
 }) as any);
@@ -81,7 +88,10 @@ router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response)
 		const messages = await getSessionMessages(sessionId);
 		return res.json(messages);
 	} catch (error) {
-		console.error('Error fetching session messages:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching session messages:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch session messages' });
 	}
 }) as any);
@@ -99,7 +109,10 @@ router.get('/:id/transcript', (async (req: Request<{ id: string }>, res: Respons
 
 		return res.json(transcript);
 	} catch (error) {
-		console.error('Error fetching session transcript:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching session transcript:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch session transcript' });
 	}
 }) as any);
@@ -118,7 +131,10 @@ router.put('/:id', (async (req: Request<{ id: string }, {}, Partial<ExecutionSes
 		const updatedSession = await updateExecutionSession(sessionId, req.body);
 		return res.json(updatedSession);
 	} catch (error) {
-		console.error('Error updating execution session:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error updating execution session:', error);
+		}
 		return res.status(500).json({ error: 'Failed to update execution session' });
 	}
 }) as any);
@@ -182,7 +198,10 @@ router.post('/', (async (req: Request<{}, {}, Partial<ExecutionSession>>, res: R
 		const session = await createExecutionSession(payload as ExecutionSession);
 		return res.status(201).json(session);
 	} catch (error) {
-		console.error('Error creating execution session:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error creating execution session:', error);
+		}
 		return res.status(500).json({ error: 'Failed to create execution session' });
 	}
 }) as any);
@@ -208,7 +227,10 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		return res.status(204).send();
 	} catch (error) {
-		console.error('Error cancelling execution session:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error cancelling execution session:', error);
+		}
 		return res.status(500).json({
 			error: 'Failed to cancel execution session',
 			details: error instanceof Error ? error.message : 'Unknown error'
