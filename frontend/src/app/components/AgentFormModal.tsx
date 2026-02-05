@@ -121,7 +121,9 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 								: ''
 					})));
 				} catch (err) {
-					console.error('Failed to load templates/maps:', err);
+					// Best-effort: templates/maps are optional for editing UI
+					setRequestTemplates([]);
+					setResponseMaps([]);
 				}
 			};
 			loadTemplatesAndMaps();
@@ -172,7 +174,6 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 					settings = JSON.parse(formData['agent-settings']);
 				}
 			} catch (error) {
-				console.error('Error parsing agent settings:', error);
 				setError('Invalid JSON in settings field');
 				setIsSaving(false);
 				return;
@@ -194,7 +195,6 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 				try {
 					new URL(formData['agent-api-endpoint']);
 				} catch (error) {
-					console.error('Invalid URL format:', error);
 					setError('Invalid API Endpoint URL format');
 					setIsSaving(false);
 					return;
@@ -212,8 +212,9 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 							delete settings['headers'];
 						}
 					} catch (error) {
-						console.error('Error parsing headers:', error);
-						// If invalid JSON, don't add headers
+						setError('Invalid headers JSON');
+						setIsSaving(false);
+						return;
 					}
 				}
 			}
@@ -308,7 +309,6 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 								token_mapping: formData['agent-token-mapping']
 							};
 						} catch (error) {
-							console.error('Invalid token mapping JSON:', error);
 							setError('Invalid JSON in token mapping');
 							setIsSaving(false);
 							return;
@@ -330,8 +330,9 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 							delete settings['headers'];
 						}
 					} catch (error) {
-						console.error('Error parsing headers:', error);
-						// If invalid JSON, don't add headers
+						setError('Invalid headers JSON');
+						setIsSaving(false);
+						return;
 					}
 				}
 			}
@@ -361,7 +362,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 				const activeMaps = responseMaps.filter(m => !m._isDeleted);
 
 				if (activeTemplates.length === 0 || activeMaps.length === 0) {
-					console.warn('External API agent saved without templates/maps - will need them before execution');
+					// Best-effort: allow saving, but execution will require templates/maps
 				}
 
 				// Process templates
@@ -455,7 +456,6 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 			onSuccess();
 			onClose();
 		} catch (error) {
-			console.error('Error saving agent:', error);
 			setError(error instanceof Error ? error.message : 'An unknown error occurred');
 		} finally {
 			setIsSaving(false);
@@ -482,7 +482,6 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 			try {
 				new URL(formData['agent-api-endpoint']);
 			} catch (error) {
-				console.error('Invalid URL format:', error);
 				setTestConnectionStatus({
 					loading: false,
 					success: false,
@@ -507,8 +506,12 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 					const customHeaders = JSON.parse(formData['agent-headers']);
 					headers = { ...headers, ...customHeaders };
 				} catch (error) {
-					console.error('Invalid headers JSON:', error);
-					// Invalid JSON, ignore
+					setTestConnectionStatus({
+						loading: false,
+						success: false,
+						message: 'Invalid headers JSON'
+					});
+					return;
 				}
 			}
 
@@ -536,7 +539,6 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 				});
 			}
 		} catch (error) {
-			console.error('Connection error:', error);
 			setTestConnectionStatus({
 				loading: false,
 				success: false,
