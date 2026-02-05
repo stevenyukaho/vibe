@@ -47,7 +47,7 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 	useEffect(() => {
 		api.getTestSuites()
 			.then(setTestSuites)
-			.catch(err => console.error('Error fetching test suites', err));
+			.catch(() => setTestSuites([]));
 	}, []);
 
 	const handleGenerate = async () => {
@@ -62,7 +62,6 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 			const items = parseLLMVariations(res.text);
 			setGenerated(items.map(text => ({ text, selected: true })));
 		} catch (e: unknown) {
-			console.error(e);
 			const msg = e instanceof Error ? e.message : String(e);
 			setError(msg);
 		} finally {
@@ -90,7 +89,6 @@ export default function GenerateTestsPage({ searchParams }: GenerateTestsPagePro
 			await fetchAllData();
 			router.push('/tests');
 		} catch (e: unknown) {
-			console.error(e);
 			const msg = e instanceof Error ? e.message : String(e);
 			setError(msg);
 		} finally {
