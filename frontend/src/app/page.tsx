@@ -51,7 +51,10 @@ export default function Home() {
 				setResults(resultsData.data as ResultWithStatus[]);
 				setStats(statsData);
 			} catch (error) {
-				console.error('Error fetching dashboard data:', error);
+				setSuiteRuns([]);
+				setJobs([]);
+				setResults([]);
+				setStats(null);
 			} finally {
 				setLoading(false);
 			}
