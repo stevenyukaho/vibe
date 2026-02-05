@@ -7,6 +7,7 @@ import { hasPaginationParams, validatePaginationOrError } from '../utils/paginat
 import { JobStatus } from '@ibm-vibe/types';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 /**
  * Utility function to recalculate and enrich suite run data with accurate progress and execution time
@@ -78,7 +79,10 @@ async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
 			suiteRun.avg_similarity_score = undefined;
 		}
 	} catch (err) {
-		console.error('Failed to compute average similarity score for suite run', suiteRun.id, err);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Failed to compute average similarity score for suite run', suiteRun.id, err);
+		}
 	}
 
 	return suiteRun;
@@ -149,7 +153,10 @@ router.get('/', (async (req: Request, res: Response) => {
 			offset: 0
 		});
 	} catch (error) {
-		console.error('Error fetching suite runs:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error fetching suite runs:', error);
+		}
 		return res.status(500).json({ error: 'Failed to fetch suite runs' });
 	}
 }) as any);
@@ -175,7 +182,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		return res.json(enrichedSuiteRun);
 	} catch (error) {
-		console.error(`Error getting suite run ${req.params.id}:`, error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error(`Error getting suite run ${req.params.id}:`, error);
+		}
 		return res.status(500).json({
 			error: 'Failed to get suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -203,7 +213,10 @@ router.get('/:id/jobs', (async (req: Request<{ id: string }>, res: Response) => 
 		const jobs = await getJobsBySuiteRunId(id);
 		return res.json(jobs);
 	} catch (error) {
-		console.error(`Error getting jobs for suite run ${req.params.id}:`, error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error(`Error getting jobs for suite run ${req.params.id}:`, error);
+		}
 		return res.status(500).json({
 			error: 'Failed to get jobs for suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -233,7 +246,10 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		return res.status(204).send();
 	} catch (error) {
-		console.error(`Error deleting suite run ${req.params.id}:`, error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error(`Error deleting suite run ${req.params.id}:`, error);
+		}
 		return res.status(500).json({
 			error: 'Failed to delete suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
