@@ -9,9 +9,9 @@
     "build": "tsc -b",
     "typecheck": "tsc -b",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test": "../node_modules/.bin/jest --config jest.config.js --runInBand",
+    "test:watch": "../node_modules/.bin/jest --config jest.config.js --watch",
+    "test:coverage": "../node_modules/.bin/jest --config jest.config.js --coverage --runInBand"
   },
   "keywords": [],
   "author": "",
