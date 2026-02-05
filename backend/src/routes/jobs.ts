@@ -18,6 +18,7 @@ import {
 } from '../adapters/legacy-adapter';
 
 const router = Router();
+const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Define fields that can be updated by users/services
 const UPDATABLE_JOB_FIELDS = ['status', 'progress', 'partial_result', 'result_id', 'session_id', 'error'] as const;
@@ -75,7 +76,10 @@ router.get('/', (async (req: Request, res: Response) => {
 			offset: 0
 		});
 	} catch (error) {
-		console.error('Error listing jobs:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error listing jobs:', error);
+		}
 		return res.status(500).json({
 			error: 'Failed to list jobs',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -92,7 +96,10 @@ router.get('/available/:job_type?', (async (req: Request, res: Response) => {
 		const jobs = await jobQueue.getAvailableJobs(jobType, limit);
 		return res.json(jobs);
 	} catch (error) {
-		console.error('Error getting available jobs:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error getting available jobs:', error);
+		}
 		return res.status(500).json({
 			error: 'Failed to get available jobs',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -121,7 +128,10 @@ router.get('/:id', (async (req: Request, res: Response) => {
 					enrichedJob.result = sessionToLegacyResult(session, sessionMessages);
 				}
 			} catch (error) {
-				console.warn(`Failed to enrich job ${job.id} with session ${job.session_id}:`, error);
+				/* istanbul ignore next */
+				if (shouldLog) {
+					console.warn(`Failed to enrich job ${job.id} with session ${job.session_id}:`, error);
+				}
 			}
 		}
 		// Fallback to legacy result_id if session_id not available (legacy compatibility) TODO deprecate this
@@ -134,13 +144,19 @@ router.get('/:id', (async (req: Request, res: Response) => {
 					enrichedJob.result = sessionToLegacyResult(session, sessionMessages);
 				}
 			} catch (error) {
-				console.warn(`Failed to enrich job ${job.id} with legacy result ${job.result_id}:`, error);
+				/* istanbul ignore next */
+				if (shouldLog) {
+					console.warn(`Failed to enrich job ${job.id} with legacy result ${job.result_id}:`, error);
+				}
 			}
 		}
 
 		return res.json(enrichedJob);
 	} catch (error) {
-		console.error(`Error getting job ${req.params.id}:`, error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error(`Error getting job ${req.params.id}:`, error);
+		}
 		return res.status(500).json({
 			error: 'Failed to get job',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -186,7 +202,10 @@ router.post('/', (async (req: Request, res: Response) => {
 			message: 'Job created and queued for execution'
 		});
 	} catch (error) {
-		console.error('Error creating job:', error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error('Error creating job:', error);
+		}
 		return res.status(500).json({
 			error: 'Failed to create job',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -219,7 +238,10 @@ router.post('/:id/cancel', (async (req: Request, res: Response) => {
 
 		return res.status(200).json({ message: 'Job canceled successfully' });
 	} catch (error) {
-		console.error(`Error canceling job ${req.params.id}:`, error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error(`Error canceling job ${req.params.id}:`, error);
+		}
 		return res.status(500).json({
 			error: 'Failed to cancel job',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -238,7 +260,10 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(200).json({ message: 'Job deleted successfully' });
 	} catch (error) {
-		console.error(`Error deleting job ${req.params.id}:`, error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error(`Error deleting job ${req.params.id}:`, error);
+		}
 		return res.status(500).json({
 			error: 'Failed to delete job',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -266,7 +291,10 @@ router.post('/:id/claim', (async (req: Request, res: Response) => {
 			job_id: req.params.id
 		});
 	} catch (error) {
-		console.error(`Error claiming job ${req.params.id}:`, error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error(`Error claiming job ${req.params.id}:`, error);
+		}
 		return res.status(500).json({
 			error: 'Failed to claim job',
 			details: error instanceof Error ? error.message : 'Unknown error'
@@ -296,7 +324,10 @@ router.put('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(200).json({ message: 'Job updated successfully' });
 	} catch (error) {
-		console.error(`Error updating job ${req.params.id}:`, error);
+		/* istanbul ignore next */
+		if (shouldLog) {
+			console.error(`Error updating job ${req.params.id}:`, error);
+		}
 		return res.status(500).json({
 			error: 'Failed to update job',
 			details: error instanceof Error ? error.message : 'Unknown error'
