@@ -146,6 +146,19 @@ describe('execute-suite routes', () => {
 			});
 		});
 
+		it('handles unknown errors gracefully', async () => {
+			mockReq.body = { suite_id: 1, agent_id: 10 };
+			(mockGetAgentById as any).mockRejectedValue({ code: 'unknown' });
+
+			await callRoute('post', '/');
+
+			expect(statusMock).toHaveBeenCalledWith(500);
+			expect(jsonMock).toHaveBeenCalledWith({
+				error: 'Failed to execute test suite',
+				details: 'Unknown error'
+			});
+		});
+
 		it('handles job queue errors gracefully', async () => {
 			mockReq.body = { suite_id: 1, agent_id: 10 };
 
