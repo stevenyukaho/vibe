@@ -94,7 +94,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setAgents(data);
 			setErrors(prev => ({ ...prev, agents: null }));
 		} catch (error) {
-			console.error('Error fetching agents:', error);
 			setErrors(prev => ({
 				...prev,
 				agents: error instanceof Error ? error.message : 'Failed to fetch agents'
@@ -112,7 +111,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setTests(data);
 			setErrors(prev => ({ ...prev, tests: null }));
 		} catch (error) {
-			console.error('Error fetching tests:', error);
 			setErrors(prev => ({
 				...prev,
 				tests: error instanceof Error ? error.message : 'Failed to fetch tests'
@@ -130,7 +128,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setLLMConfigs(data);
 			setErrors(prev => ({ ...prev, llmConfigs: null }));
 		} catch (error) {
-			console.error('Error fetching LLM configs:', error);
 			setErrors(prev => ({
 				...prev,
 				llmConfigs: error instanceof Error ? error.message : 'Failed to fetch LLM configs'
@@ -148,7 +145,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setResults(data);
 			setErrors(prev => ({ ...prev, results: null }));
 		} catch (error) {
-			console.error('Error fetching results:', error);
 			setErrors(prev => ({
 				...prev,
 				results: error instanceof Error ? error.message : 'Failed to fetch results'
@@ -177,7 +173,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setErrors(prev => ({ ...prev, agents: null }));
 			return newAgent;
 		} catch (error) {
-			console.error('Error creating agent:', error);
 			setErrors(prev => ({
 				...prev,
 				agents: error instanceof Error ? error.message : 'Failed to create agent'
@@ -199,7 +194,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setErrors(prev => ({ ...prev, agents: null }));
 			return updatedAgent;
 		} catch (error) {
-			console.error('Error updating agent:', error);
 			setErrors(prev => ({
 				...prev,
 				agents: error instanceof Error ? error.message : 'Failed to update agent'
@@ -218,7 +212,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setAgents(prev => prev.filter(agent => agent.id !== id));
 			setErrors(prev => ({ ...prev, agents: null }));
 		} catch (error) {
-			console.error('Error deleting agent:', error);
 			setErrors(prev => ({
 				...prev,
 				agents: error instanceof Error ? error.message : 'Failed to delete agent'
@@ -238,7 +231,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setErrors(prev => ({ ...prev, tests: null }));
 			return newTest;
 		} catch (error) {
-			console.error('Error creating test:', error);
 			setErrors(prev => ({
 				...prev,
 				tests: error instanceof Error ? error.message : 'Failed to create test'
@@ -260,7 +252,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setErrors(prev => ({ ...prev, tests: null }));
 			return updatedTest;
 		} catch (error) {
-			console.error('Error updating test:', error);
 			setErrors(prev => ({
 				...prev,
 				tests: error instanceof Error ? error.message : 'Failed to update test'
@@ -279,7 +270,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setTests(prev => prev.filter(test => test.id !== id));
 			setErrors(prev => ({ ...prev, tests: null }));
 		} catch (error) {
-			console.error('Error deleting test:', error);
 			setErrors(prev => ({
 				...prev,
 				tests: error instanceof Error ? error.message : 'Failed to delete test'
@@ -299,7 +289,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setErrors(prev => ({ ...prev, llmConfigs: null }));
 			return newConfig;
 		} catch (error) {
-			console.error('Error creating LLM config:', error);
 			setErrors(prev => ({
 				...prev,
 				llmConfigs: error instanceof Error ? error.message : 'Failed to create LLM config'
@@ -321,7 +310,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setErrors(prev => ({ ...prev, llmConfigs: null }));
 			return updatedConfig;
 		} catch (error) {
-			console.error('Error updating LLM config:', error);
 			setErrors(prev => ({
 				...prev,
 				llmConfigs: error instanceof Error ? error.message : 'Failed to update LLM config'
@@ -340,7 +328,6 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
 			setLLMConfigs(prev => prev.filter(config => config.id !== id));
 			setErrors(prev => ({ ...prev, llmConfigs: null }));
 		} catch (error) {
-			console.error('Error deleting LLM config:', error);
 			setErrors(prev => ({
 				...prev,
 				llmConfigs: error instanceof Error ? error.message : 'Failed to delete LLM config'
@@ -480,7 +467,6 @@ export function useResultOperations() {
 		try {
 			return await api.getResultById(id);
 		} catch (err) {
-			console.error('Error fetching result:', err);
 			throw err;
 		}
 	}, []);
@@ -504,7 +490,6 @@ export function useResultOperations() {
 		try {
 			return await api.scoreResult(resultId, llmConfigId);
 		} catch (err) {
-			console.error('Error scoring result:', err);
 			throw err;
 		}
 	}, []);
