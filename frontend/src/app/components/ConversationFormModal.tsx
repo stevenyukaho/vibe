@@ -136,7 +136,7 @@ export default function ConversationFormModal({
 						});
 						setTurnTargets(targetMap);
 					})
-					.catch(err => console.error('Failed to load turn targets:', err));
+					.catch(() => setTurnTargets({}));
 			}
 		} else {
 			setFormData({
@@ -438,15 +438,7 @@ export default function ConversationFormModal({
 					lowContrast
 					hideCloseButton
 					title="Variables quick guide"
-					subtitle={(
-						<span>
-							Conversation variables seed each run. Override variables (per user message) merge in
-							before the request is sent. Response mapping variables are extracted after the call
-							and available to following turns. Use pointers like <code>$.message.content</code>,
-							<code>$.variables.lastAnswer</code>, or <code>$.lastResponse.data.id</code>.
-							<code>$</code> refers to the execution context root.
-						</span>
-					) as unknown as string}
+					subtitle="Conversation variables seed each run. Override variables (per user message) merge in before the request is sent. Response mapping variables are extracted after the call and available to following turns. Use pointers like $.message.content, $.variables.lastAnswer, or $.lastResponse.data.id. $ refers to the execution context root."
 				/>
 
 				<div className={styles.messagesSection}>
