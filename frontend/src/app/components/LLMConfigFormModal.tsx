@@ -54,7 +54,6 @@ export default function LLMConfigFormModal({
 					configJson: JSON.stringify(configObj, null, 2)
 				});
 			} catch (error) {
-				console.error('Error parsing config JSON:', error);
 				setError('Error parsing configuration data');
 			}
 		}
@@ -145,7 +144,7 @@ export default function LLMConfigFormModal({
 			try {
 				configObj = JSON.parse(formData.configJson);
 			} catch (err: any) {
-				throw new Error('Invalid JSON configuration', err);
+				throw new Error('Invalid JSON configuration');
 			}
 
 			// Validate required fields
@@ -187,7 +186,6 @@ export default function LLMConfigFormModal({
 			// Close modal on success
 			onClose();
 		} catch (error) {
-			console.error('Error saving LLM config:', error);
 			setError(error instanceof Error ? error.message : 'Unknown error occurred');
 		} finally {
 			setLoading(false);
