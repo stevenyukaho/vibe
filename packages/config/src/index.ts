@@ -14,7 +14,11 @@ const agentServiceApiSchema = z.object({
 	BACKEND_URL: z.string().default('http://localhost:5000'),
 	BACKEND_TIMEOUT: z.coerce.number().positive().default(30000),
 	DEFAULT_TIMEOUT: z.coerce.number().positive().default(60000),
-	HEALTH_CHECK_INTERVAL: z.coerce.number().positive().default(60000)
+	HEALTH_CHECK_INTERVAL: z.coerce.number().positive().default(60000),
+	POLLER_BASE_INTERVAL_MS: z.coerce.number().positive().default(5000),
+	POLLER_MAX_INTERVAL_MS: z.coerce.number().positive().default(60000),
+	POLLER_BACKOFF_MULTIPLIER: z.coerce.number().positive().default(1.5),
+	POLLER_MAX_CONCURRENT_JOBS: z.coerce.number().int().positive().default(3)
 });
 
 const frontendEnvSchema = z.object({
@@ -49,6 +53,12 @@ export const loadAgentServiceApiConfig = (env: EnvSource = process.env): {
 	server: { port: number; host: string };
 	backend: { url: string; timeout: number };
 	defaults: { requestTimeout: number; healthCheckInterval: number };
+	poller: {
+		baseIntervalMs: number;
+		maxIntervalMs: number;
+		backoffMultiplier: number;
+		maxConcurrentJobs: number;
+	};
 } => {
 	const parsed = agentServiceApiSchema.parse(env);
 	return {
@@ -63,6 +73,12 @@ export const loadAgentServiceApiConfig = (env: EnvSource = process.env): {
 		defaults: {
 			requestTimeout: parsed.DEFAULT_TIMEOUT,
 			healthCheckInterval: parsed.HEALTH_CHECK_INTERVAL
+		},
+		poller: {
+			baseIntervalMs: parsed.POLLER_BASE_INTERVAL_MS,
+			maxIntervalMs: parsed.POLLER_MAX_INTERVAL_MS,
+			backoffMultiplier: parsed.POLLER_BACKOFF_MULTIPLIER,
+			maxConcurrentJobs: parsed.POLLER_MAX_CONCURRENT_JOBS
 		}
 	};
 };

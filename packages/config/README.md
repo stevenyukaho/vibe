@@ -23,6 +23,10 @@ Each helper parses `process.env` with `zod`, applies sensible defaults, and expo
 | `BACKEND_TIMEOUT` | `30000` | Timeout (ms) when calling backend |
 | `DEFAULT_TIMEOUT` | `60000` | Timeout (ms) for external API requests |
 | `HEALTH_CHECK_INTERVAL` | `60000` | Interval (ms) for polling health checks |
+| `POLLER_BASE_INTERVAL_MS` | `5000` | Base interval (ms) between job polls |
+| `POLLER_MAX_INTERVAL_MS` | `60000` | Max backoff interval (ms) between job polls |
+| `POLLER_BACKOFF_MULTIPLIER` | `1.5` | Exponential backoff multiplier for empty polls |
+| `POLLER_MAX_CONCURRENT_JOBS` | `3` | Max concurrent jobs to execute |
 
 ## Frontend (`loadFrontendConfig`)
 
