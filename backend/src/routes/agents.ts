@@ -12,6 +12,7 @@ import * as templateRepo from '../db/repositories/templateRepo';
 import type { Agent, AgentRequestTemplate, AgentResponseMap } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { serializeCapabilities } from '../lib/communicationCapabilities';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
@@ -65,7 +66,7 @@ const toLegacyResponseMap = (
 } as unknown as AgentResponseMap);
 
 // Get all agents
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		if (hasPaginationParams(req)) {
 			const queryParams = validatePaginationOrError(req, res);
@@ -89,10 +90,10 @@ router.get('/', (async (req: Request, res: Response) => {
 		logError('Error fetching agents:', error);
 		return res.status(500).json({ error: 'Failed to fetch agents' });
 	}
-}) as any);
+}));
 
 // Get agent by ID
-router.get<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.get<{ id: string }>('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const agent = await getAgentById(Number(req.params.id));
 		if (!agent) {
@@ -103,10 +104,10 @@ router.get<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res: Re
 		logError('Error fetching agent:', error);
 		return res.status(500).json({ error: 'Failed to fetch agent' });
 	}
-}) as any);
+}));
 
 // Create new agent
-router.post<Record<string, never>, unknown, Omit<Agent, 'id' | 'created_at'>>('/', (async (req: Request<Record<string, never>, unknown, Omit<Agent, 'id' | 'created_at'>>, res: Response) => {
+router.post<Record<string, never>, unknown, Omit<Agent, 'id' | 'created_at'>>('/', asyncHandler(async (req: Request<Record<string, never>, unknown, Omit<Agent, 'id' | 'created_at'>>, res: Response) => {
 	try {
 		const { name, version, prompt, settings } = req.body;
 
@@ -139,10 +140,10 @@ router.post<Record<string, never>, unknown, Omit<Agent, 'id' | 'created_at'>>('/
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Update existing agent
-router.put<{ id: string }, unknown, Partial<Agent>>('/:id', (async (req: Request<{ id: string }, unknown, Partial<Agent>>, res: Response) => {
+router.put<{ id: string }, unknown, Partial<Agent>>('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Partial<Agent>>, res: Response) => {
 	try {
 		const id = Number(req.params.id);
 
@@ -175,10 +176,10 @@ router.put<{ id: string }, unknown, Partial<Agent>>('/:id', (async (req: Request
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Delete agent
-router.delete<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.delete<{ id: string }>('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const id = Number(req.params.id);
 
@@ -197,10 +198,10 @@ router.delete<{ id: string }>('/:id', (async (req: Request<{ id: string }>, res:
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Capability names - for auto-complete in UI
-router.get('/capability-names/request-templates', ((_req: Request, res: Response) => {
+router.get('/capability-names/request-templates', asyncHandler((_req: Request, res: Response) => {
 	try {
 		const names = templateRepo.listRequestTemplateCapabilityNames();
 		return res.json(names);
@@ -208,9 +209,9 @@ router.get('/capability-names/request-templates', ((_req: Request, res: Response
 		logError('Error listing request template capability names:', error);
 		return res.status(500).json({ error: 'Failed to list capability names' });
 	}
-}) as any);
+}));
 
-router.get('/capability-names/response-maps', ((_req: Request, res: Response) => {
+router.get('/capability-names/response-maps', asyncHandler((_req: Request, res: Response) => {
 	try {
 		const names = templateRepo.listResponseMapCapabilityNames();
 		return res.json(names);
@@ -218,10 +219,10 @@ router.get('/capability-names/response-maps', ((_req: Request, res: Response) =>
 		logError('Error listing response map capability names:', error);
 		return res.status(500).json({ error: 'Failed to list capability names' });
 	}
-}) as any);
+}));
 
 // Request templates
-router.get<{ id: string }>('/:id/request-templates', ((req: Request<{ id: string }>, res: Response) => {
+router.get<{ id: string }>('/:id/request-templates', asyncHandler((req: Request<{ id: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const templates = templateRepo.getAgentTemplates(agentId);
@@ -230,9 +231,9 @@ router.get<{ id: string }>('/:id/request-templates', ((req: Request<{ id: string
 		logError('Error listing request templates:', error);
 		return res.status(500).json({ error: 'Failed to list request templates' });
 	}
-}) as any);
+}));
 
-router.post<{ id: string }, unknown, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>('/:id/request-templates', ((req: Request<{ id: string }, unknown, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
+router.post<{ id: string }, unknown, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>('/:id/request-templates', asyncHandler((req: Request<{ id: string }, unknown, Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const agent = getAgentById(agentId);
@@ -272,9 +273,9 @@ router.post<{ id: string }, unknown, Omit<AgentRequestTemplate, 'id' | 'agent_id
 		logError('Error creating request template:', error);
 		return res.status(500).json({ error: 'Failed to create request template' });
 	}
-}) as any);
+}));
 
-router.patch<{ id: string; templateId: string }, unknown, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>('/:id/request-templates/:templateId', ((req: Request<{ id: string; templateId: string }, unknown, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
+router.patch<{ id: string; templateId: string }, unknown, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>('/:id/request-templates/:templateId', asyncHandler((req: Request<{ id: string; templateId: string }, unknown, Partial<Omit<AgentRequestTemplate, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const tplId = Number(req.params.templateId);
@@ -340,9 +341,9 @@ router.patch<{ id: string; templateId: string }, unknown, Partial<Omit<AgentRequ
 		logError('Error updating request template:', error);
 		return res.status(500).json({ error: 'Failed to update request template' });
 	}
-}) as any);
+}));
 
-router.delete<{ id: string; templateId: string }>('/:id/request-templates/:templateId', ((req: Request<{ id: string; templateId: string }>, res: Response) => {
+router.delete<{ id: string; templateId: string }>('/:id/request-templates/:templateId', asyncHandler((req: Request<{ id: string; templateId: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const tplId = Number(req.params.templateId);
@@ -357,9 +358,9 @@ router.delete<{ id: string; templateId: string }>('/:id/request-templates/:templ
 		logError('Error deleting request template:', error);
 		return res.status(500).json({ error: 'Failed to delete request template' });
 	}
-}) as any);
+}));
 
-router.post<{ id: string; templateId: string }>('/:id/request-templates/:templateId/default', ((req: Request<{ id: string; templateId: string }>, res: Response) => {
+router.post<{ id: string; templateId: string }>('/:id/request-templates/:templateId/default', asyncHandler((req: Request<{ id: string; templateId: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const tplId = Number(req.params.templateId);
@@ -374,10 +375,10 @@ router.post<{ id: string; templateId: string }>('/:id/request-templates/:templat
 		logError('Error setting default request template:', error);
 		return res.status(500).json({ error: 'Failed to set default request template' });
 	}
-}) as any);
+}));
 
 // Response maps
-router.get<{ id: string }>('/:id/response-maps', ((req: Request<{ id: string }>, res: Response) => {
+router.get<{ id: string }>('/:id/response-maps', asyncHandler((req: Request<{ id: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const maps = templateRepo.getAgentResponseMaps(agentId);
@@ -386,9 +387,9 @@ router.get<{ id: string }>('/:id/response-maps', ((req: Request<{ id: string }>,
 		logError('Error listing response maps:', error);
 		return res.status(500).json({ error: 'Failed to list response maps' });
 	}
-}) as any);
+}));
 
-router.post<{ id: string }, unknown, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>('/:id/response-maps', ((req: Request<{ id: string }, unknown, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
+router.post<{ id: string }, unknown, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>('/:id/response-maps', asyncHandler((req: Request<{ id: string }, unknown, Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const agent = getAgentById(agentId);
@@ -428,9 +429,9 @@ router.post<{ id: string }, unknown, Omit<AgentResponseMap, 'id' | 'agent_id' | 
 		logError('Error creating response map:', error);
 		return res.status(500).json({ error: 'Failed to create response map' });
 	}
-}) as any);
+}));
 
-router.patch<{ id: string; mapId: string }, unknown, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>('/:id/response-maps/:mapId', ((req: Request<{ id: string; mapId: string }, unknown, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
+router.patch<{ id: string; mapId: string }, unknown, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>('/:id/response-maps/:mapId', asyncHandler((req: Request<{ id: string; mapId: string }, unknown, Partial<Omit<AgentResponseMap, 'id' | 'agent_id' | 'created_at'>>>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const mapId = Number(req.params.mapId);
@@ -496,9 +497,9 @@ router.patch<{ id: string; mapId: string }, unknown, Partial<Omit<AgentResponseM
 		logError('Error updating response map:', error);
 		return res.status(500).json({ error: 'Failed to update response map' });
 	}
-}) as any);
+}));
 
-router.delete<{ id: string; mapId: string }>('/:id/response-maps/:mapId', ((req: Request<{ id: string; mapId: string }>, res: Response) => {
+router.delete<{ id: string; mapId: string }>('/:id/response-maps/:mapId', asyncHandler((req: Request<{ id: string; mapId: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const mapId = Number(req.params.mapId);
@@ -513,9 +514,9 @@ router.delete<{ id: string; mapId: string }>('/:id/response-maps/:mapId', ((req:
 		logError('Error deleting response map:', error);
 		return res.status(500).json({ error: 'Failed to delete response map' });
 	}
-}) as any);
+}));
 
-router.post<{ id: string; mapId: string }>('/:id/response-maps/:mapId/default', ((req: Request<{ id: string; mapId: string }>, res: Response) => {
+router.post<{ id: string; mapId: string }>('/:id/response-maps/:mapId/default', asyncHandler((req: Request<{ id: string; mapId: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const mapId = Number(req.params.mapId);
@@ -530,7 +531,7 @@ router.post<{ id: string; mapId: string }>('/:id/response-maps/:mapId/default', 
 		logError('Error setting default response map:', error);
 		return res.status(500).json({ error: 'Failed to set default response map' });
 	}
-}) as any);
+}));
 
 // =====================
 // GLOBAL TEMPLATE LINKING
@@ -541,7 +542,7 @@ router.post<{ id: string; mapId: string }>('/:id/response-maps/:mapId/default', 
  * GET /:id/linked-templates
  * Get all global templates linked to this agent.
  */
-router.get<{ id: string }>('/:id/linked-templates', ((req: Request<{ id: string }>, res: Response) => {
+router.get<{ id: string }>('/:id/linked-templates', asyncHandler((req: Request<{ id: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const agent = getAgentById(agentId);
@@ -553,14 +554,14 @@ router.get<{ id: string }>('/:id/linked-templates', ((req: Request<{ id: string 
 		logError('Error listing linked templates:', error);
 		return res.status(500).json({ error: 'Failed to list linked templates' });
 	}
-}) as any);
+}));
 
 /**
  * POST /:id/linked-templates
  * Link an existing global template to this agent, or create a new one and link it.
  * Body: { template_id: number } to link existing, or { name, body, ... } to create new
  */
-router.post<{ id: string }>('/:id/linked-templates', ((req: Request<{ id: string }>, res: Response) => {
+router.post<{ id: string }>('/:id/linked-templates', asyncHandler((req: Request<{ id: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const agent = getAgentById(agentId);
@@ -597,13 +598,13 @@ router.post<{ id: string }>('/:id/linked-templates', ((req: Request<{ id: string
 		}
 		return res.status(500).json({ error: 'Failed to link template' });
 	}
-}) as any);
+}));
 
 /**
  * DELETE /:id/linked-templates/:templateId
  * Unlink a global template from this agent (does not delete the template).
  */
-router.delete<{ id: string; templateId: string }>('/:id/linked-templates/:templateId', ((req: Request<{ id: string; templateId: string }>, res: Response) => {
+router.delete<{ id: string; templateId: string }>('/:id/linked-templates/:templateId', asyncHandler((req: Request<{ id: string; templateId: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const templateId = Number(req.params.templateId);
@@ -614,13 +615,13 @@ router.delete<{ id: string; templateId: string }>('/:id/linked-templates/:templa
 		logError('Error unlinking template:', error);
 		return res.status(500).json({ error: 'Failed to unlink template' });
 	}
-}) as any);
+}));
 
 /**
  * POST /:id/linked-templates/:templateId/default
  * Set a linked template as the default for this agent.
  */
-router.post<{ id: string; templateId: string }>('/:id/linked-templates/:templateId/default', ((req: Request<{ id: string; templateId: string }>, res: Response) => {
+router.post<{ id: string; templateId: string }>('/:id/linked-templates/:templateId/default', asyncHandler((req: Request<{ id: string; templateId: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const templateId = Number(req.params.templateId);
@@ -631,13 +632,13 @@ router.post<{ id: string; templateId: string }>('/:id/linked-templates/:template
 		logError('Error setting default template:', error);
 		return res.status(500).json({ error: 'Failed to set default template' });
 	}
-}) as any);
+}));
 
 /**
  * GET /:id/linked-response-maps
  * Get all global response maps linked to this agent.
  */
-router.get<{ id: string }>('/:id/linked-response-maps', ((req: Request<{ id: string }>, res: Response) => {
+router.get<{ id: string }>('/:id/linked-response-maps', asyncHandler((req: Request<{ id: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const agent = getAgentById(agentId);
@@ -649,14 +650,14 @@ router.get<{ id: string }>('/:id/linked-response-maps', ((req: Request<{ id: str
 		logError('Error listing linked response maps:', error);
 		return res.status(500).json({ error: 'Failed to list linked response maps' });
 	}
-}) as any);
+}));
 
 /**
  * POST /:id/linked-response-maps
  * Link an existing global response map to this agent, or create a new one and link it.
  * Body: { response_map_id: number } to link existing, or { name, spec, ... } to create new
  */
-router.post<{ id: string }>('/:id/linked-response-maps', ((req: Request<{ id: string }>, res: Response) => {
+router.post<{ id: string }>('/:id/linked-response-maps', asyncHandler((req: Request<{ id: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const agent = getAgentById(agentId);
@@ -693,13 +694,13 @@ router.post<{ id: string }>('/:id/linked-response-maps', ((req: Request<{ id: st
 		}
 		return res.status(500).json({ error: 'Failed to link response map' });
 	}
-}) as any);
+}));
 
 /**
  * DELETE /:id/linked-response-maps/:mapId
  * Unlink a global response map from this agent (does not delete the map).
  */
-router.delete<{ id: string; mapId: string }>('/:id/linked-response-maps/:mapId', ((req: Request<{ id: string; mapId: string }>, res: Response) => {
+router.delete<{ id: string; mapId: string }>('/:id/linked-response-maps/:mapId', asyncHandler((req: Request<{ id: string; mapId: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const mapId = Number(req.params.mapId);
@@ -710,13 +711,13 @@ router.delete<{ id: string; mapId: string }>('/:id/linked-response-maps/:mapId',
 		logError('Error unlinking response map:', error);
 		return res.status(500).json({ error: 'Failed to unlink response map' });
 	}
-}) as any);
+}));
 
 /**
  * POST /:id/linked-response-maps/:mapId/default
  * Set a linked response map as the default for this agent.
  */
-router.post<{ id: string; mapId: string }>('/:id/linked-response-maps/:mapId/default', ((req: Request<{ id: string; mapId: string }>, res: Response) => {
+router.post<{ id: string; mapId: string }>('/:id/linked-response-maps/:mapId/default', asyncHandler((req: Request<{ id: string; mapId: string }>, res: Response) => {
 	try {
 		const agentId = Number(req.params.id);
 		const mapId = Number(req.params.mapId);
@@ -727,6 +728,6 @@ router.post<{ id: string; mapId: string }>('/:id/linked-response-maps/:mapId/def
 		logError('Error setting default response map:', error);
 		return res.status(500).json({ error: 'Failed to set default response map' });
 	}
-}) as any);
+}));
 
 export default router;

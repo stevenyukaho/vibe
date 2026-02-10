@@ -20,12 +20,13 @@ import {
 	legacyResultToSession
 } from '../adapters/legacy-adapter';
 import { testIdToConversationId } from '../lib/legacyIdResolver';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Get all results (from execution sessions)
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { agent_id, test_id } = req.query as { agent_id?: string; test_id?: string };
 
@@ -103,10 +104,10 @@ router.get('/', (async (req: Request, res: Response) => {
 		}
 		return res.status(500).json({ error: 'Failed to fetch results' });
 	}
-}) as any);
+}));
 
 // Get result by ID (from execution session)
-router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const idNum = Number(req.params.id);
 		if (isNaN(idNum)) {
@@ -170,10 +171,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		}
 		return res.status(500).json({ error: 'Failed to fetch result' });
 	}
-}) as any);
+}));
 
 // Score a result
-router.post('/:id/score', (async (req: Request<{ id: string }>, res: Response) => {
+router.post('/:id/score', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const idNum = Number(req.params.id);
 		const { llm_config_id } = req.body;
@@ -207,10 +208,10 @@ router.post('/:id/score', (async (req: Request<{ id: string }>, res: Response) =
 		}
 		return res.status(500).json({ error: 'Failed to score result' });
 	}
-}) as any);
+}));
 
 // Create new result (as execution session)
-router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<TestResult, 'id' | 'created_at'>>, res: Response) => {
+router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, Omit<TestResult, 'id' | 'created_at'>>, res: Response) => {
 	try {
 		const processedBody = { ...req.body };
 
@@ -293,6 +294,6 @@ router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<TestR
 		}
 		return res.status(500).json({ error: 'Failed to create result' });
 	}
-}) as any);
+}));
 
 export default router;

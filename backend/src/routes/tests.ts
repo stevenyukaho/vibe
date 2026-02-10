@@ -19,6 +19,7 @@ import {
 	isSingleTurnConversation
 } from '../adapters/legacy-adapter';
 import db from '../db/database';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
@@ -32,7 +33,7 @@ const logWarn = (...args: unknown[]) => {
 };
 
 // Get all tests (from conversations)
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		if (hasPaginationParams(req)) {
 			const queryParams = validatePaginationOrError(req, res);
@@ -87,10 +88,10 @@ router.get('/', (async (req: Request, res: Response) => {
 		logError('Error fetching tests:', error);
 		return res.status(500).json({ error: 'Failed to fetch tests' });
 	}
-}) as any);
+}));
 
 // Get test by ID (from conversation)
-router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const conversation = await getConversationById(conversationId);
@@ -112,10 +113,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		logError('Error fetching test:', error);
 		return res.status(500).json({ error: 'Failed to fetch test' });
 	}
-}) as any);
+}));
 
 // Create new test (as conversation)
-router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<Test, 'id' | 'created_at' | 'updated_at'>>, res: Response) => {
+router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, Omit<Test, 'id' | 'created_at' | 'updated_at'>>, res: Response) => {
 	try {
 		const { name, input } = req.body;
 
@@ -162,10 +163,10 @@ router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<Test,
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Update test (conversation)
-router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<Test>>, res: Response) => {
+router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Partial<Test>>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 
@@ -221,10 +222,10 @@ router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<Test>>,
 		logError('Error updating test:', error);
 		return res.status(500).json({ error: 'Failed to update test' });
 	}
-}) as any);
+}));
 
 // Delete test (conversation)
-router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 
@@ -248,6 +249,6 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 export default router;

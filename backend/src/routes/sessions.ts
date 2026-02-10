@@ -11,12 +11,13 @@ import {
 } from '../db/queries';
 import type { ExecutionSession } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
+import { asyncHandler } from '../lib/asyncHandler';
 
 const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Get all execution sessions
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { conversation_id, agent_id } = req.query as { conversation_id?: string; agent_id?: string };
 
@@ -52,10 +53,10 @@ router.get('/', (async (req: Request, res: Response) => {
 		}
 		return res.status(500).json({ error: 'Failed to fetch execution sessions' });
 	}
-}) as any);
+}));
 
 // Get execution session by id
-router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
 		const session = await getExecutionSessionById(sessionId);
@@ -72,10 +73,10 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		}
 		return res.status(500).json({ error: 'Failed to fetch execution session' });
 	}
-}) as any);
+}));
 
 // Get session messages (transcript)
-router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id/messages', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
 
@@ -94,10 +95,10 @@ router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response)
 		}
 		return res.status(500).json({ error: 'Failed to fetch session messages' });
 	}
-}) as any);
+}));
 
 // Get full session transcript (session details + messages)
-router.get('/:id/transcript', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id/transcript', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
 
@@ -115,10 +116,10 @@ router.get('/:id/transcript', (async (req: Request<{ id: string }>, res: Respons
 		}
 		return res.status(500).json({ error: 'Failed to fetch session transcript' });
 	}
-}) as any);
+}));
 
 // Update execution session (for status updates, completion, etc.)
-router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<ExecutionSession>>, res: Response) => {
+router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Partial<ExecutionSession>>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
 
@@ -137,10 +138,10 @@ router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<Executi
 		}
 		return res.status(500).json({ error: 'Failed to update execution session' });
 	}
-}) as any);
+}));
 
 // Create execution session (for agent services)
-router.post('/', (async (req: Request<Record<string, never>, unknown, Partial<ExecutionSession>>, res: Response) => {
+router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, Partial<ExecutionSession>>, res: Response) => {
 	try {
 		// Normalize payload: ensure sqlite-compatible bindings and accept boolean or 0/1 for success
 		const payload: any = { ...(req.body || {}) };
@@ -204,10 +205,10 @@ router.post('/', (async (req: Request<Record<string, never>, unknown, Partial<Ex
 		}
 		return res.status(500).json({ error: 'Failed to create execution session' });
 	}
-}) as any);
+}));
 
 // Cancel/delete execution session
-router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const sessionId = Number(req.params.id);
 
@@ -236,6 +237,6 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 export default router;

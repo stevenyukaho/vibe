@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 import {
 	getAgentById,
 	getConversationById,
@@ -11,6 +12,8 @@ import { jobQueue } from '../services/job-queue';
 import { isSingleTurnConversation } from '../adapters/legacy-adapter';
 import { getAgentJobType } from '../utils/agent-utils';
 import { preflightConversationExecution } from '../lib/conversationPreflight';
+import { asyncHandler } from '../lib/asyncHandler';
+import { validateBody } from '../lib/validateBody';
 
 const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
@@ -25,15 +28,27 @@ interface ExecuteConversationRequest {
 	conversation_id: number;
 }
 
-// Execute a test with a specific agent (maps to conversation execution)
-router.post('/', (async (req: Request<Record<string, never>, unknown, ExecuteTestRequest>, res: Response) => {
-	try {
-		const { agent_id, test_id } = req.body;
+const executeTestRequestSchema = z.object({
+	agent_id: z.coerce.number().int().positive(),
+	test_id: z.coerce.number().int().positive()
+});
 
-		// Validate input
-		if (!agent_id || !test_id) {
-			return res.status(400).json({ error: 'agent_id and test_id are required' });
+const executeConversationRequestSchema = z.object({
+	agent_id: z.coerce.number().int().positive(),
+	conversation_id: z.coerce.number().int().positive()
+});
+
+// Execute a test with a specific agent (maps to conversation execution)
+router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, ExecuteTestRequest>, res: Response) => {
+	try {
+		const validated = validateBody(req, res, executeTestRequestSchema, {
+			error: 'agent_id and test_id are required',
+			includeDetails: false
+		});
+		if (!validated) {
+			return;
 		}
+		const { agent_id, test_id } = validated;
 
 		// Resolve legacy id mapping
 		const conversationId = testIdToConversationId(test_id) ?? test_id;
@@ -71,17 +86,19 @@ router.post('/', (async (req: Request<Record<string, never>, unknown, ExecuteTes
 		}
 		return res.status(500).json({ error: 'Failed to execute test', details: error instanceof Error ? error.message : 'Unknown error' });
 	}
-}) as any);
+}));
 
 // Execute a conversation with a specific agent
-router.post('/conversation', (async (req: Request<Record<string, never>, unknown, ExecuteConversationRequest>, res: Response) => {
+router.post('/conversation', asyncHandler(async (req: Request<Record<string, never>, unknown, ExecuteConversationRequest>, res: Response) => {
 	try {
-		const { agent_id, conversation_id } = req.body;
-
-		// Validate input
-		if (!agent_id || !conversation_id) {
-			return res.status(400).json({ error: 'agent_id and conversation_id are required' });
+		const validated = validateBody(req, res, executeConversationRequestSchema, {
+			error: 'agent_id and conversation_id are required',
+			includeDetails: false
+		});
+		if (!validated) {
+			return;
 		}
+		const { agent_id, conversation_id } = validated;
 
 		// Get agent and conversation from database
 		const agent = await getAgentById(agent_id);
@@ -156,6 +173,6 @@ router.post('/conversation', (async (req: Request<Record<string, never>, unknown
 		}
 		return res.status(500).json({ error: 'Failed to execute conversation', details: error instanceof Error ? error.message : 'Unknown error' });
 	}
-}) as any);
+}));
 
 export default router;

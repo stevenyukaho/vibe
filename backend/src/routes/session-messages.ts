@@ -10,6 +10,7 @@ import {
 } from '../db/queries';
 import type { SessionMessage } from '@ibm-vibe/types';
 import { scoreSimilarityText } from '../services/scoring-service';
+import { asyncHandler } from '../lib/asyncHandler';
 
 /**
  * Score similarity for a session message against its conversation target
@@ -36,7 +37,7 @@ const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Create session message
-router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<SessionMessage, 'id'>>, res: Response) => {
+router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, Omit<SessionMessage, 'id'>>, res: Response) => {
 	try {
 		// Normalize payload for SQLite bindings
 		const payload: any = { ...(req.body || {}) };
@@ -123,10 +124,10 @@ router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<Sessi
 		}
 		return res.status(500).json({ error: 'Failed to create session message' });
 	}
-}) as any);
+}));
 
 // Regenerate similarity score for a specific message
-router.post('/:id/regenerate-score', (async (req: Request<{ id: string }>, res: Response) => {
+router.post('/:id/regenerate-score', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const messageId = Number(req.params.id);
 		if (isNaN(messageId)) {
@@ -178,6 +179,6 @@ router.post('/:id/regenerate-score', (async (req: Request<{ id: string }>, res: 
 		}
 		return res.status(500).json({ error: 'Failed to regenerate similarity score' });
 	}
-}) as any);
+}));
 
 export default router;

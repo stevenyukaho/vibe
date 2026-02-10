@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 import db from '../db/database';
 import {
 	createConversation,
@@ -16,6 +17,8 @@ import {
 } from '../db/queries';
 import type { Conversation, ConversationMessage } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
+import { asyncHandler } from '../lib/asyncHandler';
+import { validateBody } from '../lib/validateBody';
 
 const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
@@ -24,8 +27,19 @@ const logError = (...args: unknown[]) => {
 	if (shouldLog) console.error(...args);
 };
 
+const createConversationBodySchema = z
+	.object({
+		name: z
+			.string({
+				required_error: 'Name is required',
+				invalid_type_error: 'Name is required'
+			})
+			.min(1, 'Name is required')
+	})
+	.passthrough();
+
 // Get all conversations
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		if (hasPaginationParams(req)) {
 			const queryParams = validatePaginationOrError(req, res);
@@ -49,10 +63,10 @@ router.get('/', (async (req: Request, res: Response) => {
 		logError('Error fetching conversations:', error);
 		return res.status(500).json({ error: 'Failed to fetch conversations' });
 	}
-}) as any);
+}));
 
 // Get conversation by ID (includes messages)
-router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const conversation = await getConversationById(conversationId);
@@ -72,11 +86,18 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 		logError('Error fetching conversation:', error);
 		return res.status(500).json({ error: 'Failed to fetch conversation' });
 	}
-}) as any);
+}));
 
 // Create new conversation
-router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<Conversation, 'id' | 'created_at' | 'updated_at'> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
+router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, Omit<Conversation, 'id' | 'created_at' | 'updated_at'> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
 	try {
+		const validated = validateBody(req, res, createConversationBodySchema, {
+			error: 'Failed to create conversation'
+		});
+		if (!validated) {
+			return;
+		}
+
 		const {
 			name,
 			description,
@@ -141,10 +162,10 @@ router.post('/', (async (req: Request<Record<string, never>, unknown, Omit<Conve
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Update conversation
-router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<Conversation> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
+router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Partial<Conversation> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const { messages, ...conversationData } = req.body;
@@ -189,10 +210,10 @@ router.put('/:id', (async (req: Request<{ id: string }, unknown, Partial<Convers
 		logError('Error updating conversation:', error);
 		return res.status(500).json({ error: 'Failed to update conversation' });
 	}
-}) as any);
+}));
 
 // Delete conversation
-router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const id = Number(req.params.id);
 
@@ -211,10 +232,10 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Get messages for a conversation
-router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id/messages', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 
@@ -230,10 +251,10 @@ router.get('/:id/messages', (async (req: Request<{ id: string }>, res: Response)
 		logError('Error fetching conversation messages:', error);
 		return res.status(500).json({ error: 'Failed to fetch conversation messages' });
 	}
-}) as any);
+}));
 
 // Add message to conversation
-router.post('/:id/messages', (async (req: Request<{ id: string }, unknown, Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>>, res: Response) => {
+router.post('/:id/messages', asyncHandler(async (req: Request<{ id: string }, unknown, Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const { sequence, role, content, metadata } = req.body;
@@ -278,10 +299,10 @@ router.post('/:id/messages', (async (req: Request<{ id: string }, unknown, Omit<
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Update message in conversation
-router.put('/:id/messages/:messageId', (async (req: Request<{ id: string; messageId: string }, unknown, Partial<ConversationMessage>>, res: Response) => {
+router.put('/:id/messages/:messageId', asyncHandler(async (req: Request<{ id: string; messageId: string }, unknown, Partial<ConversationMessage>>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const messageId = Number(req.params.messageId);
@@ -302,10 +323,10 @@ router.put('/:id/messages/:messageId', (async (req: Request<{ id: string; messag
 		logError('Error updating message:', error);
 		return res.status(500).json({ error: 'Failed to update message' });
 	}
-}) as any);
+}));
 
 // Delete message from conversation
-router.delete('/:id/messages/:messageId', (async (req: Request<{ id: string; messageId: string }>, res: Response) => {
+router.delete('/:id/messages/:messageId', asyncHandler(async (req: Request<{ id: string; messageId: string }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const messageId = Number(req.params.messageId);
@@ -325,10 +346,10 @@ router.delete('/:id/messages/:messageId', (async (req: Request<{ id: string; mes
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Reorder messages in conversation
-router.put('/:id/messages/reorder', (async (req: Request<{ id: string }, unknown, { messages: { id: number; sequence: number }[] }>, res: Response) => {
+router.put('/:id/messages/reorder', asyncHandler(async (req: Request<{ id: string }, unknown, { messages: { id: number; sequence: number }[] }>, res: Response) => {
 	try {
 		const conversationId = Number(req.params.id);
 		const { messages } = req.body;
@@ -358,6 +379,6 @@ router.put('/:id/messages/reorder', (async (req: Request<{ id: string }, unknown
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 export default router;
