@@ -1,21 +1,34 @@
-import type { Agent, Test, TestResult, RequestTemplate, ResponseMap, AgentLinkedTemplate, AgentLinkedResponseMap } from '@ibm-vibe/types';
-import type { PaginatedResponse, StatsResponse, LLMRequestOptions, LLMResponse } from '@ibm-vibe/types';
-import type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget } from '@ibm-vibe/types';
+import { JobStatus as JobStatusEnum } from '@ibm-vibe/types';
+import type {
+	Agent,
+	Test,
+	TestResult,
+	RequestTemplate,
+	ResponseMap,
+	AgentLinkedTemplate,
+	AgentLinkedResponseMap,
+	PaginatedResponse,
+	StatsResponse,
+	LLMRequestOptions,
+	LLMResponse,
+	Conversation,
+	ConversationMessage,
+	ExecutionSession,
+	SessionMessage,
+	ConversationTurnTarget,
+	Job as SharedJob,
+	TestSuite as SharedTestSuite,
+	SuiteRun as SharedSuiteRun,
+	SuiteEntry as SharedSuiteEntry,
+	LLMConfig as SharedLLMConfig
+} from '@ibm-vibe/types';
 import { frontendConfig } from './runtimeConfig';
 
 // Re-export types for use in components
 export type { Agent, Test, TestResult, RequestTemplate, ResponseMap, AgentLinkedTemplate, AgentLinkedResponseMap };
 export type { Conversation, ConversationMessage, ExecutionSession, SessionMessage, ConversationTurnTarget };
 
-export interface LLMConfig {
-	id: number;
-	name: string;
-	provider: string;
-	config: string;
-	priority: number;
-	created_at?: string;
-	updated_at?: string;
-}
+export type LLMConfig = SharedLLMConfig;
 
 export interface AgentRequestTemplate {
 	id: number;
@@ -45,66 +58,25 @@ export interface AgentResponseMap {
 
 const API_URL = frontendConfig.apiUrl;
 
-// Job status type (frontend-specific version)
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type JobStatus = Lowercase<keyof typeof JobStatusEnum>;
 
-// Job interface
-export interface Job {
-	id: string; // UUID
-	agent_id: number;
-	test_id?: number; // Legacy field
-	conversation_id?: number; // New field for conversations
+export type Job = Omit<SharedJob, 'status' | 'progress' | 'created_at' | 'updated_at'> & {
 	status: JobStatus;
 	progress: number;
-	result_id?: number | null; // Legacy field
-	session_id?: number; // New field for execution sessions
 	created_at: string;
 	updated_at: string;
-	error?: string;
-	suite_run_id?: number;
-	job_type?: string;
-	claimed_by?: string;
-	claimed_at?: string;
-}
+};
 
-// Test Suite and Suite Run interfaces
-export interface TestSuite {
-	id: number;
-	name: string;
-	description?: string;
-	tags?: string;
-	created_at?: string;
-	updated_at?: string;
-	test_count?: number;
-}
+export type TestSuite = Omit<SharedTestSuite, 'id'> & { id: number; test_count?: number };
 
-export interface SuiteRun {
+export type SuiteRun = Omit<SharedSuiteRun, 'id' | 'status' | 'progress' | 'started_at'> & {
 	id: number;
-	suite_id: number;
-	agent_id: number;
-	agent_name?: string;
 	status: JobStatus;
 	progress: number;
-	total_tests: number;
-	completed_tests: number;
-	successful_tests: number;
-	failed_tests: number;
-	average_execution_time?: number;
-	total_input_tokens?: number;
-	total_output_tokens?: number;
 	started_at: string;
-	completed_at?: string;
-	avg_similarity_score?: number;
-}
+};
 
-export interface SuiteEntry {
-	id: number;
-	parent_suite_id: number;
-	sequence: number;
-	test_id?: number;
-	child_suite_id?: number;
-	agent_id_override?: number;
-}
+export type SuiteEntry = SharedSuiteEntry;
 
 export const api = {
 	async getStats(): Promise<StatsResponse> {
