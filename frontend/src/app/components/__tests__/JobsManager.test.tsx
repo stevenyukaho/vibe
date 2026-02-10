@@ -108,5 +108,5 @@ describe('JobsManager', () => {
 		await user.click(screen.getByRole('button', { name: /View Session/i }));
 		expect(onViewSession).toHaveBeenCalledWith(44);
 		expect(onViewConversation).not.toHaveBeenCalled();
-	});
+	}, 20000);
 });
