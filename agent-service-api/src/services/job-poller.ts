@@ -14,7 +14,7 @@ import {
 	JobStatus
 } from '@ibm-vibe/types';
 import { matchCapabilities, parseCapabilityInput } from '@ibm-vibe/config';
-import { BACKEND_CONFIG } from '../config';
+import { BACKEND_CONFIG, POLLER_CONFIG } from '../config';
 
 const shouldLog = process.env.NODE_ENV !== 'test';
 const logWarn = (...args: unknown[]) => {
@@ -81,30 +81,35 @@ export class JobPollerService {
 	private isPolling: boolean = false;
 	private pollingInterval: NodeJS.Timeout | null = null;
 	private isCurrentlyPolling: boolean = false;
+	private baseIntervalMs: number;
+	private maxIntervalMs: number;
+	private backoffMultiplier: number;
+	private maxConcurrentJobs: number;
+	private consecutiveEmptyPolls: number = 0;
+	private runningJobs: Set<string> = new Set();
 
 	constructor(backendUrl: string = BACKEND_CONFIG.url, serviceId: string = 'agent-service-api') {
 		this.backendUrl = backendUrl;
 		this.serviceId = serviceId;
+		this.baseIntervalMs = POLLER_CONFIG.baseIntervalMs;
+		this.maxIntervalMs = POLLER_CONFIG.maxIntervalMs;
+		this.backoffMultiplier = POLLER_CONFIG.backoffMultiplier;
+		this.maxConcurrentJobs = POLLER_CONFIG.maxConcurrentJobs;
 	}
 
 	/**
 	 * Start polling for jobs
 	 */
-	startPolling(intervalMs: number = 5000): void {
+	startPolling(intervalMs: number = this.baseIntervalMs): void {
 		if (this.isPolling) {
 			return;
 		}
 
 		this.isPolling = true;
+		this.baseIntervalMs = intervalMs;
+		this.consecutiveEmptyPolls = 0;
 
-		this.pollingInterval = setInterval(async () => {
-			if (this.isCurrentlyPolling) {
-				return;
-			}
-			await this.pollAndExecuteJobs();
-		}, intervalMs);
-
-		this.pollAndExecuteJobs();
+		void this.pollTick();
 	}
 
 	/**
@@ -112,37 +117,92 @@ export class JobPollerService {
 	 */
 	stopPolling(): void {
 		if (this.pollingInterval) {
-			clearInterval(this.pollingInterval);
+			clearTimeout(this.pollingInterval);
 			this.pollingInterval = null;
 		}
 		this.isPolling = false;
 	}
 
+	private scheduleNextPoll(delayMs: number): void {
+		if (!this.isPolling) {
+			return;
+		}
+
+		if (this.pollingInterval) {
+			clearTimeout(this.pollingInterval);
+		}
+
+		this.pollingInterval = setTimeout(() => {
+			void this.pollTick();
+		}, delayMs);
+	}
+
+	private getNextDelayMs(hasWork: boolean): number {
+		// If we still have running jobs, keep polling at the base interval.
+		if (hasWork || this.runningJobs.size > 0) {
+			this.consecutiveEmptyPolls = 0;
+			return this.baseIntervalMs;
+		}
+
+		this.consecutiveEmptyPolls += 1;
+		// First empty poll keeps base interval, then exponentially back off.
+		const exponent = Math.max(0, this.consecutiveEmptyPolls - 1);
+		const delay = this.baseIntervalMs * this.backoffMultiplier ** exponent;
+		return Math.min(delay, this.maxIntervalMs);
+	}
+
+	private async pollTick(): Promise<void> {
+		if (!this.isPolling) {
+			return;
+		}
+
+		if (this.isCurrentlyPolling) {
+			this.scheduleNextPoll(this.baseIntervalMs);
+			return;
+		}
+
+		const hasWorkRaw = await this.pollAndExecuteJobs();
+		// If poll is mocked and returns undefined, default to base interval behavior.
+		const hasWork = hasWorkRaw !== false;
+		this.scheduleNextPoll(this.getNextDelayMs(hasWork));
+	}
+
 	/**
 	 * Poll for available jobs and execute them
 	 */
-	private async pollAndExecuteJobs(): Promise<void> {
+	private async pollAndExecuteJobs(): Promise<boolean> {
 		if (this.isCurrentlyPolling) {
-			return;
+			return this.runningJobs.size > 0;
 		}
 
 		this.isCurrentlyPolling = true;
 
 		try {
+			// If we're already at capacity, don't poll the backend.
+			if (this.runningJobs.size >= this.maxConcurrentJobs) {
+				return true;
+			}
+
 			// Get available jobs for external API type
 			const response = await axios.get<Job[]>(`${this.backendUrl}/api/jobs/available/external_api?limit=5`);
 			const jobs: Job[] = response.data || [];
 
 			if (jobs.length === 0) {
-				return; // No jobs available
+				return this.runningJobs.size > 0; // No jobs available
 			}
 
-			// Process each job
-			for (const job of jobs) {
-				await this.executeJob(job);
+			const availableSlots = Math.max(0, this.maxConcurrentJobs - this.runningJobs.size);
+			const jobsToStart = jobs
+				.filter(job => !this.runningJobs.has(job.id))
+				.slice(0, availableSlots);
+
+			for (const job of jobsToStart) {
+				void this.executeJob(job);
 			}
+			return true;
 		} catch (error: unknown) {
 			logError('Error polling for jobs:', getErrorMessage(error));
+			return this.runningJobs.size > 0;
 		} finally {
 			this.isCurrentlyPolling = false;
 		}
@@ -152,6 +212,14 @@ export class JobPollerService {
 	 * Execute a single job
 	 */
 	private async executeJob(job: Job): Promise<void> {
+		if (this.runningJobs.has(job.id)) {
+			return;
+		}
+		if (this.runningJobs.size >= this.maxConcurrentJobs) {
+			return;
+		}
+
+		this.runningJobs.add(job.id);
 		try {
 			// Claim the job
 			const claimResponse = await axios.post(`${this.backendUrl}/api/jobs/${job.id}/claim`, {
@@ -191,6 +259,8 @@ export class JobPollerService {
 			const errorMessage = getErrorMessage(error);
 			logError(`Error executing job ${job.id}:`, errorMessage);
 			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
+		} finally {
+			this.runningJobs.delete(job.id);
 		}
 	}
 
