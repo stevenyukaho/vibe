@@ -3,9 +3,8 @@ import { apiService } from './api-service';
 import {
 	TestExecutionRequest,
 	ConversationExecutionRequest,
-	ConversationMessage,
-	ConversationMessageDraft,
 	ConversationExecutionResponse,
+	ConversationMessageDraft,
 	Job,
 	Agent,
 	Test,
@@ -13,8 +12,17 @@ import {
 	AgentSettings,
 	JobStatus
 } from '@ibm-vibe/types';
-import { matchCapabilities, parseCapabilityInput } from '@ibm-vibe/config';
 import { BACKEND_CONFIG, POLLER_CONFIG } from '../config';
+import { getErrorMessage, parseJson } from './job-poller-utils';
+import {
+	AgentConfig,
+	RequestTemplate,
+	ResponseMap,
+	ConversationScriptMessage,
+	resolveConversationScript,
+	validateConversationRequirements
+} from './conversation-script-resolver';
+import { saveSessionResults } from './session-results';
 
 const shouldLog = process.env.NODE_ENV !== 'test';
 const logWarn = (...args: unknown[]) => {
@@ -24,52 +32,6 @@ const logWarn = (...args: unknown[]) => {
 const logError = (...args: unknown[]) => {
   /* istanbul ignore next */
   if (shouldLog) console.error(...args);
-};
-
-const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
-	if (!value || !value.trim()) {
-		return fallback;
-	}
-	try {
-		return JSON.parse(value) as T;
-	} catch {
-		return fallback;
-	}
-};
-
-const getErrorMessage = (error: unknown): string => {
-	if (error instanceof Error) {
-		return error.message;
-	}
-	if (typeof error === 'string') {
-		return error;
-	}
-	return JSON.stringify(error);
-};
-
-interface RequestTemplate {
-	id: number;
-	body: string;
-	is_default?: number;
-	capabilities?: string | Record<string, unknown> | null;
-}
-
-interface ResponseMap {
-	id: number;
-	spec: string;
-	is_default?: number;
-	capabilities?: string | Record<string, unknown> | null;
-}
-
-interface AgentConfig {
-	templates: RequestTemplate[];
-	maps: ResponseMap[];
-	defaultTemplate?: RequestTemplate;
-	defaultMap?: ResponseMap;
-}
-
-type ConversationScriptMessage = Omit<ConversationMessage, 'metadata'> & {
-	metadata?: Record<string, unknown>;
 };
 
 /**
@@ -339,78 +301,7 @@ export class JobPollerService {
 		conversation: Conversation & { id: number; messages?: ConversationMessageDraft[] },
 		agentConfig: AgentConfig
 	): ConversationExecutionRequest['conversation_script'] {
-		const { templates, maps, defaultTemplate, defaultMap } = agentConfig;
-		const conversationDefaultTemplateId = conversation.default_request_template_id;
-		const conversationDefaultMapId = conversation.default_response_map_id;
-
-		const conversationVars = parseJson<Record<string, unknown>>(conversation.variables, {});
-
-		const findTemplateById = (id?: number | null) => templates.find(t => t.id === id);
-		const findMapById = (id?: number | null) => maps.find(m => m.id === id);
-
-		const resolvedMessages: ConversationScriptMessage[] = (conversation.messages || []).map((m) => {
-			const conversation_id = m.conversation_id ?? conversation.id;
-
-			if (m.role !== 'user') {
-				const metadata = typeof m.metadata === 'string'
-					? parseJson<Record<string, unknown>>(m.metadata, {})
-					: (m.metadata as Record<string, unknown> | undefined) || {};
-
-				return {
-					...m,
-					conversation_id,
-					metadata
-				};
-			}
-
-			const msgOverrideTemplateId = m.request_template_id;
-			const msgOverrideMapId = m.response_map_id;
-
-			const messageVars = typeof m.set_variables === 'string'
-				? parseJson<Record<string, unknown>>(m.set_variables, {})
-				: {};
-
-			const templateCandidate =
-				(msgOverrideTemplateId ? findTemplateById(msgOverrideTemplateId) : undefined) ??
-				(conversationDefaultTemplateId ? findTemplateById(conversationDefaultTemplateId) : undefined) ??
-				defaultTemplate;
-
-			const mapCandidate =
-				(msgOverrideMapId ? findMapById(msgOverrideMapId) : undefined) ??
-				(conversationDefaultMapId ? findMapById(conversationDefaultMapId) : undefined) ??
-				defaultMap;
-
-			const effectiveTemplate = templateCandidate?.body;
-			const effectiveTemplateCapabilities = templateCandidate ? this.parseCapabilities(templateCandidate.capabilities) : null;
-
-			const effectiveMap = mapCandidate?.spec;
-			const effectiveMapCapabilities = mapCandidate ? this.parseCapabilities(mapCandidate.capabilities) : null;
-
-			const mergedVars = { ...conversationVars, ...messageVars };
-
-			const metadata = typeof m.metadata === 'string'
-				? parseJson<Record<string, unknown>>(m.metadata, {})
-				: (m.metadata as Record<string, unknown> | undefined) || {};
-
-			const mergedMetadata = {
-				...metadata,
-				...(effectiveTemplate ? { request_template: effectiveTemplate } : {}),
-				...(effectiveMap ? { response_mapping: effectiveMap } : {}),
-				...(effectiveTemplateCapabilities ? { request_capabilities: effectiveTemplateCapabilities } : {}),
-				...(effectiveMapCapabilities ? { response_capabilities: effectiveMapCapabilities } : {}),
-				...(Object.keys(mergedVars).length ? { variables: mergedVars } : {})
-			};
-
-			return {
-				...m,
-				conversation_id,
-				metadata: mergedMetadata
-			};
-		});
-
-		this.validateConversationRequirements(conversation, resolvedMessages);
-
-		return resolvedMessages as ConversationExecutionRequest['conversation_script'];
+		return resolveConversationScript(conversation, agentConfig);
 	}
 
 	private async saveSessionResults(
@@ -420,41 +311,7 @@ export class JobPollerService {
 		completionTime: string,
 		result: ConversationExecutionResponse
 	): Promise<number> {
-		// Create execution session
-		const sessionResponse = await axios.post(`${this.backendUrl}/api/sessions`, {
-			conversation_id: conversationId,
-			agent_id: agentId,
-			status: 'completed',
-			started_at: startTime,
-			completed_at: completionTime,
-			success: result.success,
-			variables: JSON.stringify(result.variables || {}),
-			metadata: JSON.stringify({
-				input_tokens: result.metrics?.input_tokens,
-				output_tokens: result.metrics?.output_tokens,
-				token_mapping_metadata: JSON.stringify({
-					extraction_method: (result.metrics?.input_tokens || result.metrics?.output_tokens) ? 'external_api' : 'none',
-					agent_type: 'external_api'
-				}),
-				intermediate_steps: JSON.stringify(result.intermediate_steps)
-			})
-		});
-
-		const savedSession = sessionResponse.data;
-
-		// Save transcript messages
-		for (const message of result.transcript) {
-			await axios.post(`${this.backendUrl}/api/session-messages`, {
-				session_id: savedSession.id,
-				sequence: message.sequence,
-				role: message.role,
-				content: message.content,
-				timestamp: message.timestamp,
-				metadata: JSON.stringify(message.metadata || {})
-			});
-		}
-
-		return savedSession.id;
+		return saveSessionResults(this.backendUrl, conversationId, agentId, startTime, completionTime, result);
 	}
 
 	/**
@@ -577,42 +434,11 @@ export class JobPollerService {
 		}
 	}
 
-	private parseCapabilities(value?: string | Record<string, unknown> | null) {
-		return parseCapabilityInput(value);
-	}
-
 	private validateConversationRequirements(
 		conversation: Conversation,
 		resolvedMessages: ConversationScriptMessage[]
 	): void {
-		const userMessages = resolvedMessages.filter(message => message.role === 'user');
-		if (!userMessages.length) {
-			return;
-		}
-
-		const requestRequirement = parseCapabilityInput(conversation.required_request_template_capabilities);
-		if (requestRequirement) {
-			for (const message of userMessages) {
-				const metadata = (message.metadata || {}) as Record<string, unknown>;
-				const available = metadata.request_capabilities;
-				const matchResult = matchCapabilities(requestRequirement, available as Record<string, unknown> | undefined);
-				if (!matchResult.ok) {
-					throw new Error(`Request template capabilities do not satisfy conversation requirements: ${matchResult.reasons.join('; ')}`);
-				}
-			}
-		}
-
-		const responseRequirement = parseCapabilityInput(conversation.required_response_map_capabilities);
-		if (responseRequirement) {
-			for (const message of userMessages) {
-				const metadata = (message.metadata || {}) as Record<string, unknown>;
-				const available = metadata.response_capabilities;
-				const matchResult = matchCapabilities(responseRequirement, available as Record<string, unknown> | undefined);
-				if (!matchResult.ok) {
-					throw new Error(`Response map capabilities do not satisfy conversation requirements: ${matchResult.reasons.join('; ')}`);
-				}
-			}
-		}
+		validateConversationRequirements(conversation, resolvedMessages);
 	}
 }
 
