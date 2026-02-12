@@ -6,6 +6,10 @@
  */
 
 import type { TokenUsage, TokenMapping } from '@ibm-vibe/types';
+import {
+	extractByPath as extractPathValue,
+	extractTokensWithMapping as extractTokensFromMapping
+} from '@ibm-vibe/utils';
 
 /**
  * Popular token usage formats for automatic detection
@@ -59,34 +63,7 @@ const POPULAR_TOKEN_FORMATS: TokenMapping[] = [
  * @returns The extracted value or undefined
  */
 function extractByPath(obj: any, path: string): any {
-	try {
-		const parts = path.split('.');
-		let current = obj;
-
-		for (const part of parts) {
-			if (current === null || current === undefined) {
-				return undefined;
-			}
-			// Handle array notation like "choices[0]"
-			if (part.includes('[') && part.includes(']')) {
-				const arrayName = part.substring(0, part.indexOf('['));
-				const index = parseInt(part.substring(part.indexOf('[') + 1, part.indexOf(']')));
-				current = current[arrayName];
-
-				if (Array.isArray(current) && index >= 0 && index < current.length) {
-					current = current[index];
-				} else {
-					return undefined;
-				}
-			} else {
-				current = current[part];
-			}
-		}
-
-		return current;
-	} catch {
-		return undefined;
-	}
+	return extractPathValue(obj, path);
 }
 
 /**
@@ -96,41 +73,11 @@ function extractByPath(obj: any, path: string): any {
  * @returns TokenUsage object with extracted values
  */
 function extractTokensWithMapping(responseData: any, mapping: TokenMapping): TokenUsage {
-	const result: TokenUsage = {};
-
-	if (mapping.input_tokens) {
-		const value = extractByPath(responseData, mapping.input_tokens);
-		const numValue = typeof value === 'string' ? parseFloat(value) : value;
-
-		if (typeof numValue === 'number' && numValue >= 0 && !isNaN(numValue)) {
-			result.input_tokens = Math.floor(numValue);
-		}
-	}
-
-	if (mapping.output_tokens) {
-		const value = extractByPath(responseData, mapping.output_tokens);
-		const numValue = typeof value === 'string' ? parseFloat(value) : value;
-
-		if (typeof numValue === 'number' && numValue >= 0 && !isNaN(numValue)) {
-			result.output_tokens = Math.floor(numValue);
-		}
-	}
-
-	if (mapping.total_tokens) {
-		const value = extractByPath(responseData, mapping.total_tokens);
-		const numValue = typeof value === 'string' ? parseFloat(value) : value;
-
-		if (typeof numValue === 'number' && numValue >= 0 && !isNaN(numValue)) {
-			result.total_tokens = Math.floor(numValue);
-		}
-	}
-
-	// Compute total_tokens if not provided but we have input and output
-	if (!result.total_tokens && result.input_tokens !== undefined && result.output_tokens !== undefined) {
-		result.total_tokens = result.input_tokens + result.output_tokens;
-	}
-
-	return result;
+	return extractTokensFromMapping(responseData, mapping, {
+		parseNumericStrings: true,
+		includeTotalTokens: true,
+		computeTotalTokens: true
+	});
 }
 
 /**

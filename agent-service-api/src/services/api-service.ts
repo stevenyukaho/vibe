@@ -8,8 +8,15 @@ import {
 	ResponseMapping,
 	SessionMessage
 } from '@ibm-vibe/types';
+import { tokenizePath as tokenizeSharedPath, traverseByTokens as traverseSharedTokens } from '@ibm-vibe/utils';
 import { DEFAULT_TIMEOUT } from '../config';
 import { extractTokenUsage } from './token-extractor';
+import {
+	compareValues as compareMappedValues,
+	escapeForJsonTemplate as escapeTemplateValue,
+	formatConversationRequestWithVars as formatConversationRequestWithTemplateVars,
+	formatRequest as formatRequestPayload
+} from './api-service-formatters';
 
 export const serializeMetadata = (metadata?: Record<string, unknown>): string | undefined => {
 	if (!metadata) {
@@ -173,7 +180,7 @@ export class ApiService {
 	 * @returns Escaped string without surrounding quotes
 	 */
 	private escapeForJsonTemplate(value: string): string {
-		return JSON.stringify(value).slice(1, -1);
+		return escapeTemplateValue(value);
 	}
 
 	/**
@@ -193,17 +200,7 @@ export class ApiService {
 	 * The template should be a valid JSON string with {{input}} placeholders.
 	 */
 	private formatRequest(input: string, template: string): any {
-		try {
-			// Properly escape the input for JSON insertion
-			const escapedInput = this.escapeForJsonTemplate(input);
-
-			// Replace input placeholder in template with escaped input
-			const formattedTemplate = template.replace(/{{input}}/g, escapedInput);
-			return JSON.parse(formattedTemplate);
-		} catch (_error: unknown) {
-			// Fallback to simple input
-			return { input };
-		}
+		return formatRequestPayload(input, template);
 	}
 
 	/**
@@ -345,28 +342,7 @@ export class ApiService {
 	 * @returns Array of tokens (strings or numbers) representing the path segments
 	 */
 	private tokenizePath(path: string): (string | number)[] {
-		const tokens: (string | number)[] = [];
-		const dotParts = path.split('.');
-
-		for (const part of dotParts) {
-			const regex = /([^[\]]+)|\[(\d+|'.*?'|".*?")\]/g;
-			let match: RegExpExecArray | null;
-
-			while ((match = regex.exec(part)) !== null) {
-				if (match[1]) {
-					tokens.push(match[1]);
-				} else if (match[2]) {
-					const raw = match[2];
-					if (/^\d+$/.test(raw)) {
-						tokens.push(Number(raw));
-					} else {
-						tokens.push(String(raw).slice(1, -1));
-					}
-				}
-			}
-		}
-
-		return tokens;
+		return tokenizeSharedPath(path);
 	}
 
 	/**
@@ -377,14 +353,7 @@ export class ApiService {
 	 * @returns The extracted value or undefined if not found
 	 */
 	private traverseByTokens(obj: any, tokens: (string | number)[]): any {
-		let current = obj;
-		for (const token of tokens) {
-			if (current === null || current === undefined) {
-				return undefined;
-			}
-			current = current[token as any];
-		}
-		return current;
+		return traverseSharedTokens(obj, tokens);
 	}
 
 	/**
@@ -477,26 +446,7 @@ export class ApiService {
 	 * - <= : Less than or equal
 	 */
 	private compareValues(left: any, operator: string, right: any): boolean {
-		switch (operator) {
-			case '==':
-				return left == right;
-			case '===':
-				return left === right;
-			case '!=':
-				return left != right;
-			case '!==':
-				return left !== right;
-			case '>':
-				return left > right;
-			case '>=':
-				return left >= right;
-			case '<':
-				return left < right;
-			case '<=':
-				return left <= right;
-			default:
-				return false;
-		}
+		return compareMappedValues(left, operator, right);
 	}
 
 	/**
@@ -817,40 +767,7 @@ export class ApiService {
 	 * Variables are injected as strings unless the template author places the placeholder without quotes to embed JSON.
 	 */
 	private formatConversationRequestWithVars(currentInput: string, conversationHistory: string, template: string, variables: Record<string, any>): any {
-		try {
-			// Escape inputs for JSON insertion into quoted contexts
-			const escapedCurrentInput = this.escapeForJsonTemplate(currentInput);
-			const escapedHistory = this.escapeForJsonTemplate(conversationHistory);
-
-			let formatted = template
-				.replace(/{{\s*input\s*}}/g, escapedCurrentInput)
-				.replace(/{{\s*conversation_history\s*}}/g, escapedHistory);
-
-			// Replace any {{var}} placeholders with string-escaped versions by default
-			// Now supports bracket notation like users[0].name or data['key']
-			formatted = formatted.replace(/{{\s*([a-zA-Z0-9_.['"\]]+)\s*}}/g, (_match, p1: string) => {
-				// skip ones we've already replaced
-				if (p1 === 'input' || p1 === 'conversation_history') return _match;
-				// resolve nested variable paths using the robust extractByPath method
-				const value = this.extractByPath(variables, p1);
-				if (value === undefined || value === null) {
-					return '';
-				}
-				// Default: inject into quoted strings; author can omit quotes to embed objects
-				if (typeof value === 'string') {
-					return JSON.stringify(value).slice(1, -1);
-				}
-				try {
-					return JSON.stringify(value);
-				} catch {
-					return String(value);
-				}
-			});
-
-			return JSON.parse(formatted);
-		} catch (_error: unknown) {
-			return { input: currentInput, variables };
-		}
+		return formatConversationRequestWithTemplateVars(currentInput, conversationHistory, template, variables);
 	}
 
 	/**

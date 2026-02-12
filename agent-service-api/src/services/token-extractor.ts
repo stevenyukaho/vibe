@@ -1,4 +1,8 @@
 import type { TokenMapping, TokenUsage } from '@ibm-vibe/types';
+import {
+	extractByPath as extractPathValue,
+	extractTokensWithMapping as extractTokensFromMapping
+} from '@ibm-vibe/utils';
 
 /**
  * Popular token usage formats for automatic detection
@@ -45,44 +49,18 @@ const POPULAR_TOKEN_FORMATS: TokenMapping[] = [
  * Extracts a value from an object using dot notation path
  */
 function extractByPath(obj: any, path: string): any {
-	try {
-		const parts = path.split('.');
-		let current = obj;
-
-		for (const part of parts) {
-			if (current === null || current === undefined) {
-				return undefined;
-			}
-			current = current[part];
-		}
-
-		return current;
-	} catch (_error) {
-		return undefined;
-	}
+	return extractPathValue(obj, path);
 }
 
 /**
  * Attempts to extract token usage using a specific mapping
  */
 function extractTokensWithMapping(responseData: any, mapping: TokenMapping): TokenUsage {
-	const result: TokenUsage = {};
-
-	if (mapping.input_tokens) {
-		const value = extractByPath(responseData, mapping.input_tokens);
-		if (typeof value === 'number' && value >= 0) {
-			result.input_tokens = Math.floor(value);
-		}
-	}
-
-	if (mapping.output_tokens) {
-		const value = extractByPath(responseData, mapping.output_tokens);
-		if (typeof value === 'number' && value >= 0) {
-			result.output_tokens = Math.floor(value);
-		}
-	}
-
-	return result;
+	return extractTokensFromMapping(responseData, mapping, {
+		parseNumericStrings: false,
+		includeTotalTokens: false,
+		computeTotalTokens: false
+	});
 }
 
 /**
