@@ -1,25 +1,25 @@
 import { useState, useEffect } from 'react';
 import {
 	Modal,
-	TextInput,
 	TextArea,
 	Form,
 	Stack,
-	Button,
-	RadioButtonGroup,
-	RadioButton,
 	InlineNotification,
 	Accordion,
 	AccordionItem,
-	CodeSnippet,
-	Dropdown,
-	Tag,
-	Checkbox,
-	ComboBox
+	CodeSnippet
 } from '@carbon/react';
-import { Launch, TrashCan, Edit, Add } from '@carbon/icons-react';
 import { api } from '@/lib/api';
-import { extractCapabilityName, capabilityNameToJson } from '../../lib/capabilities';
+import { capabilityNameToJson } from '../../lib/capabilities';
+import { AgentCoreFields } from './AgentCoreFields';
+import { AgentCrewAIFields } from './AgentCrewAIFields';
+import { AgentExternalApiFields } from './AgentExternalApiFields';
+import { TestConnectionButton } from './TestConnectionButton';
+import type {
+	RequestTemplate,
+	ResponseMap,
+	TestConnectionStatus
+} from './AgentFormModal.types';
 import styles from './AgentFormModal.module.scss';
 
 interface AgentFormModalProps {
@@ -28,30 +28,6 @@ interface AgentFormModalProps {
 	formData: Record<string, string>;
 	onClose: () => void;
 	onSuccess: () => void;
-}
-
-interface RequestTemplate {
-	id?: number;
-	name: string;
-	description?: string;
-	body: string;
-	is_default?: boolean;
-	capabilities?: string;
-	_isNew?: boolean;
-	_isEditing?: boolean;
-	_isDeleted?: boolean;
-}
-
-interface ResponseMap {
-	id?: number;
-	name: string;
-	description?: string;
-	spec: string;
-	is_default?: boolean;
-	capabilities?: string;
-	_isNew?: boolean;
-	_isEditing?: boolean;
-	_isDeleted?: boolean;
 }
 
 export default function AgentFormModal({
@@ -139,11 +115,7 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 	}, [isOpen, editingId]);
 
 	// State for API connection testing
-	const [testConnectionStatus, setTestConnectionStatus] = useState<{
-		loading: boolean;
-		success?: boolean;
-		message?: string;
-	} | null>(null);
+	const [testConnectionStatus, setTestConnectionStatus] = useState<TestConnectionStatus | null>(null);
 
 	// Form input change handler
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -569,586 +541,44 @@ const [newResponseMap, setNewResponseMap] = useState<Partial<ResponseMap>>({ nam
 			)}
 			<Form>
 				<Stack gap={7}>
-					<TextInput
-						id="agent-name"
-						labelText="Name"
-						placeholder="Enter agent name"
-						value={formData['agent-name'] || ''}
-						onChange={handleInputChange}
-					/>
-					<TextInput
-						id="agent-version"
-						labelText="Version"
-						placeholder="Enter version"
-						value={formData['agent-version'] || ''}
-						onChange={handleInputChange}
+					<AgentCoreFields
+						formData={formData}
+						onInputChange={handleInputChange}
 					/>
 
-					{/* Agent Type Selection */}
-					<RadioButtonGroup
-						legendText="Agent Type"
-						name="agent-type"
-						orientation="horizontal"
-						valueSelected={formData['agent-type'] || 'crew_ai'}
-						onChange={(value) => {
-							handleInputChange({
-								target: { id: 'agent-type', value }
-							} as React.ChangeEvent<HTMLInputElement>);
-						}}
-					>
-						<RadioButton
-							id="crew_ai"
-							labelText="CrewAI Agent"
-							value="crew_ai"
-						/>
-						<RadioButton
-							id="external_api"
-							labelText="External API Agent"
-							value="external_api"
-						/>
-					</RadioButtonGroup>
-
-					{/* Show different fields based on agent type */}
 					{(formData['agent-type'] !== 'external_api') ? (
-						<>
-							{/* CrewAI Agent Configuration */}
-							<TextInput
-								id="agent-role"
-								labelText="Role"
-								placeholder="Enter agent role (e.g., AI Assistant)"
-								value={formData['agent-role'] || ''}
-								onChange={handleInputChange}
-							/>
-							<TextInput
-								id="agent-goal"
-								labelText="Goal"
-								placeholder="Enter agent goal (e.g., Help the user with their tasks)"
-								value={formData['agent-goal'] || ''}
-								onChange={handleInputChange}
-							/>
-							<TextArea
-								id="agent-backstory"
-								labelText="Backstory"
-								placeholder="Enter agent backstory"
-								rows={2}
-								value={formData['agent-backstory'] || ''}
-								onChange={handleInputChange}
-							/>
-							<TextInput
-								id="agent-model"
-								labelText="Model Name"
-								placeholder="Enter model name (e.g., llama3, mistral, etc.)"
-								value={formData['agent-model'] || ''}
-								onChange={handleInputChange}
-							/>
-							<div style={{ display: 'flex', gap: '1rem' }}>
-								<TextInput
-									id="agent-temperature"
-									labelText="Temperature"
-									placeholder="0.7"
-									value={formData['agent-temperature'] || ''}
-									onChange={handleInputChange}
-									style={{ flex: 1 }}
-								/>
-								<TextInput
-									id="agent-max-tokens"
-									labelText="Max Tokens"
-									placeholder="1000"
-									value={formData['agent-max-tokens'] || ''}
-									onChange={handleInputChange}
-									style={{ flex: 1 }}
-								/>
-							</div>
-							<TextInput
-								id="agent-ollama-url"
-								labelText="Ollama Base URL"
-								placeholder="Enter Ollama base URL (e.g., http://your-ollama-host:11434)"
-								value={formData['agent-ollama-url'] || ''}
-								onChange={handleInputChange}
-							/>
-						</>
+						<AgentCrewAIFields
+							formData={formData}
+							onInputChange={handleInputChange}
+						/>
 					) : (
-						<>
-							{/* External API Agent Configuration */}
-							<TextInput
-								id="agent-api-endpoint"
-								labelText="API Endpoint"
-								placeholder="Enter API endpoint URL (e.g., https://api.example.com/v1/completion)"
-								value={formData['agent-api-endpoint'] || ''}
-								onChange={handleInputChange}
-								required
-							/>
-							<Dropdown
-								id="agent-http-method"
-								titleText="HTTP Method"
-								label="Select HTTP method"
-								items={[
-									{ id: 'POST', label: 'POST' },
-									{ id: 'GET', label: 'GET' },
-									{ id: 'PUT', label: 'PUT' },
-									{ id: 'PATCH', label: 'PATCH' },
-									{ id: 'DELETE', label: 'DELETE' }
-								]}
-								selectedItem={
-									formData['agent-http-method']
-										? { id: formData['agent-http-method'], label: formData['agent-http-method'] }
-										: { id: 'POST', label: 'POST' }
-								}
-								onChange={(e) => {
-									const event = {
-										target: {
-											id: 'agent-http-method',
-											value: e.selectedItem?.id || 'POST'
-										}
-									} as React.ChangeEvent<HTMLInputElement>;
-									handleInputChange(event);
-								}}
-								helperText="HTTP method to use for API requests (default: POST)"
-							/>
-							<TextInput
-								id="agent-api-key"
-								labelText="API Key (Optional)"
-								placeholder="Enter API key for authentication"
-								value={formData['agent-api-key'] || ''}
-								onChange={handleInputChange}
-								type="password"
-							/>
-							<TextArea
-								id="agent-token-mapping"
-								labelText="Token mapping (Optional)"
-								placeholder='JSON mapping to extract token usage, e.g.: {"input_tokens": "usage.prompt_tokens", "output_tokens": "usage.completion_tokens"}'
-								rows={3}
-								value={formData['agent-token-mapping'] || ''}
-								onChange={handleInputChange}
-								helperText="Leave empty for auto-detection (works with OpenAI, Claude, Gemini, etc.) or specify custom mapping"
-							/>
-							<TextArea
-								id="agent-headers"
-								labelText="Headers (Optional)"
-								placeholder='Enter custom headers as JSON, e.g.: {"Content-Type": "application/json", "X-Custom-Header": "value"}'
-								rows={3}
-								value={formData['agent-headers'] || ''}
-								onChange={handleInputChange}
-								helperText="Custom HTTP headers as JSON object"
-							/>
-
-							{/* Request Templates Section */}
-							<Accordion>
-								<AccordionItem title="Request templates (recommended)" open>
-									<div className={styles.templatesSection}>
-										<p className={styles.sectionDescription}>
-											Templates define how to format requests to your API. At least one template is needed to execute conversations.
-										</p>
-
-										{/* Existing templates */}
-										{requestTemplates.filter(t => !t._isDeleted).map((template, idx) => (
-											<div key={template.id || `new-${idx}`} className={styles.templateItem}>
-												<div className={styles.templateHeader}>
-													<div className={styles.templateTitle}>
-														<strong>{template.name}</strong>
-														{template.is_default && <Tag type="green" size="sm">default</Tag>}
-													</div>
-													<div className={styles.templateActions}>
-														<Button
-															kind="ghost"
-															size="sm"
-															renderIcon={Edit}
-															onClick={() => {
-																setRequestTemplates(requestTemplates.map(t =>
-																	t.id === template.id ? { ...t, _isEditing: !t._isEditing } : t
-																));
-															}}
-														>
-															{template._isEditing ? 'Cancel' : 'Edit'}
-														</Button>
-														<Button
-															kind="danger--ghost"
-															size="sm"
-															renderIcon={TrashCan}
-															onClick={() => {
-																setRequestTemplates(requestTemplates.map(t =>
-																	t.id === template.id ? { ...t, _isDeleted: true } : t
-																));
-															}}
-														>
-															Delete
-														</Button>
-													</div>
-												</div>
-												{template._isEditing ? (
-													<Stack gap={4}>
-														<TextInput
-															id={`template-name-${idx}`}
-															labelText="Name"
-															value={template.name}
-															onChange={(e) => {
-																setRequestTemplates(requestTemplates.map(t =>
-																	t.id === template.id ? { ...t, name: e.target.value } : t
-																));
-															}}
-														/>
-														<TextArea
-															id={`template-body-${idx}`}
-															labelText="Body (JSON)"
-															value={template.body}
-															onChange={(e) => {
-																setRequestTemplates(requestTemplates.map(t =>
-																	t.id === template.id ? { ...t, body: e.target.value } : t
-																));
-															}}
-															rows={4}
-														/>
-														<ComboBox
-															id={`template-capabilities-${idx}`}
-															titleText="Capability"
-															placeholder="Select or type a capability name"
-															items={templateCapabilityNames}
-															selectedItem={extractCapabilityName(template.capabilities)}
-															onChange={(e) => {
-																setRequestTemplates(requestTemplates.map(t =>
-																	t.id === template.id ? { ...t, capabilities: e.selectedItem || '' } : t
-																));
-															}}
-															allowCustomValue
-															helperText="Tag this template with a capability name for matching"
-														/>
-														<Checkbox
-															id={`template-default-${idx}`}
-															labelText="Set as default"
-															checked={!!template.is_default}
-															onChange={(_evt, { checked }) => {
-																setRequestTemplates(requestTemplates.map(t =>
-																	t.id === template.id ? { ...t, is_default: checked } : { ...t, is_default: false }
-																));
-															}}
-														/>
-													</Stack>
-												) : (
-													<CodeSnippet type="multi" feedback="Copied to clipboard">
-														{template.body}
-													</CodeSnippet>
-												)}
-											</div>
-										))}
-
-										{/* Add new template button */}
-										{!shouldShowNewTemplateForm && (
-											<Button
-												kind="tertiary"
-												size="sm"
-												renderIcon={Add}
-												data-testid="open-template-form"
-												onClick={() => setShouldShowNewTemplateForm(true)}
-											>
-												Add new template
-											</Button>
-										)}
-
-										{/* New template form */}
-										{shouldShowNewTemplateForm && (
-											<div className={styles.newTemplateForm}>
-												<h6 className={styles.newFormTitle}>Add new template</h6>
-												<Stack gap={4}>
-													<TextInput
-														id="new-template-name"
-														labelText="Name"
-														value={newTemplate.name || ''}
-														onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-														placeholder="e.g., default, openai-style"
-													/>
-													<TextArea
-														id="new-template-body"
-														labelText="Body (JSON)"
-														value={newTemplate.body || ''}
-														onChange={(e) => setNewTemplate({ ...newTemplate, body: e.target.value })}
-														placeholder='{"model": "gpt-4", "messages": [{"role": "user", "content": "{{input}}"}]}'
-														rows={4}
-													/>
-													<ComboBox
-														id="new-template-capabilities"
-														titleText="Capability"
-														placeholder="Select or type a capability name"
-														items={templateCapabilityNames}
-														selectedItem={extractCapabilityName(newTemplate.capabilities)}
-														onChange={(e) => setNewTemplate({ ...newTemplate, capabilities: e.selectedItem || '' })}
-														allowCustomValue
-														helperText="Tag this template with a capability name (e.g., openai-chat, ollama-generate)"
-													/>
-													<Checkbox
-														id="new-template-default"
-														labelText="Set as default"
-														checked={!!newTemplate.is_default}
-														onChange={(_evt, { checked }) => setNewTemplate({ ...newTemplate, is_default: checked })}
-													/>
-													<div className={styles.formActions}>
-														<Button
-															kind="secondary"
-															size="sm"
-															onClick={() => {
-																setShouldShowNewTemplateForm(false);
-																setNewTemplate({ name: '', body: '', capabilities: '', is_default: false });
-															}}
-														>
-															Cancel
-														</Button>
-														<Button
-															kind="primary"
-															size="sm"
-															onClick={() => {
-																try {
-																	JSON.parse(newTemplate.body || '');
-																} catch (err) {
-																	setError(`Invalid JSON in template body: ${err instanceof Error ? err.message : 'Unknown error'}`);
-																	return;
-																}
-
-																const normalizedCaps = serializeCapabilitiesOrError(newTemplate.capabilities);
-																// null is valid - means no capability set
-
-																// Mark as new for saving later
-																const newTpl = {
-																	...newTemplate,
-																	capabilities: normalizedCaps || '',
-																	id: Date.now(), // temporary ID
-																	_isNew: true
-																} as RequestTemplate & { _isNew: boolean };
-																setRequestTemplates([...requestTemplates, newTpl]);
-																setShouldShowNewTemplateForm(false);
-																setNewTemplate({ name: '', body: '', capabilities: '', is_default: false });
-																setError(null);
-															}}
-															disabled={!newTemplate.name || !newTemplate.body}
-														>
-															Add
-														</Button>
-													</div>
-												</Stack>
-											</div>
-										)}
-									</div>
-								</AccordionItem>
-
-								{/* Response Maps Section */}
-								<AccordionItem title="Response maps (recommended)" open>
-									<div className={styles.templatesSection}>
-										<p className={styles.sectionDescription}>
-											Response maps define how to extract data from API responses. At least one map is needed to execute conversations.
-										</p>
-
-										{/* Existing maps */}
-										{responseMaps.filter(m => !m._isDeleted).map((map, idx) => (
-											<div key={map.id || `new-${idx}`} className={styles.mapItem}>
-												<div className={styles.mapHeader}>
-													<div className={styles.mapTitle}>
-														<strong>{map.name}</strong>
-														{map.is_default && <Tag type="green" size="sm">default</Tag>}
-													</div>
-													<div className={styles.mapActions}>
-														<Button
-															kind="ghost"
-															size="sm"
-															renderIcon={Edit}
-															onClick={() => {
-																setResponseMaps(responseMaps.map(m =>
-																	m.id === map.id ? { ...m, _isEditing: !m._isEditing } : m
-																));
-															}}
-														>
-															{map._isEditing ? 'Cancel' : 'Edit'}
-														</Button>
-														<Button
-															kind="danger--ghost"
-															size="sm"
-															renderIcon={TrashCan}
-															onClick={() => {
-																setResponseMaps(responseMaps.map(m =>
-																	m.id === map.id ? { ...m, _isDeleted: true } : m
-																));
-															}}
-														>
-															Delete
-														</Button>
-													</div>
-												</div>
-												{map._isEditing ? (
-													<Stack gap={4}>
-														<TextInput
-															id={`map-name-${idx}`}
-															labelText="Name"
-															value={map.name}
-															onChange={(e) => {
-																setResponseMaps(responseMaps.map(m =>
-																	m.id === map.id ? { ...m, name: e.target.value } : m
-																));
-															}}
-														/>
-														<TextArea
-															id={`map-spec-${idx}`}
-															labelText="Spec (JSON)"
-															value={map.spec}
-															onChange={(e) => {
-																setResponseMaps(responseMaps.map(m =>
-																	m.id === map.id ? { ...m, spec: e.target.value } : m
-																));
-															}}
-															rows={4}
-														/>
-														<ComboBox
-															id={`map-capabilities-${idx}`}
-															titleText="Capability"
-															placeholder="Select or type a capability name"
-															items={responseMapCapabilityNames}
-															selectedItem={extractCapabilityName(map.capabilities)}
-															onChange={(e) => {
-																setResponseMaps(responseMaps.map(m =>
-																	m.id === map.id ? { ...m, capabilities: e.selectedItem || '' } : m
-																));
-															}}
-															allowCustomValue
-															helperText="Tag this response map with a capability name for matching"
-														/>
-														<Checkbox
-															id={`map-default-${idx}`}
-															labelText="Set as default"
-															checked={!!map.is_default}
-															onChange={(_evt, { checked }) => {
-																setResponseMaps(responseMaps.map(m =>
-																	m.id === map.id ? { ...m, is_default: checked } : { ...m, is_default: false }
-																));
-															}}
-														/>
-													</Stack>
-												) : (
-													<CodeSnippet type="multi" feedback="Copied to clipboard">
-														{map.spec}
-													</CodeSnippet>
-												)}
-											</div>
-										))}
-
-										{/* Add new map button */}
-										{!shouldShowNewMapForm && (
-											<Button
-												kind="tertiary"
-												size="sm"
-												renderIcon={Add}
-												onClick={() => setShouldShowNewMapForm(true)}
-											>
-												Add new response map
-											</Button>
-										)}
-
-										{/* New map form */}
-										{shouldShowNewMapForm && (
-											<div className={styles.newMapForm}>
-												<h6 className={styles.newFormTitle}>Add new response map</h6>
-												<Stack gap={4}>
-													<TextInput
-														id="new-map-name"
-														labelText="Name"
-														value={newResponseMap.name || ''}
-														onChange={(e) => setNewResponseMap({ ...newResponseMap, name: e.target.value })}
-														placeholder="e.g., default, openai-style"
-													/>
-													<TextArea
-														id="new-map-spec"
-														labelText="Spec (JSON)"
-														value={newResponseMap.spec || ''}
-														onChange={(e) => setNewResponseMap({ ...newResponseMap, spec: e.target.value })}
-														placeholder='{"output": "choices.0.message.content"}'
-														rows={4}
-													/>
-													<ComboBox
-														id="new-map-capabilities"
-														titleText="Capability"
-														placeholder="Select or type a capability name"
-														items={responseMapCapabilityNames}
-														selectedItem={extractCapabilityName(newResponseMap.capabilities)}
-														onChange={(e) => setNewResponseMap({ ...newResponseMap, capabilities: e.selectedItem || '' })}
-														allowCustomValue
-														helperText="Tag this response map with a capability name (e.g., openai-chat, ollama-generate)"
-													/>
-													<Checkbox
-														id="new-map-default"
-														labelText="Set as default"
-														checked={!!newResponseMap.is_default}
-														onChange={(_evt, { checked }) => setNewResponseMap({ ...newResponseMap, is_default: checked })}
-													/>
-													<div className={styles.formActions}>
-														<Button
-															kind="secondary"
-															size="sm"
-															onClick={() => {
-																setShouldShowNewMapForm(false);
-																setNewResponseMap({ name: '', spec: '', capabilities: '', is_default: false });
-															}}
-														>
-															Cancel
-														</Button>
-														<Button
-															kind="primary"
-															size="sm"
-															onClick={() => {
-																// Validate JSON
-																try {
-																	JSON.parse(newResponseMap.spec || '');
-																} catch (err) {
-																	setError(`Invalid JSON in response map spec: ${err instanceof Error ? err.message : 'Unknown error'}`);
-																	return;
-																}
-
-																const normalizedCaps = serializeCapabilitiesOrError(newResponseMap.capabilities);
-																// null is valid - means no capability set
-
-																// Mark as new for saving later
-																const newMap = {
-																	...newResponseMap,
-																	capabilities: normalizedCaps || '',
-																	id: Date.now(), // temporary ID
-																	_isNew: true
-																} as ResponseMap & { _isNew: boolean };
-																setResponseMaps([...responseMaps, newMap]);
-																setShouldShowNewMapForm(false);
-																setNewResponseMap({ name: '', spec: '', capabilities: '', is_default: false });
-																setError(null);
-															}}
-															disabled={!newResponseMap.name || !newResponseMap.spec}
-														>
-															Add
-														</Button>
-													</div>
-												</Stack>
-											</div>
-										)}
-									</div>
-								</AccordionItem>
-							</Accordion>
-						</>
+						<AgentExternalApiFields
+							formData={formData}
+							onInputChange={handleInputChange}
+							requestTemplates={requestTemplates}
+							setRequestTemplates={setRequestTemplates}
+							responseMaps={responseMaps}
+							setResponseMaps={setResponseMaps}
+							newTemplate={newTemplate}
+							setNewTemplate={setNewTemplate}
+							newResponseMap={newResponseMap}
+							setNewResponseMap={setNewResponseMap}
+							shouldShowNewTemplateForm={shouldShowNewTemplateForm}
+							setShouldShowNewTemplateForm={setShouldShowNewTemplateForm}
+							shouldShowNewMapForm={shouldShowNewMapForm}
+							setShouldShowNewMapForm={setShouldShowNewMapForm}
+							templateCapabilityNames={templateCapabilityNames}
+							responseMapCapabilityNames={responseMapCapabilityNames}
+							serializeCapabilitiesOrError={serializeCapabilitiesOrError}
+							setError={setError}
+						/>
 					)}
 
-					{/* Test Connection Button */}
-					<div className={styles.testConnection}>
-						<Button
-							kind="tertiary"
-							onClick={testApiConnection}
-							disabled={!formData['agent-api-endpoint'] || testConnectionStatus?.loading}
-							renderIcon={Launch}
-							size="sm"
-						>
-							{testConnectionStatus?.loading ? 'Testing...' : 'Test Connection'}
-						</Button>
-
-						{testConnectionStatus && !testConnectionStatus.loading && (
-							<InlineNotification
-								className={styles.testConnectionStatus}
-								kind={testConnectionStatus.success ? 'success' : 'error'}
-								title={testConnectionStatus.success ? 'Success' : 'Error'}
-								subtitle={testConnectionStatus.message}
-								hideCloseButton
-								lowContrast
-							/>
-						)}
-					</div>
+					<TestConnectionButton
+						status={testConnectionStatus}
+						onTestConnection={testApiConnection}
+						disabled={!formData['agent-api-endpoint']}
+					/>
 
 					<TextArea
 						id="agent-prompt"
