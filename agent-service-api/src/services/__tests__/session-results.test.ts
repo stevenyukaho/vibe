@@ -29,14 +29,14 @@ describe('session-results', () => {
 						role: 'user',
 						content: 'Hello',
 						timestamp: '2026-01-01T00:00:00.000Z',
-						metadata: {}
+						metadata: '{}'
 					},
 					{
 						sequence: 2,
 						role: 'assistant',
 						content: 'Hi',
 						timestamp: '2026-01-01T00:00:01.000Z',
-						metadata: {}
+						metadata: '{}'
 					}
 				],
 				success: true,

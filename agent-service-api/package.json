@@ -9,9 +9,9 @@
     "build": "tsc -b",
     "typecheck": "tsc -b",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "jest",
+    "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage --runInBand"
   },
   "keywords": [],
   "author": "",

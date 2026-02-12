@@ -19,8 +19,8 @@ import {
 	RequestTemplate,
 	ResponseMap,
 	ConversationScriptMessage,
-	resolveConversationScript,
-	validateConversationRequirements
+	validateConversationRequirements,
+	resolveConversationScript
 } from './conversation-script-resolver';
 import { saveSessionResults } from './session-results';
 
@@ -72,6 +72,8 @@ export class JobPollerService {
 		this.consecutiveEmptyPolls = 0;
 
 		void this.pollTick();
+		// Seed the timer immediately so fake timers and long-running polls still get periodic ticks.
+		this.scheduleNextPoll(this.baseIntervalMs);
 	}
 
 	/**
@@ -304,6 +306,13 @@ export class JobPollerService {
 		return resolveConversationScript(conversation, agentConfig);
 	}
 
+	public validateConversationRequirements(
+		conversation: Conversation,
+		resolvedMessages: ConversationScriptMessage[]
+	): void {
+		validateConversationRequirements(conversation, resolvedMessages);
+	}
+
 	private async saveSessionResults(
 		conversationId: number,
 		agentId: number,
@@ -434,12 +443,6 @@ export class JobPollerService {
 		}
 	}
 
-	private validateConversationRequirements(
-		conversation: Conversation,
-		resolvedMessages: ConversationScriptMessage[]
-	): void {
-		validateConversationRequirements(conversation, resolvedMessages);
-	}
 }
 
 // Export singleton instance
