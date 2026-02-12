@@ -279,9 +279,6 @@ You can modify the database configuration in the environment files:
 ```bash
 # SQLite (default)
 DB_PATH=./data/agent-testing-instance1.db
-
-# PostgreSQL
-DATABASE_URL=postgresql://user:pass@localhost:5432/instance1_db
 ```
 
 ### Load balancing

@@ -29,6 +29,7 @@ The application is separated into four main components:
 3. **Agent Service** - Python service for executing CrewAI tests
    - Built with Python, FastAPI, and CrewAI
    - Handles agent execution, LLM provider integration, and result collection
+   - Status: currently out of date and needs TLC before relying on it in production
 
 4. **Agent Service API** - TypeScript service for external API style agents
    - Built with TypeScript and Express.js
@@ -144,6 +145,8 @@ pip install -r requirements.txt
 cp .env.example .env
 python run.py
 ```
+
+Note: the Python `agent-service` implementation is currently out of date and needs TLC. Prefer the TypeScript path (`backend` + `agent-service-api`) unless you are explicitly working on CrewAI integration.
 
 ##### Agent Service API
 

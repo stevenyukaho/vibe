@@ -19,8 +19,7 @@ If any member of the community violates this Code of Conduct, the maintainers of
 
 If you are subjected to or witness unacceptable behavior, or have any other concerns, please report it:
 
-- **Preferred (private)**: email `vibe-maintainers@example.com`.
-  **Replace this placeholder address before publishing the repository.**
+- **Preferred (private)**: open a private maintainer discussion and include `Code of conduct report` in the title.
 - **Alternative (public)**: open a GitHub issue with the label `code-of-conduct`.
   If you are reporting sensitive information, please use the email option instead.
 
