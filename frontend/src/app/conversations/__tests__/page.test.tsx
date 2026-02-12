@@ -46,9 +46,14 @@ jest.mock('../../components/EmptyState', () => ({
 
 jest.mock('../../components/ConversationFormModal', () => ({
 	__esModule: true,
-	default: ({ open }: { open: boolean }) => (
-		open ? <div>ConversationFormModal</div> : null
+	default: ({ isOpen }: { isOpen: boolean }) => (
+		isOpen ? <div>ConversationFormModal</div> : null
 	)
+}));
+
+jest.mock('../../components/DeleteConfirmationModal', () => ({
+	__esModule: true,
+	default: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div>DeleteConfirmationModal</div> : null)
 }));
 
 const mockedApi = api as jest.Mocked<typeof api>;

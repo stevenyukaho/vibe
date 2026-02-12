@@ -27,6 +27,7 @@ import { api, Conversation, ExecutionSession, SessionMessage, Agent } from '../.
 import { loadSessionMessages, calculateSessionStats } from '../../../lib/utils';
 import SessionViewer from '../../components/SessionViewer';
 import ConversationFormModal from '../../components/ConversationFormModal';
+import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import SessionsTable from '../../components/SessionsTable';
 import styles from './page.module.scss';
 
@@ -53,7 +54,6 @@ export default function ConversationDetailPage() {
 	const [editModalOpen, setEditModalOpen] = useState(false);
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [duplicating, setDuplicating] = useState(false);
-	const [deleting, setDeleting] = useState(false);
 	const [stats, setStats] = useState({
 		totalRuns: 0,
 		successRate: 0,
@@ -217,23 +217,6 @@ export default function ConversationDetailPage() {
 			setError(err instanceof Error ? err.message : 'Failed to duplicate conversation');
 		} finally {
 			setDuplicating(false);
-		}
-	};
-
-	const handleDelete = async () => {
-		if (!conversation?.id) return;
-
-		setDeleting(true);
-		setError(null);
-
-		try {
-			await api.deleteConversation(conversation.id);
-			router.push('/conversations'); // Navigate back to conversations list
-		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to delete conversation');
-		} finally {
-			setDeleting(false);
-			setDeleteModalOpen(false);
 		}
 	};
 
@@ -471,28 +454,22 @@ export default function ConversationDetailPage() {
 
 			{/* Edit conversation modal */}
 			<ConversationFormModal
-				open={editModalOpen}
+				isOpen={editModalOpen}
 				conversation={conversation}
 				onClose={() => setEditModalOpen(false)}
 				onSave={handleEditSuccess}
 			/>
 
-			{/* Delete confirmation modal */}
-			<Modal
-				open={deleteModalOpen}
-				modalHeading="Delete conversation"
-				primaryButtonText={deleting ? 'Deleting...' : 'Delete'}
-				secondaryButtonText="Cancel"
-				onRequestClose={() => setDeleteModalOpen(false)}
-				onRequestSubmit={handleDelete}
-				primaryButtonDisabled={deleting}
-				danger
-			>
-				<p>
-					Are you sure you want to delete &quot;{conversation?.name}&quot;?
-					This action cannot be undone and will also delete all associated execution sessions.
-				</p>
-			</Modal>
+			<DeleteConfirmationModal
+				isOpen={deleteModalOpen}
+				deleteType="conversation"
+				deleteName={conversation?.name || ''}
+				deleteId={conversation?.id || null}
+				onClose={() => setDeleteModalOpen(false)}
+				onSuccess={() => {
+					router.push('/conversations');
+				}}
+			/>
 		</div>
 	);
 }

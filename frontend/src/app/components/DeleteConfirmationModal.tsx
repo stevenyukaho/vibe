@@ -5,7 +5,7 @@ import noticeStyles from './Notice.module.scss';
 
 interface DeleteConfirmationModalProps {
 	isOpen: boolean;
-	deleteType: 'agent' | 'test' | 'test-suite' | null;
+	deleteType: 'agent' | 'test' | 'test-suite' | 'conversation' | 'suite-run' | null;
 	deleteName: string;
 	deleteId: number | null;
 	onClose: () => void;
@@ -36,6 +36,10 @@ export default function DeleteConfirmationModal({
 				await api.deleteTest(deleteId);
 			} else if (deleteType === 'test-suite') {
 				await api.deleteTestSuite(deleteId);
+			} else if (deleteType === 'conversation') {
+				await api.deleteConversation(deleteId);
+			} else if (deleteType === 'suite-run') {
+				await api.deleteSuiteRun(deleteId);
 			}
 
 			onSuccess();
@@ -52,6 +56,8 @@ export default function DeleteConfirmationModal({
 			case 'agent': return 'Agent';
 			case 'test': return 'Test';
 			case 'test-suite': return 'Test suite';
+			case 'conversation': return 'Conversation';
+			case 'suite-run': return 'Suite run';
 			default: return 'Item';
 		}
 	};
@@ -63,6 +69,14 @@ export default function DeleteConfirmationModal({
 					<p>Are you sure you want to delete the test suite &quot;{deleteName}&quot;?</p>
 					<p><strong>Warning:</strong> This will also permanently delete all associated suite runs and their results. This action cannot be undone.</p>
 				</>
+			);
+		}
+		if (deleteType === 'suite-run') {
+			return (
+				<p>
+					Are you sure you want to delete the suite run &quot;{deleteName}&quot;?
+					This will permanently remove the run and associated job data.
+				</p>
 			);
 		}
 		return <p>Are you sure you want to delete the {getDisplayName().toLowerCase()} &quot;{deleteName}&quot;?</p>;

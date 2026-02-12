@@ -23,6 +23,7 @@ import {
 import Link from 'next/link';
 import { ViewFilled, PlayFilled, TrashCan } from '@carbon/icons-react';
 import SimilarityScoreDisplay from '../components/SimilarityScoreDisplay';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 export default function SuiteRunsPage() {
 	const [runs, setRuns] = useState<SuiteRun[]>([]);
@@ -30,7 +31,6 @@ export default function SuiteRunsPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [successMessage, setSuccessMessage] = useState<string | null>(null);
 	const [rerunningId, setRerunningId] = useState<number | null>(null);
-	const [deletingId, setDeletingId] = useState<number | null>(null);
 	const [currentPage, setCurrentPage] = useState(0);
 	const [pageSize, setPageSize] = useState(50);
 	const [totalItems, setTotalItems] = useState(0);
@@ -120,26 +120,6 @@ export default function SuiteRunsPage() {
 		setIsDeleteModalOpen(true);
 	};
 
-	const handleDeleteSuiteRunConfirm = async () => {
-		if (!deleteRunId) return;
-
-		setDeletingId(deleteRunId);
-		setError(null);
-		setSuccessMessage(null);
-
-		try {
-			await api.deleteSuiteRun(deleteRunId);
-			setSuccessMessage('Suite run deleted successfully');
-			fetchRuns();
-		} catch (err) {
-			if (err instanceof Error) setError(err.message);
-			else setError(String(err));
-		} finally {
-			setDeletingId(null);
-			setIsDeleteModalOpen(false);
-		}
-	};
-
 	if (loading) {
 		return <InlineLoading description="Loading suite runs..." />;
 	}
@@ -188,7 +168,6 @@ export default function SuiteRunsPage() {
 					renderIcon={TrashCan}
 					onClick={() => handleDeleteSuiteRunOpen(run.id)}
 					iconDescription="Delete this suite run"
-					disabled={deletingId === run.id}
 					hasIconOnly
 				/>
 			</div>
@@ -353,19 +332,18 @@ export default function SuiteRunsPage() {
 				</Column>
 			</Grid>
 
-			{/* Delete Confirmation Modal */}
-			<Modal
-				open={isDeleteModalOpen}
-				modalHeading="Delete Suite Run"
-				primaryButtonText={deletingId !== null ? 'Deleting...' : 'Delete'}
-				secondaryButtonText="Cancel"
-				onRequestClose={() => setIsDeleteModalOpen(false)}
-				onRequestSubmit={handleDeleteSuiteRunConfirm}
-				primaryButtonDisabled={deletingId !== null}
-				danger
-			>
-				<p>Are you sure you want to delete this suite run? This will permanently remove it and all associated data.</p>
-			</Modal>
+			<DeleteConfirmationModal
+				isOpen={isDeleteModalOpen}
+				deleteType="suite-run"
+				deleteName={deleteRunId ? `Run #${deleteRunId}` : ''}
+				deleteId={deleteRunId}
+				onClose={() => setIsDeleteModalOpen(false)}
+				onSuccess={() => {
+					setSuccessMessage('Suite run deleted successfully');
+					fetchRuns();
+					setIsDeleteModalOpen(false);
+				}}
+			/>
 
 			{/* Re-run Confirmation Modal */}
 			<Modal

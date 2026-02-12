@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, InlineLoading, Modal, ToastNotification, Pagination } from '@carbon/react';
+import { Button, InlineLoading, ToastNotification, Pagination } from '@carbon/react';
 import { Add, Chat } from '@carbon/icons-react';
 import styles from '../page.module.scss';
 import EmptyState from '../components/EmptyState';
 import TableRenderer from '../components/TableRenderer';
 import { api, Conversation } from '../../lib/api';
 import ConversationFormModal from '../components/ConversationFormModal';
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal';
 
 export default function ConversationsPage() {
 	const router = useRouter();
@@ -65,19 +66,6 @@ export default function ConversationsPage() {
 
 	const handleViewConversation = (id: number) => {
 		router.push(`/conversations/${id}`);
-	};
-
-	const handleDelete = async () => {
-		if (!deleteModal.conversation) {
-			return;
-		}
-		try {
-			await api.deleteConversation(deleteModal.conversation.id!);
-			await loadConversations();
-			setDeleteModal({ open: false });
-		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to delete conversation');
-		}
 	};
 
 	const formatTags = (tagsString?: string): string[] => {
@@ -172,26 +160,20 @@ export default function ConversationsPage() {
 				/>
 			)}
 
-			{/* Delete Confirmation Modal */}
-			<Modal
-				open={deleteModal.open}
-				onRequestClose={() => setDeleteModal({ open: false })}
-				modalHeading="Delete conversation"
-				modalLabel="Confirm action"
-				primaryButtonText="Delete"
-				secondaryButtonText="Cancel"
-				danger
-				onRequestSubmit={handleDelete}
-			>
-				<p>
-					Are you sure you want to delete &quot;{deleteModal.conversation?.name}&quot;?
-					This action cannot be undone.
-				</p>
-			</Modal>
+			<DeleteConfirmationModal
+				isOpen={deleteModal.open}
+				deleteType="conversation"
+				deleteName={deleteModal.conversation?.name || ''}
+				deleteId={deleteModal.conversation?.id || null}
+				onClose={() => setDeleteModal({ open: false })}
+				onSuccess={() => {
+					loadConversations();
+				}}
+			/>
 
 			{/* Conversation Form Modal */}
 			<ConversationFormModal
-				open={formModal.open}
+				isOpen={formModal.open}
 				conversation={formModal.conversation}
 				onClose={() => setFormModal({ open: false })}
 				onSave={() => {

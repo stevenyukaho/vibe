@@ -26,7 +26,7 @@ import { CapabilityInfoPanel } from './TemplateInfoPanel';
 import styles from './ConversationFormModal.module.scss';
 
 interface ConversationFormModalProps {
-	open: boolean;
+	isOpen: boolean;
 	conversation?: Conversation;
 	onClose: () => void;
 	onSave: (conversation: Conversation) => void;
@@ -62,7 +62,7 @@ interface ConversationFormData {
 }
 
 export default function ConversationFormModal({
-	open,
+	isOpen,
 	conversation,
 	onClose,
 	onSave
@@ -88,11 +88,11 @@ export default function ConversationFormModal({
 
 	// Load capability names on mount
 	useEffect(() => {
-		if (open) {
+		if (isOpen) {
 			api.getRequestTemplateCapabilityNames().then(setTemplateCapabilityNames);
 			api.getResponseMapCapabilityNames().then(setResponseMapCapabilityNames);
 		}
-	}, [open]);
+	}, [isOpen]);
 
 
 /**
@@ -148,7 +148,7 @@ export default function ConversationFormModal({
 			setTurnTargets({});
 		}
 		setError(null);
-	}, [conversation, open]);
+	}, [conversation, isOpen]);
 
 	const handleSubmit = async () => {
 		if (!formData.name.trim()) {
@@ -273,7 +273,7 @@ export default function ConversationFormModal({
 
 	return (
 		<Modal
-			open={open}
+			open={isOpen}
 			onRequestClose={onClose}
 			modalHeading={conversation ? 'Edit conversation' : 'Create conversation'}
 			modalLabel="Conversation"

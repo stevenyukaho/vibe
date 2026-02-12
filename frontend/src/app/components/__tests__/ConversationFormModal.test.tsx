@@ -45,7 +45,7 @@ describe('ConversationFormModal', () => {
 		const user = userEvent.setup();
 		render(
 			<ConversationFormModal
-				open
+				isOpen
 				onClose={jest.fn()}
 				onSave={jest.fn()}
 			/>
@@ -72,7 +72,7 @@ describe('ConversationFormModal', () => {
 
 		render(
 			<ConversationFormModal
-				open
+				isOpen
 				onClose={onClose}
 				onSave={onSave}
 			/>
