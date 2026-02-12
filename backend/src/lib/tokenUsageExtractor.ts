@@ -7,78 +7,8 @@
 
 import type { TokenUsage, TokenMapping } from '@ibm-vibe/types';
 import {
-	extractByPath as extractPathValue,
-	extractTokensWithMapping as extractTokensFromMapping
+	extractTokenUsage as extractTokenUsageShared
 } from '@ibm-vibe/utils';
-
-/**
- * Popular token usage formats for automatic detection
- */
-const POPULAR_TOKEN_FORMATS: TokenMapping[] = [
-	// OpenAI & Mistral Format
-	{
-		input_tokens: 'usage.prompt_tokens',
-		output_tokens: 'usage.completion_tokens',
-		total_tokens: 'usage.total_tokens'
-	},
-	// Anthropic Claude Format
-	{
-		input_tokens: 'usage.input_tokens',
-		output_tokens: 'usage.output_tokens'
-	},
-	// Google Gemini Format
-	{
-		input_tokens: 'usageMetadata.promptTokenCount',
-		output_tokens: 'usageMetadata.candidatesTokenCount',
-		total_tokens: 'usageMetadata.totalTokenCount'
-	},
-	// Cohere Format
-	{
-		input_tokens: 'meta.tokens.input_tokens',
-		output_tokens: 'meta.tokens.output_tokens'
-	},
-	// Ollama Format
-	{
-		input_tokens: 'prompt_eval_count',
-		output_tokens: 'eval_count'
-	},
-	// LangChain Format
-	{
-		input_tokens: 'llm_output.token_usage.prompt_tokens',
-		output_tokens: 'llm_output.token_usage.completion_tokens',
-		total_tokens: 'llm_output.token_usage.total_tokens'
-	},
-	// Alternative LangChain Format
-	{
-		input_tokens: 'token_usage.prompt_tokens',
-		output_tokens: 'token_usage.completion_tokens',
-		total_tokens: 'token_usage.total_tokens'
-	}
-];
-
-/**
- * Extracts a value from an object using dot notation path
- * @param obj - The source object
- * @param path - Dot notation path (e.g., "usage.prompt_tokens")
- * @returns The extracted value or undefined
- */
-function extractByPath(obj: any, path: string): any {
-	return extractPathValue(obj, path);
-}
-
-/**
- * Attempts to extract token usage using a specific mapping
- * @param responseData - The API response data
- * @param mapping - Token mapping configuration
- * @returns TokenUsage object with extracted values
- */
-function extractTokensWithMapping(responseData: any, mapping: TokenMapping): TokenUsage {
-	return extractTokensFromMapping(responseData, mapping, {
-		parseNumericStrings: true,
-		includeTotalTokens: true,
-		computeTotalTokens: true
-	});
-}
 
 /**
  * Extracts token usage from intermediate steps (for CrewAI/existing results)
@@ -160,57 +90,27 @@ export function extractTokenUsage(
 	tokenMapping?: string | TokenMapping,
 	intermediateSteps?: string | any[]
 ): { tokens: TokenUsage; metadata: any } {
-	let tokens: TokenUsage = {};
-	const metadata: any = {
-		extraction_method: 'none',
-		attempted_formats: [],
-		success: false
-	};
+	const { tokens, metadata } = extractTokenUsageShared(responseData, tokenMapping, {
+		parseNumericStrings: true,
+		includeTotalTokens: true,
+		computeTotalTokens: true
+	});
 
-	// Try explicit token mapping first
-	if (tokenMapping) {
-		try {
-			const mapping: TokenMapping = typeof tokenMapping === 'string'
-				? JSON.parse(tokenMapping)
-				: tokenMapping;
-
-			tokens = extractTokensWithMapping(responseData, mapping);
-			metadata.extraction_method = 'explicit_mapping';
-			metadata.mapping_used = mapping;
-
-			if (tokens.input_tokens !== undefined || tokens.output_tokens !== undefined) {
-				metadata.success = true;
-				return { tokens, metadata };
-			}
-		} catch (error) {
-			metadata.explicit_mapping_error = error instanceof Error ? error.message : 'Unknown error';
-		}
-	}
-
-	// Try popular formats
-	for (let i = 0; i < POPULAR_TOKEN_FORMATS.length; i++) {
-		const format = POPULAR_TOKEN_FORMATS[i];
-		metadata.attempted_formats.push(format);
-
-		tokens = extractTokensWithMapping(responseData, format);
-
-		if (tokens.input_tokens !== undefined || tokens.output_tokens !== undefined) {
-			metadata.extraction_method = `popular_format_${i + 1}`;
-			metadata.successful_format = format;
-			metadata.success = true;
-
-			return { tokens, metadata };
-		}
+	if (tokens.input_tokens !== undefined || tokens.output_tokens !== undefined) {
+		return { tokens, metadata };
 	}
 
 	// Try extracting from intermediate steps as fallback
 	if (intermediateSteps) {
-		tokens = extractTokensFromIntermediateSteps(intermediateSteps);
-		if (tokens.input_tokens !== undefined || tokens.output_tokens !== undefined || tokens.total_tokens !== undefined) {
+		const fallbackTokens = extractTokensFromIntermediateSteps(intermediateSteps);
+		if (
+			fallbackTokens.input_tokens !== undefined ||
+			fallbackTokens.output_tokens !== undefined ||
+			fallbackTokens.total_tokens !== undefined
+		) {
 			metadata.extraction_method = 'intermediate_steps';
 			metadata.success = true;
-
-			return { tokens, metadata };
+			return { tokens: fallbackTokens, metadata };
 		}
 	}
 

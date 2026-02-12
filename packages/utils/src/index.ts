@@ -147,3 +147,130 @@ export const extractTokensWithMapping = (
 
 	return result;
 };
+
+/**
+ * Popular token usage formats for automatic detection.
+ */
+export const POPULAR_TOKEN_FORMATS: TokenMapping[] = [
+	// OpenAI & Mistral format
+	{
+		input_tokens: 'usage.prompt_tokens',
+		output_tokens: 'usage.completion_tokens',
+		total_tokens: 'usage.total_tokens'
+	},
+	// Anthropic Claude format
+	{
+		input_tokens: 'usage.input_tokens',
+		output_tokens: 'usage.output_tokens'
+	},
+	// Google Gemini format
+	{
+		input_tokens: 'usageMetadata.promptTokenCount',
+		output_tokens: 'usageMetadata.candidatesTokenCount',
+		total_tokens: 'usageMetadata.totalTokenCount'
+	},
+	// Cohere format
+	{
+		input_tokens: 'meta.tokens.input_tokens',
+		output_tokens: 'meta.tokens.output_tokens'
+	},
+	// Ollama format
+	{
+		input_tokens: 'prompt_eval_count',
+		output_tokens: 'eval_count'
+	},
+	// LangChain format
+	{
+		input_tokens: 'llm_output.token_usage.prompt_tokens',
+		output_tokens: 'llm_output.token_usage.completion_tokens',
+		total_tokens: 'llm_output.token_usage.total_tokens'
+	},
+	// Alternative LangChain format
+	{
+		input_tokens: 'token_usage.prompt_tokens',
+		output_tokens: 'token_usage.completion_tokens',
+		total_tokens: 'token_usage.total_tokens'
+	}
+];
+
+export interface TokenExtractionMetadata {
+	extraction_method: string;
+	attempted_formats: TokenMapping[];
+	success: boolean;
+	mapping_used?: TokenMapping;
+	successful_format?: TokenMapping;
+	explicit_mapping_error?: string;
+}
+
+export interface ExtractTokenUsageOptions extends TokenExtractionOptions {
+	popularFormats?: TokenMapping[];
+}
+
+const hasInputOrOutputTokens = (tokens: TokenUsage): boolean => (
+	tokens.input_tokens !== undefined || tokens.output_tokens !== undefined
+);
+
+/**
+ * Extract token usage using an explicit mapping first, then popular known formats.
+ * Returns extraction metadata that callers can use for diagnostics.
+ */
+export const extractTokenUsage = (
+	responseData: unknown,
+	tokenMapping?: string | TokenMapping,
+	options: ExtractTokenUsageOptions = {}
+): { tokens: TokenUsage; metadata: TokenExtractionMetadata } => {
+	let tokens: TokenUsage = {};
+	const metadata: TokenExtractionMetadata = {
+		extraction_method: 'none',
+		attempted_formats: [],
+		success: false
+	};
+	const parseNumericStrings = options.parseNumericStrings ?? false;
+	const includeTotalTokens = options.includeTotalTokens ?? false;
+	const computeTotalTokens = options.computeTotalTokens ?? false;
+
+	// Try explicit token mapping first
+	if (tokenMapping) {
+		try {
+			const mapping = parseTokenMapping(tokenMapping);
+			if (mapping) {
+				tokens = extractTokensWithMapping(responseData, mapping, {
+					parseNumericStrings,
+					includeTotalTokens,
+					computeTotalTokens
+				});
+				metadata.extraction_method = 'explicit_mapping';
+				metadata.mapping_used = mapping;
+
+				if (hasInputOrOutputTokens(tokens)) {
+					metadata.success = true;
+					return { tokens, metadata };
+				}
+			}
+		} catch (error) {
+			metadata.explicit_mapping_error = error instanceof Error ? error.message : 'Unknown error';
+		}
+	}
+
+	const formats = options.popularFormats ?? POPULAR_TOKEN_FORMATS;
+	for (let i = 0; i < formats.length; i++) {
+		const format = formats[i];
+		metadata.attempted_formats.push(format);
+
+		tokens = extractTokensWithMapping(responseData, format, {
+			parseNumericStrings,
+			includeTotalTokens,
+			computeTotalTokens
+		});
+
+		if (hasInputOrOutputTokens(tokens)) {
+			metadata.extraction_method = `popular_format_${i + 1}`;
+			metadata.successful_format = format;
+			metadata.success = true;
+			return { tokens, metadata };
+		}
+	}
+
+	metadata.extraction_method = 'failed';
+	return { tokens: {}, metadata };
+};
