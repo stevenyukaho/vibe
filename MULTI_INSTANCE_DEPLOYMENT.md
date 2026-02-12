@@ -10,6 +10,8 @@ The deployment system consists of:
 - **Helper scripts**: Stop, view logs, and check status of instances
 - **Environment files**: Configuration for each instance (ports, database paths, etc.)
 
+By default, `start-instance.sh` manages backend, agent-service-api, and frontend. The Python agent-service commands are present in the script but commented out.
+
 ## Prerequisites
 
 1. **PM2 installed globally**:
@@ -35,6 +37,8 @@ The deployment system consists of:
 | instance1 | 5000    | 5001          | 5003              | 3000     | `./data/agent-testing-instance1.db` |
 | instance2 | 5010    | 5011          | 5013              | 3010     | `./data/agent-testing-instance2.db` |
 | instance3 | 5020    | 5021          | 5023              | 3020     | `./data/agent-testing-instance3.db` |
+
+`Agent Service` ports are reserved for the optional Python service if you enable it in `start-instance.sh`.
 
 ## Quick Start
 

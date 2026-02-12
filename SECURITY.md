@@ -9,8 +9,7 @@ Security fixes are applied to the default branch. Releases (and versioned suppor
 If you believe you have found a security vulnerability, please **do not** open a public GitHub issue.
 
 - **Preferred (private)**: use GitHub Security Advisories (Repository → Security → “Report a vulnerability”).
-- **Fallback (private)**: email `vibe-maintainers@example.com`.
-  **Replace this placeholder address before publishing the repository.**
+- **Fallback (private)**: open a private maintainer discussion and include “Security report” in the title.
 
 When reporting, please include:
 

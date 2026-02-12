@@ -8,7 +8,7 @@
 # Check if instance name is provided
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <instance-name>"
-    echo "Example: $0 status-instance.sh instance1"
+    echo "Example: $0 instance1"
     exit 1
 fi
 

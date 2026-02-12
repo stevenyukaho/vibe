@@ -16,7 +16,7 @@ When building AI agents, it's essential to ensure they perform consistently and 
 
 ## Architecture
 
-The application is separated into three main components:
+The application is separated into four main components:
 
 1. **Frontend** - User interface for managing tests and viewing results
    - Built with Next.js and Carbon React
@@ -26,9 +26,13 @@ The application is separated into three main components:
    - Built with TypeScript, Express.js, and SQLite
    - Handles REST API for test management, coordination with agent service, and data persistence
 
-3. **Agent Service** - Python service for executing AI agent tests
+3. **Agent Service** - Python service for executing CrewAI tests
    - Built with Python, FastAPI, and CrewAI
    - Handles agent execution, LLM provider integration, and result collection
+
+4. **Agent Service API** - TypeScript service for external API style agents
+   - Built with TypeScript and Express.js
+   - Polls jobs from backend, executes conversations against external APIs, and posts sessions/transcripts back
 
 ## Key Features
 
@@ -88,7 +92,22 @@ This starts:
 - **Agent Service API**: `http://localhost:5003`
 - **Frontend**: `http://localhost:3000`
 
-Note: the Python `agent-service` is not started by `npm run dev`. Start it separately if you want to run CrewAI executions.
+Note: the Python `agent-service` is not started by `npm run dev`. Start it separately if you want CrewAI executions.
+
+## Service topology and ports
+
+| Service | Default port | Role |
+|---|---:|---|
+| Frontend | 3000 | UI for conversations, sessions, and analysis |
+| Backend | 5000 | System API, storage, job orchestration |
+| Agent Service API | 5003 | External API executor and backend job poller |
+| Agent Service (Python) | 5002 | CrewAI execution service |
+
+Key integration paths:
+
+- Backend creates jobs and stores data.
+- Agent Service API polls backend jobs, executes external API conversations, then posts sessions and messages.
+- Backend can be configured to call the Python Agent Service directly for CrewAI execution paths via `AGENT_SERVICE_URL`.
 
 #### 3. Services Setup (advanced)
 
@@ -108,6 +127,7 @@ cp .env.example .env
 # Note: Backend does NOT auto-load .env files. Environment variables must be exported
 # or provided by runner scripts (e.g., start-instance.sh). Export variables manually:
 # export $(cat .env | xargs)
+# AGENT_SERVICE_URL should point to the Python agent-service (default http://localhost:5002)
 # Or use start-instance.sh which handles this automatically
 npm run dev
 ```
@@ -145,6 +165,7 @@ npm run dev
 To keep the monorepo healthy, run the shared quality gates before opening a PR:
 
 - `npm run format` - format supported files with Prettier
+- `npm run format:check` - verify formatting in CI style
 - `npm run lint` - run eslint across backend, frontend, and agent-service-api
 - `npm run typecheck` - ensure all TypeScript workspaces type-check cleanly
 - `npm run test:ts` - execute Jest suites (backend, frontend, agent-service-api)
