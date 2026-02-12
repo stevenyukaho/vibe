@@ -28,7 +28,7 @@ describe('database.ts branch coverage', () => {
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}
 		// Clear module cache
-		const modulePaths = Object.keys(require.cache).filter(key => 
+		const modulePaths = Object.keys(require.cache).filter(key =>
 			key.includes('database') || key.includes('config') || key.includes('@ibm-vibe/config')
 		);
 		modulePaths.forEach(key => delete require.cache[key]);
@@ -36,8 +36,8 @@ describe('database.ts branch coverage', () => {
 
 	async function importDatabase() {
 		// Clear all related module caches
-		const modulePaths = Object.keys(require.cache).filter(key => 
-			key.includes('database') || 
+		const modulePaths = Object.keys(require.cache).filter(key =>
+			key.includes('database') ||
 			key.includes('config') ||
 			key.includes('@ibm-vibe/config')
 		);

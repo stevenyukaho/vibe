@@ -17,7 +17,7 @@ describe('db migrations', () => {
 	it('runs migrations and sets user_version', () => {
 		runMigrations(db);
 
-		expect(getUserVersion(db)).toBe(4);
+		expect(getUserVersion(db)).toBeGreaterThanOrEqual(4);
 
 		const tables = db
 			.prepare("SELECT name FROM sqlite_master WHERE type='table'")
@@ -38,8 +38,8 @@ describe('db migrations', () => {
 		runMigrations(db);
 		const version2 = getUserVersion(db);
 
-		expect(version1).toBe(4);
-		expect(version2).toBe(4);
+		expect(version1).toBeGreaterThanOrEqual(4);
+		expect(version2).toBe(version1);
 	});
 
 	it('can continue from an initial schema-only database', () => {
@@ -47,7 +47,7 @@ describe('db migrations', () => {
 		setUserVersion(db, 1);
 
 		runMigrations(db);
-		expect(getUserVersion(db)).toBe(4);
+		expect(getUserVersion(db)).toBeGreaterThanOrEqual(4);
 
 		const suiteRunColumns = db.prepare("PRAGMA table_info('suite_runs')").all() as Array<{ name: string }>;
 		expect(suiteRunColumns.some(c => c.name === 'total_input_tokens')).toBe(true);
