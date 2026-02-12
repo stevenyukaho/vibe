@@ -7,13 +7,12 @@ import {
 	getConversationMessages
 } from '../db/queries';
 import * as templateRepo from '../db/repositories/templateRepo';
-import { testIdToConversationId } from '../lib/legacyIdResolver';
 import { jobQueue } from '../services/job-queue';
-import { isSingleTurnConversation } from '../adapters/legacy-adapter';
 import { getAgentJobType } from '../utils/agent-utils';
 import { preflightConversationExecution } from '../lib/conversationPreflight';
 import { asyncHandler } from '../lib/asyncHandler';
 import { validateBody } from '../lib/validateBody';
+import { createLegacyTestExecutionJob, LegacyExecutionError } from '../services/legacy-execution';
 
 const router = Router();
 const shouldLog = process.env.NODE_ENV !== 'test';
@@ -38,7 +37,8 @@ const executeConversationRequestSchema = z.object({
 	conversation_id: z.coerce.number().int().positive()
 });
 
-// Execute a test with a specific agent (maps to conversation execution)
+// Legacy endpoint: Execute using test_id compatibility (maps to conversation execution).
+// Prefer /api/execute/conversation for new clients.
 router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, ExecuteTestRequest>, res: Response) => {
 	try {
 		const validated = validateBody(req, res, executeTestRequestSchema, {
@@ -50,29 +50,7 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 		}
 		const { agent_id, test_id } = validated;
 
-		// Resolve legacy id mapping
-		const conversationId = testIdToConversationId(test_id) ?? test_id;
-
-		// Get agent and conversation (resolved)
-		const agent = await getAgentById(agent_id);
-		const conversation = await getConversationById(conversationId);
-
-		// Check if agent and conversation exist
-		if (!agent) {
-			return res.status(404).json({ error: 'Agent not found' });
-		}
-		if (!conversation) {
-			return res.status(404).json({ error: 'Test not found' });
-		}
-
-		// Verify this is a single-turn conversation (valid as a "test")
-		const messages = await getConversationMessages(conversationId);
-		if (!isSingleTurnConversation(conversation, messages)) {
-			return res.status(400).json({ error: 'Cannot execute multi-turn conversation as legacy test' });
-		}
-
-		// Create a conversation job (legacy tests are now single-turn conversations)
-		const jobId = await jobQueue.createConversationJob(agent_id, conversationId);
+		const { jobId } = await createLegacyTestExecutionJob(agent_id, test_id);
 
 		// Return the job ID with 202 Accepted status
 		return res.status(202).json({
@@ -80,6 +58,9 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 			message: 'Test execution job created and queued for execution'
 		});
 	} catch (error: any) {
+		if (error instanceof LegacyExecutionError) {
+			return res.status(error.statusCode).json({ error: error.message });
+		}
 		/* istanbul ignore next */
 		if (shouldLog) {
 			console.error('Error executing test:', error);
