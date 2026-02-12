@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getAgentsCount, getSingleTurnTestsCount } from '../db/queries';
+import { shouldLog } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 /**
  * GET /api/stats

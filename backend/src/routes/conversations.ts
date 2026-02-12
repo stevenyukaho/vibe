@@ -18,14 +18,10 @@ import {
 import type { Conversation, ConversationMessage } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { asyncHandler } from '../lib/asyncHandler';
+import { logError } from '../lib/logger';
 import { validateBody } from '../lib/validateBody';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
-const logError = (...args: unknown[]) => {
-	/* istanbul ignore next */
-	if (shouldLog) console.error(...args);
-};
 
 const createConversationBodySchema = z
 	.object({

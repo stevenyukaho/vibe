@@ -12,9 +12,9 @@ import {
 	sessionToLegacyResult
 } from '../adapters/legacy-adapter';
 import { createLegacyTestExecutionJob, LegacyExecutionError } from '../services/legacy-execution';
+import { shouldLog } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Define fields that can be updated by users/services
 const UPDATABLE_JOB_FIELDS = ['status', 'progress', 'partial_result', 'result_id', 'session_id', 'error'] as const;

@@ -11,6 +11,7 @@ import {
 import type { SessionMessage } from '@ibm-vibe/types';
 import { scoreSimilarityText } from '../services/scoring-service';
 import { asyncHandler } from '../lib/asyncHandler';
+import { shouldLog } from '../lib/logger';
 
 /**
  * Score similarity for a session message against its conversation target
@@ -34,7 +35,6 @@ async function scoreSessionMessageSimilarity(messageId: number, targetReply: str
 }
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Create session message
 router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, Omit<SessionMessage, 'id'>>, res: Response) => {

@@ -1,34 +1,30 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import db from '../db/database';
-import type { ConversationTurnTarget } from '@ibm-vibe/types';
+import * as conversationTurnTargetsRepo from '../db/repositories/conversationTurnTargetsRepo';
+import { asyncHandler } from '../lib/asyncHandler';
+import { logError } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
-const logError = (...args: unknown[]) => {
-	/* istanbul ignore next */
-	if (shouldLog) console.error(...args);
-};
 
 // Get all turn targets for a conversation
-router.get('/conversation/:conversationId', (async (req: Request, res: Response) => {
+router.get('/conversation/:conversationId', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const conversationId = Number(req.params.conversationId);
-		const targets = db.prepare(`
-			SELECT * FROM conversation_turn_targets
-			WHERE conversation_id = ?
-			ORDER BY user_sequence
-		`).all(conversationId) as ConversationTurnTarget[];
+		const conversationId = parseIdParam(res, req.params.conversationId, 'Invalid conversation ID');
+		if (conversationId === null) {
+			return;
+		}
+		const targets = conversationTurnTargetsRepo.listByConversationId(conversationId);
 
 		return res.json(targets);
 	} catch (error) {
 		logError('Error fetching turn targets:', error);
 		return res.status(500).json({ error: 'Failed to fetch turn targets' });
 	}
-}) as any);
+}));
 
 // Create or update turn target
-router.put('/', (async (req: Request, res: Response) => {
+router.put('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { conversation_id, user_sequence, target_reply, threshold, weight } = req.body;
 
@@ -37,28 +33,28 @@ router.put('/', (async (req: Request, res: Response) => {
 		}
 
 		// Check if target already exists
-		const exists = db.prepare(`
-			SELECT * FROM conversation_turn_targets
-			WHERE conversation_id = ? AND user_sequence = ?
-		`).get(conversation_id, user_sequence) as ConversationTurnTarget | undefined;
+		const exists = conversationTurnTargetsRepo.findByConversationAndSequence(conversation_id, user_sequence);
 
 		if (exists) {
 			// Update
-			const updated = db.prepare(`
-				UPDATE conversation_turn_targets
-				SET target_reply = ?, threshold = ?, weight = ?, updated_at = CURRENT_TIMESTAMP
-				WHERE conversation_id = ? AND user_sequence = ?
-				RETURNING *
-			`).get(target_reply, threshold, weight, conversation_id, user_sequence) as ConversationTurnTarget;
+			const updated = conversationTurnTargetsRepo.updateByConversationAndSequence(
+				target_reply,
+				threshold,
+				weight,
+				conversation_id,
+				user_sequence
+			);
 
 			return res.json(updated);
 		} else {
 			// Insert
-			const inserted = db.prepare(`
-				INSERT INTO conversation_turn_targets (conversation_id, user_sequence, target_reply, threshold, weight)
-				VALUES (?, ?, ?, ?, ?)
-				RETURNING *
-			`).get(conversation_id, user_sequence, target_reply, threshold, weight) as ConversationTurnTarget;
+			const inserted = conversationTurnTargetsRepo.create(
+				conversation_id,
+				user_sequence,
+				target_reply,
+				threshold,
+				weight
+			);
 
 			return res.status(201).json(inserted);
 		}
@@ -66,13 +62,16 @@ router.put('/', (async (req: Request, res: Response) => {
 		logError('Error saving turn target:', error);
 		return res.status(500).json({ error: 'Failed to save turn target' });
 	}
-}) as any);
+}));
 
 // Delete turn target
-router.delete('/:id', (async (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = Number(req.params.id);
-		db.prepare('DELETE FROM conversation_turn_targets WHERE id = ?').run(id);
+		const id = parseIdParam(res, req.params.id, 'Invalid turn target ID');
+		if (id === null) {
+			return;
+		}
+		conversationTurnTargetsRepo.deleteById(id);
 
 		return res.status(204).send();
 	} catch (error) {
@@ -80,6 +79,6 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(500).json({ error: 'Failed to delete turn target' });
 	}
-}) as any);
+}));
 
 export default router;

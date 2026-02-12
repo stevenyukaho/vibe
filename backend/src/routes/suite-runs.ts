@@ -5,9 +5,10 @@ import { computeSessionDurationMs } from '../lib/sessionMetadata';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { JobStatus } from '@ibm-vibe/types';
+import { shouldLog } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 /**
  * Utility function to recalculate and enrich suite run data with accurate progress and execution time
@@ -167,9 +168,9 @@ router.get('/', (async (req: Request, res: Response) => {
  */
 router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = parseInt(req.params.id, 10);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid suite run ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid suite run ID');
+		if (id === null) {
+			return;
 		}
 
 		const suiteRun = await getSuiteRunById(id);
@@ -199,9 +200,9 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
  */
 router.get('/:id/jobs', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = parseInt(req.params.id, 10);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid suite run ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid suite run ID');
+		if (id === null) {
+			return;
 		}
 
 		// First check if the suite run exists
@@ -230,9 +231,9 @@ router.get('/:id/jobs', (async (req: Request<{ id: string }>, res: Response) => 
  */
 router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = parseInt(req.params.id, 10);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid suite run ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid suite run ID');
+		if (id === null) {
+			return;
 		}
 
 		// Check if the suite run exists

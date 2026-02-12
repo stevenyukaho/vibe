@@ -21,9 +21,9 @@ import {
 } from '../adapters/legacy-adapter';
 import { testIdToConversationId } from '../lib/legacyIdResolver';
 import { asyncHandler } from '../lib/asyncHandler';
+import { shouldLog } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Get all results (from execution sessions)
 router.get('/', asyncHandler(async (req: Request, res: Response) => {

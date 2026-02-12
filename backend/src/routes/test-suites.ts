@@ -22,17 +22,10 @@ import {
 } from '../adapters/legacy-adapter';
 import type { TestSuite } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
+import { logError, logWarn } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
-const logError = (...args: unknown[]) => {
-	/* istanbul ignore next */
-	if (shouldLog) console.error(...args);
-};
-const logWarn = (...args: unknown[]) => {
-	/* istanbul ignore next */
-	if (shouldLog) console.warn(...args);
-};
 
 /**
  * GET /api/test-suites
@@ -84,9 +77,9 @@ router.get('/', (async (req: Request, res: Response) => {
  */
 router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = parseInt(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (id === null) {
+			return;
 		}
 
 		const testSuite = await getTestSuiteById(id);
@@ -127,9 +120,9 @@ router.post('/', (async (req: Request, res: Response) => {
  */
 router.put('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = parseInt(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (id === null) {
+			return;
 		}
 
 		const { name, description, tags } = req.body;
@@ -154,9 +147,9 @@ router.put('/:id', (async (req: Request<{ id: string }>, res: Response) => {
  */
 router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = parseInt(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (id === null) {
+			return;
 		}
 
 		// Check if test suite exists
@@ -179,9 +172,9 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
  */
 router.get('/:id/tests', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = parseInt(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (id === null) {
+			return;
 		}
 
 		// Check if test suite exists
@@ -238,14 +231,18 @@ router.get('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =>
  */
 router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const suiteId = parseInt(req.params.id);
-		if (isNaN(suiteId)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const suiteId = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (suiteId === null) {
+			return;
 		}
 
 		const { test_id, sequence } = req.body;
-		if (!test_id || isNaN(parseInt(test_id))) {
+		if (!test_id) {
 			return res.status(400).json({ error: 'Valid test ID is required' });
+		}
+		const conversationId = parseIdParam(res, String(test_id), 'Valid test ID is required');
+		if (conversationId === null) {
+			return;
 		}
 
 		// Check if test suite exists
@@ -253,8 +250,6 @@ router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =
 		if (!existingTestSuite) {
 			return res.status(404).json({ error: 'Test suite not found' });
 		}
-
-		const conversationId = parseInt(test_id); // test_id maps to conversation_id
 
 		// Verify the conversation exists and is single-turn (valid as a "test")
 		const conversation = await getConversationById(conversationId);
@@ -287,11 +282,10 @@ router.post('/:id/tests', (async (req: Request<{ id: string }>, res: Response) =
  */
 router.delete('/:id/tests/:testId', (async (req: Request<{ id: string, testId: string }>, res: Response) => {
 	try {
-		const suiteId = parseInt(req.params.id);
-		const conversationId = parseInt(req.params.testId); // testId maps to conversation_id
-
-		if (isNaN(suiteId) || isNaN(conversationId)) {
-			return res.status(400).json({ error: 'Invalid suite ID or test ID' });
+		const suiteId = parseIdParam(res, req.params.id, 'Invalid suite ID or test ID');
+		const conversationId = parseIdParam(res, req.params.testId, 'Invalid suite ID or test ID'); // testId maps to conversation_id
+		if (suiteId === null || conversationId === null) {
+			return;
 		}
 
 		// Check if test suite exists
@@ -322,9 +316,9 @@ router.delete('/:id/tests/:testId', (async (req: Request<{ id: string, testId: s
  */
 router.put('/:id/tests/reorder', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const suiteId = parseInt(req.params.id);
-		if (isNaN(suiteId)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const suiteId = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (suiteId === null) {
+			return;
 		}
 
 		const { test_orders } = req.body;
@@ -368,9 +362,9 @@ router.put('/:id/tests/reorder', (async (req: Request<{ id: string }>, res: Resp
  */
 router.get('/:id/entries', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const suiteId = parseInt(req.params.id);
-		if (isNaN(suiteId)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const suiteId = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (suiteId === null) {
+			return;
 		}
 
 		// Check if test suite exists
@@ -393,9 +387,9 @@ router.get('/:id/entries', (async (req: Request<{ id: string }>, res: Response) 
  */
 router.post('/:id/entries', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const suiteId = parseInt(req.params.id);
-		if (isNaN(suiteId)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const suiteId = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (suiteId === null) {
+			return;
 		}
 
 		const { sequence, test_id, child_suite_id, agent_id_override } = req.body;
@@ -416,9 +410,9 @@ router.post('/:id/entries', (async (req: Request<{ id: string }>, res: Response)
 		const entry = addSuiteEntry({
 			parent_suite_id: suiteId,
 			sequence,
-			test_id: test_id ? parseInt(test_id) : undefined,
-			child_suite_id: child_suite_id ? parseInt(child_suite_id) : undefined,
-			agent_id_override: agent_id_override ? parseInt(agent_id_override) : undefined
+			test_id: test_id ? Number(test_id) : undefined,
+			child_suite_id: child_suite_id ? Number(child_suite_id) : undefined,
+			agent_id_override: agent_id_override ? Number(agent_id_override) : undefined
 		});
 
 		return res.status(201).json(entry);
@@ -434,9 +428,9 @@ router.post('/:id/entries', (async (req: Request<{ id: string }>, res: Response)
  */
 router.put('/:id/entries/:entryId', (async (req: Request<{ id: string, entryId: string }>, res: Response) => {
 	try {
-		const entryId = parseInt(req.params.entryId);
-		if (isNaN(entryId)) {
-			return res.status(400).json({ error: 'Invalid entry ID' });
+		const entryId = parseIdParam(res, req.params.entryId, 'Invalid entry ID');
+		if (entryId === null) {
+			return;
 		}
 
 		const { sequence, agent_id_override } = req.body;
@@ -455,9 +449,9 @@ router.put('/:id/entries/:entryId', (async (req: Request<{ id: string, entryId: 
  */
 router.delete('/:id/entries/:entryId', (async (req: Request<{ id: string, entryId: string }>, res: Response) => {
 	try {
-		const entryId = parseInt(req.params.entryId);
-		if (isNaN(entryId)) {
-			return res.status(400).json({ error: 'Invalid entry ID' });
+		const entryId = parseIdParam(res, req.params.entryId, 'Invalid entry ID');
+		if (entryId === null) {
+			return;
 		}
 
 		deleteSuiteEntry(entryId);
@@ -474,9 +468,9 @@ router.delete('/:id/entries/:entryId', (async (req: Request<{ id: string, entryI
  */
 router.put('/:id/entries/reorder', (async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const suiteId = parseInt(req.params.id);
-		if (isNaN(suiteId)) {
-			return res.status(400).json({ error: 'Invalid test suite ID' });
+		const suiteId = parseIdParam(res, req.params.id, 'Invalid test suite ID');
+		if (suiteId === null) {
+			return;
 		}
 
 		const { entry_orders } = req.body;
@@ -486,7 +480,7 @@ router.put('/:id/entries/reorder', (async (req: Request<{ id: string }>, res: Re
 
 		// Validate entry_orders format
 		for (const order of entry_orders) {
-			if (!order.entry_id || !order.sequence || isNaN(parseInt(order.entry_id)) || isNaN(parseInt(order.sequence))) {
+			if (!order.entry_id || !order.sequence || Number.isNaN(Number(order.entry_id)) || Number.isNaN(Number(order.sequence))) {
 				return res.status(400).json({ error: 'Each entry order must have valid entry_id and sequence' });
 			}
 		}

@@ -13,9 +13,9 @@ import { preflightConversationExecution } from '../lib/conversationPreflight';
 import { asyncHandler } from '../lib/asyncHandler';
 import { validateBody } from '../lib/validateBody';
 import { createLegacyTestExecutionJob, LegacyExecutionError } from '../services/legacy-execution';
+import { shouldLog } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 interface ExecuteTestRequest {
 	agent_id: number;

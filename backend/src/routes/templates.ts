@@ -7,9 +7,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import * as templateRepo from '../db/repositories/templateRepo';
+import { shouldLog } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 // =====================
 // REQUEST TEMPLATES

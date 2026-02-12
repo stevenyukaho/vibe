@@ -35,9 +35,9 @@ describe('legacy-execution service', () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockedTestIdToConversationId.mockReturnValue(undefined);
-		mockedGetAgentById.mockResolvedValue({ id: 7 } as any);
-		mockedGetConversationById.mockResolvedValue({ id: 11 } as any);
-		mockedGetConversationMessages.mockResolvedValue([] as any);
+		mockedGetAgentById.mockReturnValue({ id: 7 } as any);
+		mockedGetConversationById.mockReturnValue({ id: 11 } as any);
+		mockedGetConversationMessages.mockReturnValue([] as any);
 		mockedIsSingleTurnConversation.mockReturnValue(true);
 		mockedCreateConversationJob.mockResolvedValue('job-123');
 	});
@@ -53,7 +53,7 @@ describe('legacy-execution service', () => {
 	});
 
 	it('throws not found when agent is missing', async () => {
-		mockedGetAgentById.mockResolvedValue(undefined as any);
+		mockedGetAgentById.mockReturnValue(undefined as any);
 
 		await expect(createLegacyTestExecutionJob(7, 3)).rejects.toMatchObject({
 			statusCode: 404,
@@ -62,7 +62,7 @@ describe('legacy-execution service', () => {
 	});
 
 	it('throws not found when conversation is missing', async () => {
-		mockedGetConversationById.mockResolvedValue(undefined as any);
+		mockedGetConversationById.mockReturnValue(undefined as any);
 
 		await expect(createLegacyTestExecutionJob(7, 3)).rejects.toMatchObject({
 			statusCode: 404,

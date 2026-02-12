@@ -2,9 +2,9 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getAgentById, getTestSuiteById } from '../db/queries';
 import { jobQueue } from '../services/job-queue';
+import { shouldLog } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 interface ExecuteSuiteRequest {
 	suite_id: number;

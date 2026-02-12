@@ -12,9 +12,9 @@ import {
 import type { ExecutionSession } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { asyncHandler } from '../lib/asyncHandler';
+import { shouldLog } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
 
 // Get all execution sessions
 router.get('/', asyncHandler(async (req: Request, res: Response) => {

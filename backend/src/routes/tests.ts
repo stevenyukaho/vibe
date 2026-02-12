@@ -20,17 +20,9 @@ import {
 } from '../adapters/legacy-adapter';
 import db from '../db/database';
 import { asyncHandler } from '../lib/asyncHandler';
+import { logError, logWarn } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
-const logError = (...args: unknown[]) => {
-	/* istanbul ignore next */
-	if (shouldLog) console.error(...args);
-};
-const logWarn = (...args: unknown[]) => {
-	/* istanbul ignore next */
-	if (shouldLog) console.warn(...args);
-};
 
 // Get all tests (from conversations)
 router.get('/', asyncHandler(async (req: Request, res: Response) => {

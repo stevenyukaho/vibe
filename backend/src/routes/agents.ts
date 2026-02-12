@@ -13,13 +13,9 @@ import type { Agent, AgentRequestTemplate, AgentResponseMap } from '@ibm-vibe/ty
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { serializeCapabilities } from '../lib/communicationCapabilities';
 import { asyncHandler } from '../lib/asyncHandler';
+import { logError } from '../lib/logger';
 
 const router = Router();
-const shouldLog = process.env.NODE_ENV !== 'test';
-const logError = (...args: unknown[]) => {
-	/* istanbul ignore next */
-	if (shouldLog) console.error(...args);
-};
 
 const getCapabilityUpdate = (payload: Record<string, unknown>): string | null | undefined => {
 	if (Object.prototype.hasOwnProperty.call(payload, 'capabilities')) {
