@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api, TestSuite, Test, Agent, SuiteEntry, SuiteRun } from '../../../lib/api';
+import { api, type SuiteEntry } from '../../../lib/api';
 import {
 	Button,
 	Column,
@@ -40,24 +40,18 @@ import {
 	ChevronLeft,
 	Rocket,
 	Add,
-	ArrowRight,
 	ArrowLeft,
 	Edit,
 	TrashCan
 } from '@carbon/icons-react';
 import TestSuiteFormModal from '../../components/TestSuiteFormModal';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
+import { AvailableItemsTable, type AvailableSuiteItem } from './components/AvailableItemsTable';
+import { useTestSuiteDetailData } from './useTestSuiteDetailData';
 import styles from '../TestSuites.module.scss';
 
 interface PageProps {
 	params: { id: string };
-}
-
-interface AvailableItem {
-	id: number;
-	name: string;
-	type: 'test' | 'suite';
-	description?: string;
 }
 
 type SuitePerformancePoint = {
@@ -71,15 +65,22 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	const { id } = params;
 	const suiteId = parseInt(id, 10);
 
-	const [suite, setSuite] = useState<TestSuite | null>(null);
-	const [agents, setAgents] = useState<Agent[]>([]);
-	const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [allTests, setAllTests] = useState<Test[]>([]);
-	const [allSuites, setAllSuites] = useState<TestSuite[]>([]);
+	const {
+		suite,
+		agents,
+		selectedAgentId,
+		loading,
+		error,
+		allTests,
+		allSuites,
+		entries,
+		suiteRuns,
+		setSelectedAgentId,
+		setError,
+		setEntries,
+		reloadSuiteMeta
+	} = useTestSuiteDetailData(suiteId);
 	const [isRunning, setIsRunning] = useState(false);
-	const [entries, setEntries] = useState<SuiteEntry[]>([]);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [activeTab, setActiveTab] = useState(0);
 
@@ -91,52 +92,10 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-	// Suite runs for charts
-	const [suiteRuns, setSuiteRuns] = useState<SuiteRun[]>([]);
 	const [runsAgentFilter, setRunsAgentFilter] = useState<'all' | number>('all');
 	const [runsViewMode, setRunsViewMode] = useState<'runs' | 'time'>('runs');
 
 	const router = useRouter();
-
-	useEffect(() => {
-		async function fetchData() {
-			try {
-				const allSuitesData = await api.getTestSuites();
-				const found = allSuitesData.find((s) => s.id === suiteId);
-				if (!found) {
-					throw new Error('Test suite not found');
-				}
-				setSuite(found);
-				setAllSuites(allSuitesData.filter(s => s.id !== suiteId));
-
-				const [agentsData, allTestsData, entriesData, runsData] = await Promise.all([
-					api.getAgents(),
-					api.getTests(),
-					api.getSuiteEntries(suiteId),
-					api.getSuiteRuns({ suite_id: suiteId, limit: 250 })
-				]);
-
-				setAgents(agentsData);
-				setAllTests(allTestsData);
-				setEntries(entriesData);
-				setSuiteRuns(runsData);
-
-				if (agentsData.length > 0) {
-					setSelectedAgentId(agentsData[0].id ?? null);
-				}
-			} catch (err: unknown) {
-				if (err instanceof Error) {
-					setError(err.message);
-				} else {
-					setError(String(err));
-				}
-			} finally {
-				setLoading(false);
-			}
-		}
-
-		fetchData();
-	}, [suiteId]);
 
 	const openEditModal = () => {
 		if (!suite) {
@@ -153,11 +112,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 
 	const handleEditSuccess = async () => {
 		try {
-			const allSuitesData = await api.getTestSuites();
-			const found = allSuitesData.find((s) => s.id === suiteId);
-			if (found) {
-				setSuite(found);
-			}
+			await reloadSuiteMeta();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to refresh suite data');
 		}
@@ -245,7 +200,7 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 		}
 	};
 
-	const handleAddEntry = async (item: AvailableItem) => {
+	const handleAddEntry = async (item: AvailableSuiteItem) => {
 		const itemKey = `${item.type}-${item.id}`;
 		const agentOverride = availableItemAgents[itemKey];
 
@@ -323,11 +278,11 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	const usedTestIds = new Set(entries.filter(e => e.test_id).map(e => e.test_id!));
 	const usedSuiteIds = new Set(entries.filter(e => e.child_suite_id).map(e => e.child_suite_id!));
 
-	const availableTests: AvailableItem[] = allTests
+	const availableTests: AvailableSuiteItem[] = allTests
 		.filter(t => t.id != null && !usedTestIds.has(t.id))
 		.map(t => ({ id: t.id!, name: t.name, type: 'test', description: t.description }));
 
-	const availableSuites: AvailableItem[] = allSuites
+	const availableSuites: AvailableSuiteItem[] = allSuites
 		.filter(s => !usedSuiteIds.has(s.id!))
 		.map(s => ({ id: s.id!, name: s.name, type: 'suite', description: s.description }));
 
@@ -344,6 +299,13 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 	};
 
 	const filteredItems = getFilteredItems();
+
+	const handleAvailableItemAgentChange = (itemKey: string, value: number | null) => {
+		setAvailableItemAgents(prev => ({
+			...prev,
+			[itemKey]: value
+		}));
+	};
 
 	// Create agent select options
 	const agentSelectOptions = [
@@ -544,152 +506,24 @@ export default function TestSuiteDetailPage({ params }: PageProps) {
 									</TabList>
 									<TabPanels>
 										<TabPanel>
-											<div className={styles.scrollableTable}>
-												<TableContainer>
-													<Table size="sm">
-														<TableHead>
-															<TableRow>
-																<TableHeader>Name</TableHeader>
-																<TableHeader>Agent Override</TableHeader>
-																<TableHeader>Actions</TableHeader>
-															</TableRow>
-														</TableHead>
-														<TableBody>
-															{filteredItems.map((item) => {
-																const itemKey = `${item.type}-${item.id}`;
-																return (
-																	<TableRow key={itemKey}>
-																		<TableCell>
-																			<div>
-																				<div className={styles.entryName}>{item.name}</div>
-																				{item.description && (
-																					<div className={styles.itemDescription}>
-																						{item.description}
-																					</div>
-																				)}
-																			</div>
-																		</TableCell>
-																		<TableCell>
-																			<Select
-																				id={`agent-${itemKey}`}
-																				labelText=""
-																				size="sm"
-																				className={styles.agentOverrideSelect}
-																				value={availableItemAgents[itemKey] ? String(availableItemAgents[itemKey]) : 'default'}
-																				onChange={(e) => {
-																					const value = e.target.value === 'default' ? null : parseInt(e.target.value);
-																					setAvailableItemAgents(prev => ({
-																						...prev,
-																						[itemKey]: value
-																					}));
-																				}}
-																			>
-																				{agentSelectOptions.map(option => (
-																					<SelectItem
-																						key={option.id}
-																						value={option.id}
-																						text={option.label}
-																					/>
-																				))}
-																			</Select>
-																		</TableCell>
-																		<TableCell>
-																			<IconButton
-																				kind="ghost"
-																				size="sm"
-																				onClick={() => handleAddEntry(item)}
-																				label="Add to suite"
-																				align='left'
-																			>
-																				<ArrowRight size={16} />
-																			</IconButton>
-																		</TableCell>
-																	</TableRow>
-																);
-															})}
-														</TableBody>
-													</Table>
-												</TableContainer>
-												{filteredItems.length === 0 && (
-													<div className={styles.emptyState}>
-														<p>No {activeTab === 0 ? 'tests' : 'suites'} available to add.</p>
-													</div>
-												)}
-											</div>
+											<AvailableItemsTable
+												items={filteredItems}
+												activeTab={activeTab}
+												availableItemAgents={availableItemAgents}
+												agentSelectOptions={agentSelectOptions}
+												onAgentChange={handleAvailableItemAgentChange}
+												onAddEntry={handleAddEntry}
+											/>
 										</TabPanel>
 										<TabPanel>
-											<div className={styles.scrollableTable}>
-												<TableContainer>
-													<Table size="sm">
-														<TableHead>
-															<TableRow>
-																<TableHeader>Name</TableHeader>
-																<TableHeader>Agent Override</TableHeader>
-																<TableHeader>Actions</TableHeader>
-															</TableRow>
-														</TableHead>
-														<TableBody>
-															{filteredItems.map((item) => {
-																const itemKey = `${item.type}-${item.id}`;
-																return (
-																	<TableRow key={itemKey}>
-																		<TableCell>
-																			<div>
-																				<div className={styles.entryName}>{item.name}</div>
-																				{item.description && (
-																					<div className={styles.itemDescription}>
-																						{item.description}
-																					</div>
-																				)}
-																			</div>
-																		</TableCell>
-																		<TableCell>
-																			<Select
-																				id={`agent-${itemKey}`}
-																				labelText=""
-																				size="sm"
-																				className={styles.agentOverrideSelect}
-																				value={availableItemAgents[itemKey] ? String(availableItemAgents[itemKey]) : 'default'}
-																				onChange={(e) => {
-																					const value = e.target.value === 'default' ? null : parseInt(e.target.value);
-																					setAvailableItemAgents(prev => ({
-																						...prev,
-																						[itemKey]: value
-																					}));
-																				}}
-																			>
-																				{agentSelectOptions.map(option => (
-																					<SelectItem
-																						key={option.id}
-																						value={option.id}
-																						text={option.label}
-																					/>
-																				))}
-																			</Select>
-																		</TableCell>
-																		<TableCell>
-																			<IconButton
-																				kind="ghost"
-																				size="sm"
-																				onClick={() => handleAddEntry(item)}
-																				label="Add to suite"
-																				align='left'
-																			>
-																				<ArrowRight size={16} />
-																			</IconButton>
-																		</TableCell>
-																	</TableRow>
-																);
-															})}
-														</TableBody>
-													</Table>
-												</TableContainer>
-												{filteredItems.length === 0 && (
-													<div className={styles.emptyState}>
-														<p>No {activeTab === 0 ? 'tests' : 'suites'} available to add.</p>
-													</div>
-												)}
-											</div>
+											<AvailableItemsTable
+												items={filteredItems}
+												activeTab={activeTab}
+												availableItemAgents={availableItemAgents}
+												agentSelectOptions={agentSelectOptions}
+												onAgentChange={handleAvailableItemAgentChange}
+												onAddEntry={handleAddEntry}
+											/>
 										</TabPanel>
 									</TabPanels>
 								</Tabs>

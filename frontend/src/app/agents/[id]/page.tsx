@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
 	Button,
@@ -19,42 +19,35 @@ import {
 	Edit,
 	ArrowLeft
 } from '@carbon/icons-react';
-import { api, Agent, ExecutionSession, SessionMessage } from '../../../lib/api';
+import { api } from '../../../lib/api';
 import { getRequestTemplateCapabilitySummary, getResponseMapCapabilitySummary } from '../../../lib/capabilities';
-import { agentToFormData, loadConversationsByIds, loadSessionMessages, calculateSessionStats, extractByPath } from '../../../lib/utils';
-import { calculateExecutionTime, getSimilarityScore, sortSessionsByTime } from '../../components/AgentAnalytics/analyticsUtils';
+import { agentToFormData, extractByPath } from '../../../lib/utils';
 import AgentFormModal from '../../components/AgentFormModal';
 import DeleteConfirmationModal from '../../components/DeleteConfirmationModal';
 import SessionsTable from '../../components/SessionsTable';
 import AgentAnalytics from '../../components/AgentAnalytics';
+import { useAgentDetailData } from './useAgentDetailData';
 import styles from './page.module.scss';
 
 export default function AgentDetailPage() {
 	const params = useParams<{ id: string }>();
 	const router = useRouter();
-	const [agent, setAgent] = useState<Agent | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const agentId = Number(params.id);
+	const {
+		agent,
+		loading,
+		error,
+		recentSessions,
+		allSessions,
+		conversations,
+		sessionMessages,
+		stats,
+		requestTemplates,
+		responseMaps,
+		reload
+	} = useAgentDetailData(Number.isNaN(agentId) ? null : agentId);
 	const [editModalOpen, setEditModalOpen] = useState(false);
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-	const [recentSessions, setRecentSessions] = useState<ExecutionSession[]>([]);
-	const [allSessions, setAllSessions] = useState<ExecutionSession[]>([]);
-	const [conversations, setConversations] = useState<Map<number, { name: string; id: number }>>(new Map());
-	const [sessionMessages, setSessionMessages] = useState<Map<number, SessionMessage[]>>(new Map());
-	const [stats, setStats] = useState({
-		totalRuns: 0,
-		successRate: 0,
-		avgExecutionTime: 0,
-		avgSimilarity: null as number | null,
-		lastRun: null as string | null,
-		trends: {
-			successRate: 0,
-			similarity: null as number | null,
-			executionTime: null as number | null
-		}
-	});
-	const [requestTemplates, setRequestTemplates] = useState<Array<{ id: number; name: string; body: string; is_default?: number; capabilities?: string | Record<string, unknown> | null }>>([]);
-	const [responseMaps, setResponseMaps] = useState<Array<{ id: number; name: string; spec: string; is_default?: number; capabilities?: string | Record<string, unknown> | null }>>([]);
 	const [newTemplate, setNewTemplate] = useState<{ name: string; body: string; capabilities: string; is_default: boolean }>({ name: '', body: '', capabilities: '', is_default: false });
 	const [newResponseMap, setNewResponseMap] = useState<{ name: string; spec: string; capabilities: string; is_default: boolean }>({ name: '', spec: '', capabilities: '', is_default: false });
 	const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
@@ -95,119 +88,6 @@ export default function AgentDetailPage() {
 			return '(invalid template or variables)';
 		}
 	};
-
-	const load = async () => {
-		try {
-			setLoading(true);
-			const id = Number(params.id);
-			const agentData = await api.getAgentById(id);
-			setAgent(agentData);
-
-			// Load recent sessions for this agent (limited to 10 for display)
-			const recentSessionsData = await api.getExecutionSessions({ agent_id: id, limit: 10, offset: 0 });
-			setRecentSessions(recentSessionsData.data);
-
-			// Load conversations for the sessions
-			const conversationIds = Array.from(new Set(recentSessionsData.data.map(s => s.conversation_id).filter(id => id !== undefined) as number[]));
-			const conversationsMap = await loadConversationsByIds(conversationIds);
-			setConversations(conversationsMap);
-
-			// Load session messages for accurate status and similarity score calculation
-			const messagesMap = await loadSessionMessages(recentSessionsData.data);
-			setSessionMessages(messagesMap);
-
-			// Load all sessions for stats calculation and analytics
-			const allSessionsData = await api.getExecutionSessions({ agent_id: id, limit: 1000, offset: 0 });
-			setAllSessions(allSessionsData.data);
-
-			// Load messages for all sessions for similarity calculation
-			const allMessagesMap = await loadSessionMessages(allSessionsData.data);
-			setSessionMessages(allMessagesMap);
-
-			// Calculate stats from all sessions
-			const calculatedStats = calculateSessionStats(allSessionsData.data);
-
-			// Calculate performance metrics and trends
-			const sorted = sortSessionsByTime(allSessionsData.data);
-
-			const midpoint = Math.floor(sorted.length / 2);
-			const firstHalf = sorted.slice(0, midpoint);
-			const secondHalf = sorted.slice(midpoint);
-
-			const calculateMetrics = (sessions: typeof sorted) => {
-				let successCount = 0;
-				let totalSimilarity = 0;
-				let similarityCount = 0;
-				let totalExecutionTime = 0;
-				let executionTimeCount = 0;
-
-				sessions.forEach(session => {
-					if (session.success) {
-						successCount++;
-					}
-
-					const execTime = calculateExecutionTime(session);
-					if (execTime > 0) {
-						totalExecutionTime += execTime;
-						executionTimeCount++;
-					}
-
-					const { similarity, hasSimilarity } = getSimilarityScore(session.id, allMessagesMap);
-					if (hasSimilarity) {
-						totalSimilarity += similarity;
-						similarityCount++;
-					}
-				});
-
-				return {
-					successRate: sessions.length > 0 ? (successCount / sessions.length) * 100 : 0,
-					avgSimilarity: similarityCount > 0 ? totalSimilarity / similarityCount : null,
-					avgExecutionTime: executionTimeCount > 0 ? totalExecutionTime / executionTimeCount : null
-				};
-			};
-
-			const overall = calculateMetrics(sorted);
-			const first = firstHalf.length > 0 ? calculateMetrics(firstHalf) : overall;
-			const second = secondHalf.length > 0 ? calculateMetrics(secondHalf) : overall;
-
-			setStats({
-				totalRuns: allSessionsData.total,
-				successRate: overall.successRate,
-				avgExecutionTime: overall.avgExecutionTime ? overall.avgExecutionTime * 1000 : 0, // Convert to ms
-				avgSimilarity: overall.avgSimilarity,
-				lastRun: calculatedStats.lastRun,
-				trends: {
-					successRate: second.successRate - first.successRate,
-					similarity: overall.avgSimilarity && first.avgSimilarity && second.avgSimilarity
-						? second.avgSimilarity - first.avgSimilarity
-						: null,
-					executionTime: overall.avgExecutionTime && first.avgExecutionTime && second.avgExecutionTime
-						? second.avgExecutionTime - first.avgExecutionTime
-						: null
-				}
-			});
-			// Load communication configs
-			try {
-				const [tpls, maps] = await Promise.all([
-					api.getAgentRequestTemplates(id),
-					api.getAgentResponseMaps(id)
-				]);
-				setRequestTemplates(tpls || []);
-				setResponseMaps(maps || []);
-			} catch {
-				// ignore comm load errors for now
-			}
-		} catch (err) {
-			setError(err instanceof Error ? err.message : 'Failed to load agent');
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	useEffect(() => {
-		load();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [params.id]);
 
 	const handleEditClick = () => {
 		setEditModalOpen(true);
@@ -516,7 +396,7 @@ export default function AgentDetailPage() {
 																						is_default: editTemplateData.is_default
 																					});
 																					setEditingTemplateId(null);
-																					await load();
+																					await reload();
 																				} catch (e) {
 																					setCommError(e instanceof Error ? e.message : 'failed to update template');
 																				}
@@ -549,7 +429,7 @@ export default function AgentDetailPage() {
 																			<Button size="sm" kind="ghost" onClick={async () => {
 																				try {
 																					await api.setDefaultAgentRequestTemplate(agent.id!, t.id);
-																					await load();
+																					await reload();
 																				} catch (e) {
 																					setCommError(e instanceof Error ? e.message : 'failed to set default');
 																				}
@@ -557,7 +437,7 @@ export default function AgentDetailPage() {
 																			<Button size="sm" kind="danger--ghost" onClick={async () => {
 																				try {
 																					await api.deleteAgentRequestTemplate(agent.id!, t.id);
-																					await load();
+																					await reload();
 																				} catch (e) {
 																					setCommError(e instanceof Error ? e.message : 'failed to delete');
 																				}
@@ -584,7 +464,7 @@ export default function AgentDetailPage() {
 																	: {};
 																await api.createAgentRequestTemplate(agent.id!, { name: newTemplate.name, body: newTemplate.body, capabilities: JSON.stringify(caps), is_default: newTemplate.is_default });
 																setNewTemplate({ name: '', body: '', capabilities: '', is_default: false });
-																await load();
+																await reload();
 															} catch (e) {
 																setCommError(e instanceof Error ? e.message : 'failed to create template');
 															}
@@ -650,7 +530,7 @@ export default function AgentDetailPage() {
 																						is_default: editMapData.is_default
 																					});
 																					setEditingMapId(null);
-																					await load();
+																					await reload();
 																				} catch (e) {
 																					setCommError(e instanceof Error ? e.message : 'failed to update response map');
 																				}
@@ -683,7 +563,7 @@ export default function AgentDetailPage() {
 																			<Button size="sm" kind="ghost" onClick={async () => {
 																				try {
 																					await api.setDefaultAgentResponseMap(agent.id!, m.id);
-																					await load();
+																					await reload();
 																				} catch (e) {
 																					setCommError(e instanceof Error ? e.message : 'failed to set default');
 																				}
@@ -691,7 +571,7 @@ export default function AgentDetailPage() {
 																			<Button size="sm" kind="danger--ghost" onClick={async () => {
 																				try {
 																					await api.deleteAgentResponseMap(agent.id!, m.id);
-																					await load();
+																					await reload();
 																				} catch (e) {
 																					setCommError(e instanceof Error ? e.message : 'failed to delete');
 																				}
@@ -718,7 +598,7 @@ export default function AgentDetailPage() {
 																	: {};
 																await api.createAgentResponseMap(agent.id!, { name: newResponseMap.name, spec: newResponseMap.spec, capabilities: JSON.stringify(caps), is_default: newResponseMap.is_default });
 																setNewResponseMap({ name: '', spec: '', capabilities: '', is_default: false });
-																await load();
+																await reload();
 															} catch (e) {
 																setCommError(e instanceof Error ? e.message : 'failed to create response map');
 															}
@@ -800,7 +680,7 @@ export default function AgentDetailPage() {
 				formData={initialFormData}
 				onClose={() => setEditModalOpen(false)}
 				onSuccess={() => {
-					load();
+					reload();
 					setEditModalOpen(false);
 				}}
 			/>
