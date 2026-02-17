@@ -95,6 +95,8 @@ This starts:
 
 Note: the Python `agent-service` is not started by `npm run dev`. Start it separately if you want CrewAI executions.
 
+For multi-instance local setups, use `env.instance1.example` as a template and create your own `env.instance*` files locally. Instance env files are intentionally gitignored.
+
 ## Service topology and ports
 
 | Service | Default port | Role |

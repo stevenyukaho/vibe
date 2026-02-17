@@ -68,3 +68,7 @@ pnpm-debug.log*
 # =====================
 Screenshot_*.png
 E2E*_LOG.md
+
+# Python test cache artifacts
+.pytest_cache/
+**/.pytest_cache/

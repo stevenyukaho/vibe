@@ -51,6 +51,9 @@ chmod +x start-instance.sh stop-instance.sh logs-instance.sh status-instance.sh
 ### 2. Start an instance
 
 ```bash
+# Create a local instance env file from the template (first time only)
+cp env.instance1.example env.instance1
+
 # Start instance 1
 ./start-instance.sh env.instance1
 
@@ -189,7 +192,7 @@ pm2 startup
 
 ## Environment File Configuration
 
-Each instance has its own environment file (e.g., `env.instance1`):
+Each instance has its own local environment file (e.g., `env.instance1`):
 
 ```bash
 INSTANCE_NAME=instance1
@@ -200,12 +203,14 @@ FRONTEND_PORT=3000
 DB_PATH=./data/agent-testing-instance1.db
 ```
 
+Use `env.instance1.example` as the committed template. Keep concrete `env.instance*` files local only.
+
 ### Creating a new instance
 
 1. **Copy an existing environment file**:
 
    ```bash
-   cp env.instance1 env.instance4
+   cp env.instance1.example env.instance4
    ```
 
 2. **Edit the new file** with unique ports:

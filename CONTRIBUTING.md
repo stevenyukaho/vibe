@@ -45,6 +45,14 @@ npm run typecheck
 npm run test:ts
 ```
 
+### Repository hygiene
+
+Please do not commit local artifacts such as:
+
+- `env.instance*` files (use `env.instance1.example` as a template)
+- `E2E*_LOG.md` files
+- `.pytest_cache/` directories
+
 If your changes affect formatting, you can format supported files with:
 
 ```bash

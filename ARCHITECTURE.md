@@ -64,6 +64,8 @@ The system consists of four main components:
 - Configurable agent settings (role, goal, backstory, etc.)
 - Support for tools and delegation
 
+**Status note:** The Python `agent-service` is currently out of date and needs TLC. The primary maintained execution path is `backend` + `agent-service-api`.
+
 ### 4. Agent Service API (`agent-service-api/`)
 
 **Technology Stack:** TypeScript, Express.js

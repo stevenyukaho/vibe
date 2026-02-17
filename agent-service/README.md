@@ -2,6 +2,10 @@
 
 This service is part of the AI Agent Testing Suite. It provides a Python-based service that executes AI agent tests using CrewAI, handling agent configuration, test execution, and result collection.
 
+## Status note
+
+This Python `agent-service` implementation is currently out of date and needs TLC. For active development and production-like flows, prefer the TypeScript execution path (`backend` + `agent-service-api`) unless you are explicitly working on CrewAI internals.
+
 ## Overview
 
 The service provides:
