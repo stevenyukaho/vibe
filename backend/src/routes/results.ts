@@ -21,7 +21,8 @@ import {
 } from '../adapters/legacy-adapter';
 import { testIdToConversationId } from '../lib/legacyIdResolver';
 import { asyncHandler } from '../lib/asyncHandler';
-import { shouldLog } from '../lib/logger';
+import { logError, logWarn } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 const router = Router();
 
@@ -98,10 +99,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 			offset: 0
 		});
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching results:', error);
-		}
+		logError('Error fetching results:', error);
 		return res.status(500).json({ error: 'Failed to fetch results' });
 	}
 }));
@@ -109,9 +107,9 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 // Get result by ID (from execution session)
 router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const idNum = Number(req.params.id);
-		if (isNaN(idNum)) {
-			return res.status(400).json({ error: 'Invalid result ID' });
+		const idNum = parseIdParam(res, req.params.id, 'Invalid result ID');
+		if (idNum === null) {
+			return;
 		}
 
 		// Primary: treat id as session_id (tests -> conversations)
@@ -165,10 +163,7 @@ router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Respon
 
 		return res.status(404).json({ error: 'Result not found' });
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching result:', error);
-		}
+		logError('Error fetching result:', error);
 		return res.status(500).json({ error: 'Failed to fetch result' });
 	}
 }));
@@ -176,11 +171,11 @@ router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Respon
 // Score a result
 router.post('/:id/score', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const idNum = Number(req.params.id);
+		const idNum = parseIdParam(res, req.params.id, 'Invalid result ID');
 		const { llm_config_id } = req.body;
 
-		if (isNaN(idNum)) {
-			return res.status(400).json({ error: 'Invalid result ID' });
+		if (idNum === null) {
+			return;
 		}
 
 		// Import legacy queries dynamically to avoid circular deps
@@ -202,10 +197,7 @@ router.post('/:id/score', asyncHandler(async (req: Request<{ id: string }>, res:
 		const updatedResult = legacy.getResultById ? legacy.getResultById(idNum) : null;
 		return res.json(updatedResult);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error scoring result:', error);
-		}
+		logError('Error scoring result:', error);
 		return res.status(500).json({ error: 'Failed to score result' });
 	}
 }));
@@ -235,10 +227,7 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 					});
 				}
 			} catch (error) {
-				/* istanbul ignore next */
-				if (shouldLog) {
-					console.warn('Failed to extract token usage from intermediate steps:', error);
-				}
+				logWarn('Failed to extract token usage from intermediate steps:', error);
 			}
 		} else if (processedBody.input_tokens !== undefined || processedBody.output_tokens !== undefined) {
 			const tokens = {
@@ -288,10 +277,7 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 
 		return res.status(201).json(formattedResult);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error creating result:', error);
-		}
+		logError('Error creating result:', error);
 		return res.status(500).json({ error: 'Failed to create result' });
 	}
 }));

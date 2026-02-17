@@ -12,7 +12,8 @@ import {
 	sessionToLegacyResult
 } from '../adapters/legacy-adapter';
 import { createLegacyTestExecutionJob, LegacyExecutionError } from '../services/legacy-execution';
-import { shouldLog } from '../lib/logger';
+import { asyncHandler } from '../lib/asyncHandler';
+import { logError, logWarn } from '../lib/logger';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const router = Router();
 const UPDATABLE_JOB_FIELDS = ['status', 'progress', 'partial_result', 'result_id', 'session_id', 'error'] as const;
 
 // List all jobs with optional filtering
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const filters: JobFilters = {};
 
@@ -72,19 +73,16 @@ router.get('/', (async (req: Request, res: Response) => {
 			offset: 0
 		});
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error listing jobs:', error);
-		}
+		logError('Error listing jobs:', error);
 		return res.status(500).json({
 			error: 'Failed to list jobs',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Get available jobs for polling (used by services)
-router.get('/available/:job_type?', (async (req: Request, res: Response) => {
+router.get('/available/:job_type?', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const jobType = req.params.job_type;
 		const limit = parseInt(req.query.limit as string || '10', 10);
@@ -92,19 +90,16 @@ router.get('/available/:job_type?', (async (req: Request, res: Response) => {
 		const jobs = await jobQueue.getAvailableJobs(jobType, limit);
 		return res.json(jobs);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error getting available jobs:', error);
-		}
+		logError('Error getting available jobs:', error);
 		return res.status(500).json({
 			error: 'Failed to get available jobs',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Get a job by ID
-router.get('/:id', (async (req: Request, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const job = await jobQueue.getJob(req.params.id);
 
@@ -124,10 +119,7 @@ router.get('/:id', (async (req: Request, res: Response) => {
 					enrichedJob.result = sessionToLegacyResult(session, sessionMessages);
 				}
 			} catch (error) {
-				/* istanbul ignore next */
-				if (shouldLog) {
-					console.warn(`Failed to enrich job ${job.id} with session ${job.session_id}:`, error);
-				}
+				logWarn(`Failed to enrich job ${job.id} with session ${job.session_id}:`, error);
 			}
 		}
 		// Fallback to legacy result_id if session_id not available (legacy compatibility) TODO deprecate this
@@ -140,29 +132,23 @@ router.get('/:id', (async (req: Request, res: Response) => {
 					enrichedJob.result = sessionToLegacyResult(session, sessionMessages);
 				}
 			} catch (error) {
-				/* istanbul ignore next */
-				if (shouldLog) {
-					console.warn(`Failed to enrich job ${job.id} with legacy result ${job.result_id}:`, error);
-				}
+				logWarn(`Failed to enrich job ${job.id} with legacy result ${job.result_id}:`, error);
 			}
 		}
 
 		return res.json(enrichedJob);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error(`Error getting job ${req.params.id}:`, error);
-		}
+		logError(`Error getting job ${req.params.id}:`, error);
 		return res.status(500).json({
 			error: 'Failed to get job',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Legacy endpoint: Create a new job using test_id compatibility.
 // Prefer /api/execute/conversation for new clients.
-router.post('/', (async (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { agent_id, test_id } = req.body;
 
@@ -182,19 +168,16 @@ router.post('/', (async (req: Request, res: Response) => {
 		if (error instanceof LegacyExecutionError) {
 			return res.status(error.statusCode).json({ error: error.message });
 		}
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error creating job:', error);
-		}
+		logError('Error creating job:', error);
 		return res.status(500).json({
 			error: 'Failed to create job',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Cancel a job
-router.post('/:id/cancel', (async (req: Request, res: Response) => {
+router.post('/:id/cancel', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const job = await jobQueue.getJob(req.params.id);
 
@@ -218,19 +201,16 @@ router.post('/:id/cancel', (async (req: Request, res: Response) => {
 
 		return res.status(200).json({ message: 'Job canceled successfully' });
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error(`Error canceling job ${req.params.id}:`, error);
-		}
+		logError(`Error canceling job ${req.params.id}:`, error);
 		return res.status(500).json({
 			error: 'Failed to cancel job',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Delete a job completely
-router.delete('/:id', (async (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const deleted = await jobQueue.deleteJob(req.params.id);
 
@@ -240,19 +220,16 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(200).json({ message: 'Job deleted successfully' });
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error(`Error deleting job ${req.params.id}:`, error);
-		}
+		logError(`Error deleting job ${req.params.id}:`, error);
 		return res.status(500).json({
 			error: 'Failed to delete job',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Claim a job for execution (used by services)
-router.post('/:id/claim', (async (req: Request, res: Response) => {
+router.post('/:id/claim', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { service_id } = req.body;
 
@@ -271,19 +248,16 @@ router.post('/:id/claim', (async (req: Request, res: Response) => {
 			job_id: req.params.id
 		});
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error(`Error claiming job ${req.params.id}:`, error);
-		}
+		logError(`Error claiming job ${req.params.id}:`, error);
 		return res.status(500).json({
 			error: 'Failed to claim job',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 // Update job status and progress (used by services during execution)
-router.put('/:id', (async (req: Request, res: Response) => {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const updates = req.body;
 
@@ -304,15 +278,12 @@ router.put('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(200).json({ message: 'Job updated successfully' });
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error(`Error updating job ${req.params.id}:`, error);
-		}
+		logError(`Error updating job ${req.params.id}:`, error);
 		return res.status(500).json({
 			error: 'Failed to update job',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 export default router;

@@ -4,13 +4,16 @@ import { LLMConfig } from '@ibm-vibe/types';
 import { llmConfigService, LLMRequestOptions } from '../services/llm-config-service';
 import { createLLMConfig, updateLLMConfig, deleteLLMConfig, getLLMConfigsWithCount } from '../db/queries';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
+import { asyncHandler } from '../lib/asyncHandler';
+import { logError } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 const router = express.Router();
 
 /**
  * Get all LLM configs ordered by priority
  */
-router.get('/', ((req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		if (hasPaginationParams(req)) {
 			const queryParams = validatePaginationOrError(req, res);
@@ -30,18 +33,19 @@ router.get('/', ((req: Request, res: Response) => {
 		const configs = llmConfigService.getConfigs();
 		return res.json(configs);
 	} catch (error: any) {
+		logError('Error fetching LLM configs:', error);
 		return res.status(500).json({ error: error.message });
 	}
-}) as any);
+}));
 
 /**
  * Get a single LLM config by ID
  */
-router.get('/:id', (async (req: Request, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = parseInt(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid ID format' });
+		const id = parseIdParam(res, req.params.id, 'Invalid ID format');
+		if (id === null) {
+			return;
 		}
 
 		const config = llmConfigService.getConfigById(id);
@@ -51,14 +55,15 @@ router.get('/:id', (async (req: Request, res: Response) => {
 
 		return res.json(config);
 	} catch (error: any) {
+		logError('Error fetching LLM config:', error);
 		return res.status(500).json({ error: error.message });
 	}
-}) as any);
+}));
 
 /**
  * Create a new LLM config
  */
-router.post('/', (async (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { name, provider, config, priority } = req.body;
 
@@ -81,18 +86,19 @@ router.post('/', (async (req: Request, res: Response) => {
 		const createdConfig = createLLMConfig(newConfig);
 		return res.status(201).json(createdConfig);
 	} catch (error: any) {
+		logError('Error creating LLM config:', error);
 		return res.status(500).json({ error: error.message });
 	}
-}) as any);
+}));
 
 /**
  * Update an existing LLM config
  */
-router.put('/:id', (async (req: Request, res: Response) => {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = parseInt(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid ID format' });
+		const id = parseIdParam(res, req.params.id, 'Invalid ID format');
+		if (id === null) {
+			return;
 		}
 
 		const { name, provider, config, priority } = req.body;
@@ -118,18 +124,19 @@ router.put('/:id', (async (req: Request, res: Response) => {
 
 		return res.json(updatedConfig);
 	} catch (error: any) {
+		logError('Error updating LLM config:', error);
 		return res.status(500).json({ error: error.message });
 	}
-}) as any);
+}));
 
 /**
  * Delete an LLM config
  */
-router.delete('/:id', (async (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = parseInt(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid ID format' });
+		const id = parseIdParam(res, req.params.id, 'Invalid ID format');
+		if (id === null) {
+			return;
 		}
 
 		const result = deleteLLMConfig(id);
@@ -139,18 +146,19 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(204).send();
 	} catch (error: any) {
+		logError('Error deleting LLM config:', error);
 		return res.status(500).json({ error: error.message });
 	}
-}) as any);
+}));
 
 /**
  * Call a specific LLM config
  */
-router.post('/:id/call', (async (req: Request, res: Response) => {
+router.post('/:id/call', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = parseInt(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid ID format' });
+		const id = parseIdParam(res, req.params.id, 'Invalid ID format');
+		if (id === null) {
+			return;
 		}
 
 		const { prompt, max_tokens, temperature, stop } = req.body;
@@ -172,14 +180,15 @@ router.post('/:id/call', (async (req: Request, res: Response) => {
 
 		return res.json(response);
 	} catch (error: any) {
+		logError('Error calling LLM config:', error);
 		return res.status(500).json({ error: error.message });
 	}
-}) as any);
+}));
 
 /**
  * Call LLMs in priority order until one succeeds
  */
-router.post('/call', (async (req: Request, res: Response) => {
+router.post('/call', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { prompt, max_tokens, temperature, stop } = req.body;
 		if (!prompt) {
@@ -196,8 +205,9 @@ router.post('/call', (async (req: Request, res: Response) => {
 		const response = await llmConfigService.callLLMWithFallback(options);
 		return res.json(response);
 	} catch (error: any) {
+		logError('Error calling LLM fallback chain:', error);
 		return res.status(500).json({ error: error.message });
 	}
-}) as any);
+}));
 
 export default router;

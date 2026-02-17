@@ -2,7 +2,8 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getAgentById, getTestSuiteById } from '../db/queries';
 import { jobQueue } from '../services/job-queue';
-import { shouldLog } from '../lib/logger';
+import { asyncHandler } from '../lib/asyncHandler';
+import { logError } from '../lib/logger';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ interface ExecuteSuiteRequest {
  * POST /api/execute-suite
  * Execute a suite of tests with the specified agent
  */
-router.post('/', (async (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { suite_id, agent_id } = req.body as ExecuteSuiteRequest;
 
@@ -50,15 +51,12 @@ router.post('/', (async (req: Request, res: Response) => {
 			agent_id
 		});
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error executing suite:', error);
-		}
+		logError('Error executing suite:', error);
 		return res.status(500).json({
 			error: 'Failed to execute test suite',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 export default router;

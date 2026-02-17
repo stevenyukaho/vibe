@@ -11,7 +11,8 @@ import {
 import type { SessionMessage } from '@ibm-vibe/types';
 import { scoreSimilarityText } from '../services/scoring-service';
 import { asyncHandler } from '../lib/asyncHandler';
-import { shouldLog } from '../lib/logger';
+import { logError, logWarn } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 /**
  * Score similarity for a session message against its conversation target
@@ -86,12 +87,9 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 		if (message.role === 'assistant') {
 			try {
 			if (message.session_id == null) {
-				/* istanbul ignore next */
-				if (shouldLog) {
-					console.warn('Session message missing session_id; skipping similarity scoring.', {
-						message_id: message.id
-					});
-				}
+				logWarn('Session message missing session_id; skipping similarity scoring.', {
+					message_id: message.id
+				});
 				return res.status(201).json(message);
 			}
 
@@ -109,19 +107,13 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 					}
 				}
 			} catch (e) {
-				/* istanbul ignore next */
-				if (shouldLog) {
-					console.error('In-process scoring trigger failed:', e);
-				}
+				logError('In-process scoring trigger failed:', e);
 			}
 		}
 
 		return res.status(201).json(message);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error creating session message:', error);
-		}
+		logError('Error creating session message:', error);
 		return res.status(500).json({ error: 'Failed to create session message' });
 	}
 }));
@@ -129,9 +121,9 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 // Regenerate similarity score for a specific message
 router.post('/:id/regenerate-score', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const messageId = Number(req.params.id);
-		if (isNaN(messageId)) {
-			return res.status(400).json({ error: 'Invalid message ID' });
+		const messageId = parseIdParam(res, req.params.id, 'Invalid message ID');
+		if (messageId === null) {
+			return;
 		}
 
 		// Get the message
@@ -173,10 +165,7 @@ router.post('/:id/regenerate-score', asyncHandler(async (req: Request<{ id: stri
 			message_id: messageId
 		});
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error regenerating similarity score:', error);
-		}
+		logError('Error regenerating similarity score:', error);
 		return res.status(500).json({ error: 'Failed to regenerate similarity score' });
 	}
 }));

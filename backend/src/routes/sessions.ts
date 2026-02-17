@@ -12,7 +12,9 @@ import {
 import type { ExecutionSession } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { asyncHandler } from '../lib/asyncHandler';
-import { shouldLog } from '../lib/logger';
+import { logError } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
+import { normalizeExecutionSessionPayload } from '../services/session-payload-normalizer';
 
 const router = Router();
 
@@ -47,10 +49,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 		const sessions = await getExecutionSessions(baseFilters);
 		return res.json(sessions);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching execution sessions:', error);
-		}
+		logError('Error fetching execution sessions:', error);
 		return res.status(500).json({ error: 'Failed to fetch execution sessions' });
 	}
 }));
@@ -58,7 +57,10 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 // Get execution session by id
 router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const sessionId = Number(req.params.id);
+		const sessionId = parseIdParam(res, req.params.id, 'Invalid execution session ID');
+		if (sessionId === null) {
+			return;
+		}
 		const session = await getExecutionSessionById(sessionId);
 
 		if (!session) {
@@ -67,10 +69,7 @@ router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Respon
 
 		return res.json(session);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching execution session:', error);
-		}
+		logError('Error fetching execution session:', error);
 		return res.status(500).json({ error: 'Failed to fetch execution session' });
 	}
 }));
@@ -78,7 +77,10 @@ router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Respon
 // Get session messages (transcript)
 router.get('/:id/messages', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const sessionId = Number(req.params.id);
+		const sessionId = parseIdParam(res, req.params.id, 'Invalid execution session ID');
+		if (sessionId === null) {
+			return;
+		}
 
 		// Check if session exists
 		const session = await getExecutionSessionById(sessionId);
@@ -89,10 +91,7 @@ router.get('/:id/messages', asyncHandler(async (req: Request<{ id: string }>, re
 		const messages = await getSessionMessages(sessionId);
 		return res.json(messages);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching session messages:', error);
-		}
+		logError('Error fetching session messages:', error);
 		return res.status(500).json({ error: 'Failed to fetch session messages' });
 	}
 }));
@@ -100,7 +99,10 @@ router.get('/:id/messages', asyncHandler(async (req: Request<{ id: string }>, re
 // Get full session transcript (session details + messages)
 router.get('/:id/transcript', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const sessionId = Number(req.params.id);
+		const sessionId = parseIdParam(res, req.params.id, 'Invalid execution session ID');
+		if (sessionId === null) {
+			return;
+		}
 
 		const transcript = await getFullSessionTranscript(sessionId);
 
@@ -110,10 +112,7 @@ router.get('/:id/transcript', asyncHandler(async (req: Request<{ id: string }>, 
 
 		return res.json(transcript);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching session transcript:', error);
-		}
+		logError('Error fetching session transcript:', error);
 		return res.status(500).json({ error: 'Failed to fetch session transcript' });
 	}
 }));
@@ -121,7 +120,10 @@ router.get('/:id/transcript', asyncHandler(async (req: Request<{ id: string }>, 
 // Update execution session (for status updates, completion, etc.)
 router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Partial<ExecutionSession>>, res: Response) => {
 	try {
-		const sessionId = Number(req.params.id);
+		const sessionId = parseIdParam(res, req.params.id, 'Invalid execution session ID');
+		if (sessionId === null) {
+			return;
+		}
 
 		// Check if session exists
 		const existingSession = await getExecutionSessionById(sessionId);
@@ -132,10 +134,7 @@ router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Par
 		const updatedSession = await updateExecutionSession(sessionId, req.body);
 		return res.json(updatedSession);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error updating execution session:', error);
-		}
+		logError('Error updating execution session:', error);
 		return res.status(500).json({ error: 'Failed to update execution session' });
 	}
 }));
@@ -143,66 +142,11 @@ router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Par
 // Create execution session (for agent services)
 router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown, Partial<ExecutionSession>>, res: Response) => {
 	try {
-		// Normalize payload: ensure sqlite-compatible bindings and accept boolean or 0/1 for success
-		const payload: any = { ...(req.body || {}) };
-
-		if (payload.conversation_id !== undefined) {
-			payload.conversation_id = Number(payload.conversation_id);
-		}
-		if (payload.agent_id !== undefined) {
-			payload.agent_id = Number(payload.agent_id);
-		}
-
-		// Success is 0/1 or null
-		if (payload.success !== undefined) {
-			if (typeof payload.success === 'boolean') {
-				payload.success = payload.success ? 1 : 0;
-			} else if (typeof payload.success === 'number') {
-				payload.success = payload.success ? 1 : 0;
-			} else {
-				payload.success = null;
-			}
-		} else {
-			payload.success = null;
-		}
-
-		// Ensure metadata is a string or null
-		if (payload.metadata === undefined || payload.metadata === null) {
-			payload.metadata = null;
-		} else if (typeof payload.metadata !== 'string') {
-			try {
-				payload.metadata = JSON.stringify(payload.metadata);
-			} catch (_e) {
-				payload.metadata = null;
-			}
-		}
-
-		// Ensure error_message is present as string or null (required named param in SQL)
-		if (payload.error_message === undefined || payload.error_message === null) {
-			payload.error_message = null;
-		} else if (typeof payload.error_message !== 'string') {
-			try {
-				payload.error_message = JSON.stringify(payload.error_message);
-			} catch (_e) {
-				payload.error_message = String(payload.error_message);
-			}
-		}
-
-		// Ensure timestamps are strings
-		if (payload.started_at && typeof payload.started_at !== 'string') {
-			payload.started_at = new Date(payload.started_at).toISOString();
-		}
-		if (payload.completed_at && typeof payload.completed_at !== 'string') {
-			payload.completed_at = new Date(payload.completed_at).toISOString();
-		}
-
+		const payload = normalizeExecutionSessionPayload(req.body);
 		const session = await createExecutionSession(payload as ExecutionSession);
 		return res.status(201).json(session);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error creating execution session:', error);
-		}
+		logError('Error creating execution session:', error);
 		return res.status(500).json({ error: 'Failed to create execution session' });
 	}
 }));
@@ -210,7 +154,10 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 // Cancel/delete execution session
 router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const sessionId = Number(req.params.id);
+		const sessionId = parseIdParam(res, req.params.id, 'Invalid execution session ID');
+		if (sessionId === null) {
+			return;
+		}
 
 		// Check if session exists
 		const existingSession = await getExecutionSessionById(sessionId);
@@ -228,10 +175,7 @@ router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Res
 
 		return res.status(204).send();
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error cancelling execution session:', error);
-		}
+		logError('Error cancelling execution session:', error);
 		return res.status(500).json({
 			error: 'Failed to cancel execution session',
 			details: error instanceof Error ? error.message : 'Unknown error'

@@ -13,7 +13,7 @@ import { preflightConversationExecution } from '../lib/conversationPreflight';
 import { asyncHandler } from '../lib/asyncHandler';
 import { validateBody } from '../lib/validateBody';
 import { createLegacyTestExecutionJob, LegacyExecutionError } from '../services/legacy-execution';
-import { shouldLog } from '../lib/logger';
+import { logError } from '../lib/logger';
 
 const router = Router();
 
@@ -61,10 +61,7 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 		if (error instanceof LegacyExecutionError) {
 			return res.status(error.statusCode).json({ error: error.message });
 		}
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error executing test:', error);
-		}
+		logError('Error executing test:', error);
 		return res.status(500).json({ error: 'Failed to execute test', details: error instanceof Error ? error.message : 'Unknown error' });
 	}
 }));
@@ -148,10 +145,7 @@ router.post('/conversation', asyncHandler(async (req: Request<Record<string, nev
 			message: 'Conversation execution job created and queued for execution'
 		});
 	} catch (error: any) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error executing conversation:', error);
-		}
+		logError('Error executing conversation:', error);
 		return res.status(500).json({ error: 'Failed to execute conversation', details: error instanceof Error ? error.message : 'Unknown error' });
 	}
 }));

@@ -4,7 +4,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import * as templateRepo from '../db/repositories/templateRepo';
-import { shouldLog } from '../lib/logger';
+import { asyncHandler } from '../lib/asyncHandler';
+import { logError } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 const router = Router();
 
@@ -12,46 +14,40 @@ const router = Router();
  * GET /api/response-maps
  * List all response maps, optionally filtered by capability.
  */
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const capability = req.query.capability as string | undefined;
 		const maps = templateRepo.listResponseMaps(capability ? { capability } : undefined);
 		return res.json(maps);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching response maps:', error);
-		}
+		logError('Error fetching response maps:', error);
 		return res.status(500).json({ error: 'Failed to fetch response maps' });
 	}
-}) as any);
+}));
 
 /**
  * GET /api/response-maps/capability-names
  * List all distinct capability names from response maps.
  */
-router.get('/capability-names', (async (_req: Request, res: Response) => {
+router.get('/capability-names', asyncHandler(async (_req: Request, res: Response) => {
 	try {
 		const names = templateRepo.listResponseMapCapabilityNames();
 		return res.json(names);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching capability names:', error);
-		}
+		logError('Error fetching capability names:', error);
 		return res.status(500).json({ error: 'Failed to fetch capability names' });
 	}
-}) as any);
+}));
 
 /**
  * GET /api/response-maps/:id
  * Get a response map by ID.
  */
-router.get('/:id', (async (req: Request, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = Number(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid response map ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid response map ID');
+		if (id === null) {
+			return;
 		}
 
 		const map = templateRepo.getResponseMapById(id);
@@ -61,19 +57,16 @@ router.get('/:id', (async (req: Request, res: Response) => {
 
 		return res.json(map);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching response map:', error);
-		}
+		logError('Error fetching response map:', error);
 		return res.status(500).json({ error: 'Failed to fetch response map' });
 	}
-}) as any);
+}));
 
 /**
  * POST /api/response-maps
  * Create a new response map.
  */
-router.post('/', (async (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { name, description, capability, spec } = req.body;
 
@@ -92,10 +85,7 @@ router.post('/', (async (req: Request, res: Response) => {
 
 		return res.status(201).json(map);
 	} catch (error: any) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error creating response map:', error);
-		}
+		logError('Error creating response map:', error);
 
 		if (error.message?.includes('UNIQUE constraint failed')) {
 			return res.status(409).json({
@@ -105,17 +95,17 @@ router.post('/', (async (req: Request, res: Response) => {
 
 		return res.status(500).json({ error: 'Failed to create response map' });
 	}
-}) as any);
+}));
 
 /**
  * PUT /api/response-maps/:id
  * Update a response map.
  */
-router.put('/:id', (async (req: Request, res: Response) => {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = Number(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid response map ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid response map ID');
+		if (id === null) {
+			return;
 		}
 
 		const { name, description, capability, spec } = req.body;
@@ -141,10 +131,7 @@ router.put('/:id', (async (req: Request, res: Response) => {
 
 		return res.json(map);
 	} catch (error: any) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error updating response map:', error);
-		}
+		logError('Error updating response map:', error);
 
 		if (error.message?.includes('UNIQUE constraint failed')) {
 			return res.status(409).json({
@@ -154,17 +141,17 @@ router.put('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(500).json({ error: 'Failed to update response map' });
 	}
-}) as any);
+}));
 
 /**
  * DELETE /api/response-maps/:id
  * Delete a response map.
  */
-router.delete('/:id', (async (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = Number(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid response map ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid response map ID');
+		if (id === null) {
+			return;
 		}
 
 		const existing = templateRepo.getResponseMapById(id);
@@ -175,12 +162,9 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 		templateRepo.deleteResponseMap(id);
 		return res.status(204).send();
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error deleting response map:', error);
-		}
+		logError('Error deleting response map:', error);
 		return res.status(500).json({ error: 'Failed to delete response map' });
 	}
-}) as any);
+}));
 
 export default router;

@@ -19,6 +19,7 @@ import type { Conversation, ConversationMessage } from '@ibm-vibe/types';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { asyncHandler } from '../lib/asyncHandler';
 import { logError } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 import { validateBody } from '../lib/validateBody';
 
 const router = Router();
@@ -64,7 +65,10 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 // Get conversation by ID (includes messages)
 router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid conversation ID');
+		if (conversationId === null) {
+			return;
+		}
 		const conversation = await getConversationById(conversationId);
 
 		if (!conversation) {
@@ -163,7 +167,10 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 // Update conversation
 router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Partial<Conversation> & { messages?: Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>[] }>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid conversation ID');
+		if (conversationId === null) {
+			return;
+		}
 		const { messages, ...conversationData } = req.body;
 
 		// Update conversation metadata
@@ -211,7 +218,10 @@ router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Par
 // Delete conversation
 router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const id = Number(req.params.id);
+		const id = parseIdParam(res, req.params.id, 'Invalid conversation ID');
+		if (id === null) {
+			return;
+		}
 
 		// Check if conversation exists
 		const existingConversation = await getConversationById(id);
@@ -233,7 +243,10 @@ router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Res
 // Get messages for a conversation
 router.get('/:id/messages', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid conversation ID');
+		if (conversationId === null) {
+			return;
+		}
 
 		// Check if conversation exists
 		const conversation = await getConversationById(conversationId);
@@ -252,7 +265,10 @@ router.get('/:id/messages', asyncHandler(async (req: Request<{ id: string }>, re
 // Add message to conversation
 router.post('/:id/messages', asyncHandler(async (req: Request<{ id: string }, unknown, Omit<ConversationMessage, 'id' | 'conversation_id' | 'created_at'>>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid conversation ID');
+		if (conversationId === null) {
+			return;
+		}
 		const { sequence, role, content, metadata } = req.body;
 
 		// Check if conversation exists
@@ -300,8 +316,11 @@ router.post('/:id/messages', asyncHandler(async (req: Request<{ id: string }, un
 // Update message in conversation
 router.put('/:id/messages/:messageId', asyncHandler(async (req: Request<{ id: string; messageId: string }, unknown, Partial<ConversationMessage>>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
-		const messageId = Number(req.params.messageId);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid conversation ID');
+		const messageId = parseIdParam(res, req.params.messageId, 'Invalid message ID');
+		if (conversationId === null || messageId === null) {
+			return;
+		}
 
 		// Check if conversation exists
 		const conversation = await getConversationById(conversationId);
@@ -324,8 +343,11 @@ router.put('/:id/messages/:messageId', asyncHandler(async (req: Request<{ id: st
 // Delete message from conversation
 router.delete('/:id/messages/:messageId', asyncHandler(async (req: Request<{ id: string; messageId: string }>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
-		const messageId = Number(req.params.messageId);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid conversation ID');
+		const messageId = parseIdParam(res, req.params.messageId, 'Invalid message ID');
+		if (conversationId === null || messageId === null) {
+			return;
+		}
 
 		// Check if conversation exists
 		const conversation = await getConversationById(conversationId);
@@ -347,7 +369,10 @@ router.delete('/:id/messages/:messageId', asyncHandler(async (req: Request<{ id:
 // Reorder messages in conversation
 router.put('/:id/messages/reorder', asyncHandler(async (req: Request<{ id: string }, unknown, { messages: { id: number; sequence: number }[] }>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid conversation ID');
+		if (conversationId === null) {
+			return;
+		}
 		const { messages } = req.body;
 
 		// Check if conversation exists

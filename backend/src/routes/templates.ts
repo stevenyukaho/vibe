@@ -7,7 +7,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import * as templateRepo from '../db/repositories/templateRepo';
-import { shouldLog } from '../lib/logger';
+import { asyncHandler } from '../lib/asyncHandler';
+import { logError } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 const router = Router();
 
@@ -19,46 +21,40 @@ const router = Router();
  * GET /api/templates
  * List all request templates, optionally filtered by capability.
  */
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const capability = req.query.capability as string | undefined;
 		const templates = templateRepo.listRequestTemplates(capability ? { capability } : undefined);
 		return res.json(templates);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching templates:', error);
-		}
+		logError('Error fetching templates:', error);
 		return res.status(500).json({ error: 'Failed to fetch templates' });
 	}
-}) as any);
+}));
 
 /**
  * GET /api/templates/capability-names
  * List all distinct capability names from request templates.
  */
-router.get('/capability-names', (async (_req: Request, res: Response) => {
+router.get('/capability-names', asyncHandler(async (_req: Request, res: Response) => {
 	try {
 		const names = templateRepo.listRequestTemplateCapabilityNames();
 		return res.json(names);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching capability names:', error);
-		}
+		logError('Error fetching capability names:', error);
 		return res.status(500).json({ error: 'Failed to fetch capability names' });
 	}
-}) as any);
+}));
 
 /**
  * GET /api/templates/:id
  * Get a request template by ID.
  */
-router.get('/:id', (async (req: Request, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = Number(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid template ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid template ID');
+		if (id === null) {
+			return;
 		}
 
 		const template = templateRepo.getRequestTemplateById(id);
@@ -68,19 +64,16 @@ router.get('/:id', (async (req: Request, res: Response) => {
 
 		return res.json(template);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching template:', error);
-		}
+		logError('Error fetching template:', error);
 		return res.status(500).json({ error: 'Failed to fetch template' });
 	}
-}) as any);
+}));
 
 /**
  * POST /api/templates
  * Create a new request template.
  */
-router.post('/', (async (req: Request, res: Response) => {
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const { name, description, capability, body } = req.body;
 
@@ -99,10 +92,7 @@ router.post('/', (async (req: Request, res: Response) => {
 
 		return res.status(201).json(template);
 	} catch (error: any) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error creating template:', error);
-		}
+		logError('Error creating template:', error);
 
 		if (error.message?.includes('UNIQUE constraint failed')) {
 			return res.status(409).json({
@@ -112,17 +102,17 @@ router.post('/', (async (req: Request, res: Response) => {
 
 		return res.status(500).json({ error: 'Failed to create template' });
 	}
-}) as any);
+}));
 
 /**
  * PUT /api/templates/:id
  * Update a request template.
  */
-router.put('/:id', (async (req: Request, res: Response) => {
+router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = Number(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid template ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid template ID');
+		if (id === null) {
+			return;
 		}
 
 		const { name, description, capability, body } = req.body;
@@ -148,10 +138,7 @@ router.put('/:id', (async (req: Request, res: Response) => {
 
 		return res.json(template);
 	} catch (error: any) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error updating template:', error);
-		}
+		logError('Error updating template:', error);
 
 		if (error.message?.includes('UNIQUE constraint failed')) {
 			return res.status(409).json({
@@ -161,17 +148,17 @@ router.put('/:id', (async (req: Request, res: Response) => {
 
 		return res.status(500).json({ error: 'Failed to update template' });
 	}
-}) as any);
+}));
 
 /**
  * DELETE /api/templates/:id
  * Delete a request template.
  */
-router.delete('/:id', (async (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
 	try {
-		const id = Number(req.params.id);
-		if (isNaN(id)) {
-			return res.status(400).json({ error: 'Invalid template ID' });
+		const id = parseIdParam(res, req.params.id, 'Invalid template ID');
+		if (id === null) {
+			return;
 		}
 
 		const existing = templateRepo.getRequestTemplateById(id);
@@ -182,12 +169,9 @@ router.delete('/:id', (async (req: Request, res: Response) => {
 		templateRepo.deleteRequestTemplate(id);
 		return res.status(204).send();
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error deleting template:', error);
-		}
+		logError('Error deleting template:', error);
 		return res.status(500).json({ error: 'Failed to delete template' });
 	}
-}) as any);
+}));
 
 export default router;

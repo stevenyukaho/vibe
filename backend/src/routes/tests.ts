@@ -21,6 +21,7 @@ import {
 import db from '../db/database';
 import { asyncHandler } from '../lib/asyncHandler';
 import { logError, logWarn } from '../lib/logger';
+import { parseIdParam } from '../lib/routeHelpers';
 
 const router = Router();
 
@@ -85,7 +86,10 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 // Get test by ID (from conversation)
 router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid test ID');
+		if (conversationId === null) {
+			return;
+		}
 		const conversation = await getConversationById(conversationId);
 
 		if (!conversation) {
@@ -160,7 +164,10 @@ router.post('/', asyncHandler(async (req: Request<Record<string, never>, unknown
 // Update test (conversation)
 router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Partial<Test>>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid test ID');
+		if (conversationId === null) {
+			return;
+		}
 
 		// Check if conversation exists and is single-turn
 		const conversation = await getConversationById(conversationId);
@@ -219,7 +226,10 @@ router.put('/:id', asyncHandler(async (req: Request<{ id: string }, unknown, Par
 // Delete test (conversation)
 router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
-		const conversationId = Number(req.params.id);
+		const conversationId = parseIdParam(res, req.params.id, 'Invalid test ID');
+		if (conversationId === null) {
+			return;
+		}
 
 		// Check if conversation exists and is single-turn
 		const conversation = await getConversationById(conversationId);

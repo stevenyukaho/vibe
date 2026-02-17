@@ -5,7 +5,8 @@ import { computeSessionDurationMs } from '../lib/sessionMetadata';
 import { paginationConfig } from '../config';
 import { hasPaginationParams, validatePaginationOrError } from '../utils/pagination';
 import { JobStatus } from '@ibm-vibe/types';
-import { shouldLog } from '../lib/logger';
+import { asyncHandler } from '../lib/asyncHandler';
+import { logError } from '../lib/logger';
 import { parseIdParam } from '../lib/routeHelpers';
 
 const router = Router();
@@ -80,10 +81,7 @@ async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
 			suiteRun.avg_similarity_score = undefined;
 		}
 	} catch (err) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Failed to compute average similarity score for suite run', suiteRun.id, err);
-		}
+		logError('Failed to compute average similarity score for suite run', suiteRun.id, err);
 	}
 
 	return suiteRun;
@@ -93,7 +91,7 @@ async function enrichSuiteRunWithCalculatedFields(suiteRun: any) {
  * GET /api/suite-runs
  * List all suite runs with optional filtering
  */
-router.get('/', (async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
 	try {
 		const filters: any = {};
 
@@ -154,19 +152,16 @@ router.get('/', (async (req: Request, res: Response) => {
 			offset: 0
 		});
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error('Error fetching suite runs:', error);
-		}
+		logError('Error fetching suite runs:', error);
 		return res.status(500).json({ error: 'Failed to fetch suite runs' });
 	}
-}) as any);
+}));
 
 /**
  * GET /api/suite-runs/:id
  * Get details of a specific suite run
  */
-router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const id = parseIdParam(res, req.params.id, 'Invalid suite run ID');
 		if (id === null) {
@@ -183,22 +178,19 @@ router.get('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		return res.json(enrichedSuiteRun);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error(`Error getting suite run ${req.params.id}:`, error);
-		}
+		logError(`Error getting suite run ${req.params.id}:`, error);
 		return res.status(500).json({
 			error: 'Failed to get suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 /**
  * GET /api/suite-runs/:id/jobs
  * Get jobs associated with a suite run
  */
-router.get('/:id/jobs', (async (req: Request<{ id: string }>, res: Response) => {
+router.get('/:id/jobs', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const id = parseIdParam(res, req.params.id, 'Invalid suite run ID');
 		if (id === null) {
@@ -214,22 +206,19 @@ router.get('/:id/jobs', (async (req: Request<{ id: string }>, res: Response) => 
 		const jobs = await getJobsBySuiteRunId(id);
 		return res.json(jobs);
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error(`Error getting jobs for suite run ${req.params.id}:`, error);
-		}
+		logError(`Error getting jobs for suite run ${req.params.id}:`, error);
 		return res.status(500).json({
 			error: 'Failed to get jobs for suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 /**
  * DELETE /api/suite-runs/:id
  * Delete a suite run and its associated jobs
  */
-router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
 	try {
 		const id = parseIdParam(res, req.params.id, 'Invalid suite run ID');
 		if (id === null) {
@@ -247,15 +236,12 @@ router.delete('/:id', (async (req: Request<{ id: string }>, res: Response) => {
 
 		return res.status(204).send();
 	} catch (error) {
-		/* istanbul ignore next */
-		if (shouldLog) {
-			console.error(`Error deleting suite run ${req.params.id}:`, error);
-		}
+		logError(`Error deleting suite run ${req.params.id}:`, error);
 		return res.status(500).json({
 			error: 'Failed to delete suite run',
 			details: error instanceof Error ? error.message : 'Unknown error'
 		});
 	}
-}) as any);
+}));
 
 export default router;
