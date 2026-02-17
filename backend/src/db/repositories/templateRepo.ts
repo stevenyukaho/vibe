@@ -243,6 +243,150 @@ export function getUniqueResponseMapName(baseName: string, agentName?: string): 
 	return findUniqueName('response_maps', baseName, agentName);
 }
 
+type LinkTableConfig = {
+	table: 'agent_template_links' | 'agent_response_map_links';
+	resourceColumn: 'template_id' | 'response_map_id';
+};
+
+const TEMPLATE_LINKS: LinkTableConfig = {
+	table: 'agent_template_links',
+	resourceColumn: 'template_id'
+};
+
+const RESPONSE_MAP_LINKS: LinkTableConfig = {
+	table: 'agent_response_map_links',
+	resourceColumn: 'response_map_id'
+};
+
+function linkResourceToAgent(
+	config: LinkTableConfig,
+	agentId: number,
+	resourceId: number,
+	isDefault?: boolean
+): void {
+	const tx = db.transaction(() => {
+		const existingLink = db.prepare(`
+			SELECT is_default
+			FROM ${config.table}
+			WHERE agent_id = ? AND ${config.resourceColumn} = ?
+		`).get(agentId, resourceId) as { is_default?: number } | undefined;
+
+		const hasDefault = !!db.prepare(`
+			SELECT 1 FROM ${config.table}
+			WHERE agent_id = ? AND is_default = 1 LIMIT 1
+		`).get(agentId);
+
+		if (isDefault) {
+			db.prepare(`UPDATE ${config.table} SET is_default = 0 WHERE agent_id = ?`).run(agentId);
+			if (existingLink) {
+				db.prepare(`
+					UPDATE ${config.table}
+					SET is_default = 1
+					WHERE agent_id = ? AND ${config.resourceColumn} = ?
+				`).run(agentId, resourceId);
+			} else {
+				db.prepare(`
+					INSERT INTO ${config.table} (agent_id, ${config.resourceColumn}, is_default, linked_at)
+					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
+				`).run(agentId, resourceId);
+			}
+			return;
+		}
+
+		if (!hasDefault) {
+			if (existingLink) {
+				db.prepare(`
+					UPDATE ${config.table}
+					SET is_default = 1
+					WHERE agent_id = ? AND ${config.resourceColumn} = ?
+				`).run(agentId, resourceId);
+			} else {
+				db.prepare(`
+					INSERT INTO ${config.table} (agent_id, ${config.resourceColumn}, is_default, linked_at)
+					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
+				`).run(agentId, resourceId);
+			}
+			return;
+		}
+
+		if (!existingLink) {
+			db.prepare(`
+				INSERT INTO ${config.table} (agent_id, ${config.resourceColumn}, is_default, linked_at)
+				VALUES (?, ?, 0, CURRENT_TIMESTAMP)
+			`).run(agentId, resourceId);
+		}
+	});
+	tx();
+}
+
+function unlinkResourceFromAgent(config: LinkTableConfig, agentId: number, resourceId: number): void {
+	const tx = db.transaction(() => {
+		const existing = db.prepare(`
+			SELECT is_default
+			FROM ${config.table}
+			WHERE agent_id = ? AND ${config.resourceColumn} = ?
+		`).get(agentId, resourceId) as { is_default?: number } | undefined;
+
+		db.prepare(`
+			DELETE FROM ${config.table}
+			WHERE agent_id = ? AND ${config.resourceColumn} = ?
+		`).run(agentId, resourceId);
+
+		if (existing?.is_default) {
+			const replacement = db.prepare(`
+				SELECT ${config.resourceColumn} as resource_id
+				FROM ${config.table}
+				WHERE agent_id = ?
+				ORDER BY linked_at DESC, ${config.resourceColumn} DESC
+				LIMIT 1
+			`).get(agentId) as { resource_id?: number } | undefined;
+
+			if (replacement?.resource_id) {
+				db.prepare(`
+					UPDATE ${config.table}
+					SET is_default = 1
+					WHERE agent_id = ? AND ${config.resourceColumn} = ?
+				`).run(agentId, replacement.resource_id);
+			}
+		}
+	});
+	tx();
+}
+
+function setAgentDefaultResource(config: LinkTableConfig, agentId: number, resourceId: number): void {
+	const tx = db.transaction(() => {
+		db.prepare(`UPDATE ${config.table} SET is_default = 0 WHERE agent_id = ?`).run(agentId);
+		db.prepare(`
+			UPDATE ${config.table}
+			SET is_default = 1
+			WHERE agent_id = ? AND ${config.resourceColumn} = ?
+		`).run(agentId, resourceId);
+	});
+	tx();
+}
+
+function getAgentResourceLink(
+	config: LinkTableConfig,
+	agentId: number,
+	resourceId: number
+): { is_default?: number; linked_at?: string } | undefined {
+	const stmt = db.prepare(`
+		SELECT is_default, linked_at
+		FROM ${config.table}
+		WHERE agent_id = ? AND ${config.resourceColumn} = ?
+	`);
+	return stmt.get(agentId, resourceId) as { is_default?: number; linked_at?: string } | undefined;
+}
+
+function getResourceLinkCount(config: LinkTableConfig, resourceId: number): number {
+	const row = db.prepare(`
+		SELECT COUNT(*) as count
+		FROM ${config.table}
+		WHERE ${config.resourceColumn} = ?
+	`).get(resourceId) as { count: number };
+	return row.count;
+}
+
 // =====================
 // AGENT-TEMPLATE LINKING
 // =====================
@@ -253,79 +397,14 @@ export function getUniqueResponseMapName(baseName: string, agentName?: string): 
  * If isDefault is omitted and no default exists, sets this link as default.
  */
 export function linkTemplateToAgent(agentId: number, templateId: number, isDefault?: boolean): void {
-	const tx = db.transaction(() => {
-		const existingLink = db.prepare(`
-			SELECT is_default FROM agent_template_links WHERE agent_id = ? AND template_id = ?
-		`).get(agentId, templateId) as { is_default?: number } | undefined;
-
-		const hasDefault = !!db.prepare(`
-			SELECT 1 FROM agent_template_links WHERE agent_id = ? AND is_default = 1 LIMIT 1
-		`).get(agentId);
-
-		if (isDefault) {
-			db.prepare(`UPDATE agent_template_links SET is_default = 0 WHERE agent_id = ?`).run(agentId);
-			if (existingLink) {
-				db.prepare(`UPDATE agent_template_links SET is_default = 1 WHERE agent_id = ? AND template_id = ?`).run(agentId, templateId);
-			} else {
-				db.prepare(`
-					INSERT INTO agent_template_links (agent_id, template_id, is_default, linked_at)
-					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
-				`).run(agentId, templateId);
-			}
-			return;
-		}
-
-		if (!hasDefault) {
-			if (existingLink) {
-				db.prepare(`UPDATE agent_template_links SET is_default = 1 WHERE agent_id = ? AND template_id = ?`).run(agentId, templateId);
-			} else {
-				db.prepare(`
-					INSERT INTO agent_template_links (agent_id, template_id, is_default, linked_at)
-					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
-				`).run(agentId, templateId);
-			}
-			return;
-		}
-
-		if (!existingLink) {
-			db.prepare(`
-				INSERT INTO agent_template_links (agent_id, template_id, is_default, linked_at)
-				VALUES (?, ?, 0, CURRENT_TIMESTAMP)
-			`).run(agentId, templateId);
-		}
-	});
-	tx();
+	linkResourceToAgent(TEMPLATE_LINKS, agentId, templateId, isDefault);
 }
 
 /**
  * Unlink a template from an agent.
  */
 export function unlinkTemplateFromAgent(agentId: number, templateId: number): void {
-	const tx = db.transaction(() => {
-		const existing = db.prepare(`
-			SELECT is_default FROM agent_template_links WHERE agent_id = ? AND template_id = ?
-		`).get(agentId, templateId) as { is_default?: number } | undefined;
-
-		db.prepare(`DELETE FROM agent_template_links WHERE agent_id = ? AND template_id = ?`).run(agentId, templateId);
-
-		if (existing?.is_default) {
-			const replacement = db.prepare(`
-				SELECT template_id FROM agent_template_links
-				WHERE agent_id = ?
-				ORDER BY linked_at DESC, template_id DESC
-				LIMIT 1
-			`).get(agentId) as { template_id?: number } | undefined;
-
-			if (replacement?.template_id) {
-				db.prepare(`
-					UPDATE agent_template_links
-					SET is_default = 1
-					WHERE agent_id = ? AND template_id = ?
-				`).run(agentId, replacement.template_id);
-			}
-		}
-	});
-	tx();
+	unlinkResourceFromAgent(TEMPLATE_LINKS, agentId, templateId);
 }
 
 /**
@@ -346,27 +425,15 @@ export function getAgentTemplates(agentId: number): AgentLinkedTemplate[] {
  * Set a template as the default for an agent.
  */
 export function setAgentDefaultTemplate(agentId: number, templateId: number): void {
-	const tx = db.transaction(() => {
-		// Clear all defaults for this agent
-		db.prepare(`UPDATE agent_template_links SET is_default = 0 WHERE agent_id = ?`).run(agentId);
-		// Set new default
-		db.prepare(`UPDATE agent_template_links SET is_default = 1 WHERE agent_id = ? AND template_id = ?`).run(agentId, templateId);
-	});
-	tx();
+	setAgentDefaultResource(TEMPLATE_LINKS, agentId, templateId);
 }
 
 export function getAgentTemplateLink(agentId: number, templateId: number): { is_default?: number; linked_at?: string } | undefined {
-	const stmt = db.prepare(`
-		SELECT is_default, linked_at FROM agent_template_links WHERE agent_id = ? AND template_id = ?
-	`);
-	return stmt.get(agentId, templateId) as { is_default?: number; linked_at?: string } | undefined;
+	return getAgentResourceLink(TEMPLATE_LINKS, agentId, templateId);
 }
 
 export function getTemplateLinkCount(templateId: number): number {
-	const row = db.prepare(`
-		SELECT COUNT(*) as count FROM agent_template_links WHERE template_id = ?
-	`).get(templateId) as { count: number };
-	return row.count;
+	return getResourceLinkCount(TEMPLATE_LINKS, templateId);
 }
 
 // =====================
@@ -377,79 +444,14 @@ export function getTemplateLinkCount(templateId: number): number {
  * Link a response map to an agent.
  */
 export function linkResponseMapToAgent(agentId: number, mapId: number, isDefault?: boolean): void {
-	const tx = db.transaction(() => {
-		const existingLink = db.prepare(`
-			SELECT is_default FROM agent_response_map_links WHERE agent_id = ? AND response_map_id = ?
-		`).get(agentId, mapId) as { is_default?: number } | undefined;
-
-		const hasDefault = !!db.prepare(`
-			SELECT 1 FROM agent_response_map_links WHERE agent_id = ? AND is_default = 1 LIMIT 1
-		`).get(agentId);
-
-		if (isDefault) {
-			db.prepare(`UPDATE agent_response_map_links SET is_default = 0 WHERE agent_id = ?`).run(agentId);
-			if (existingLink) {
-				db.prepare(`UPDATE agent_response_map_links SET is_default = 1 WHERE agent_id = ? AND response_map_id = ?`).run(agentId, mapId);
-			} else {
-				db.prepare(`
-					INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default, linked_at)
-					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
-				`).run(agentId, mapId);
-			}
-			return;
-		}
-
-		if (!hasDefault) {
-			if (existingLink) {
-				db.prepare(`UPDATE agent_response_map_links SET is_default = 1 WHERE agent_id = ? AND response_map_id = ?`).run(agentId, mapId);
-			} else {
-				db.prepare(`
-					INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default, linked_at)
-					VALUES (?, ?, 1, CURRENT_TIMESTAMP)
-				`).run(agentId, mapId);
-			}
-			return;
-		}
-
-		if (!existingLink) {
-			db.prepare(`
-				INSERT INTO agent_response_map_links (agent_id, response_map_id, is_default, linked_at)
-				VALUES (?, ?, 0, CURRENT_TIMESTAMP)
-			`).run(agentId, mapId);
-		}
-	});
-	tx();
+	linkResourceToAgent(RESPONSE_MAP_LINKS, agentId, mapId, isDefault);
 }
 
 /**
  * Unlink a response map from an agent.
  */
 export function unlinkResponseMapFromAgent(agentId: number, mapId: number): void {
-	const tx = db.transaction(() => {
-		const existing = db.prepare(`
-			SELECT is_default FROM agent_response_map_links WHERE agent_id = ? AND response_map_id = ?
-		`).get(agentId, mapId) as { is_default?: number } | undefined;
-
-		db.prepare(`DELETE FROM agent_response_map_links WHERE agent_id = ? AND response_map_id = ?`).run(agentId, mapId);
-
-		if (existing?.is_default) {
-			const replacement = db.prepare(`
-				SELECT response_map_id FROM agent_response_map_links
-				WHERE agent_id = ?
-				ORDER BY linked_at DESC, response_map_id DESC
-				LIMIT 1
-			`).get(agentId) as { response_map_id?: number } | undefined;
-
-			if (replacement?.response_map_id) {
-				db.prepare(`
-					UPDATE agent_response_map_links
-					SET is_default = 1
-					WHERE agent_id = ? AND response_map_id = ?
-				`).run(agentId, replacement.response_map_id);
-			}
-		}
-	});
-	tx();
+	unlinkResourceFromAgent(RESPONSE_MAP_LINKS, agentId, mapId);
 }
 
 /**
@@ -470,25 +472,15 @@ export function getAgentResponseMaps(agentId: number): AgentLinkedResponseMap[] 
  * Set a response map as the default for an agent.
  */
 export function setAgentDefaultResponseMap(agentId: number, mapId: number): void {
-	const tx = db.transaction(() => {
-		db.prepare(`UPDATE agent_response_map_links SET is_default = 0 WHERE agent_id = ?`).run(agentId);
-		db.prepare(`UPDATE agent_response_map_links SET is_default = 1 WHERE agent_id = ? AND response_map_id = ?`).run(agentId, mapId);
-	});
-	tx();
+	setAgentDefaultResource(RESPONSE_MAP_LINKS, agentId, mapId);
 }
 
 export function getAgentResponseMapLink(agentId: number, mapId: number): { is_default?: number; linked_at?: string } | undefined {
-	const stmt = db.prepare(`
-		SELECT is_default, linked_at FROM agent_response_map_links WHERE agent_id = ? AND response_map_id = ?
-	`);
-	return stmt.get(agentId, mapId) as { is_default?: number; linked_at?: string } | undefined;
+	return getAgentResourceLink(RESPONSE_MAP_LINKS, agentId, mapId);
 }
 
 export function getResponseMapLinkCount(mapId: number): number {
-	const row = db.prepare(`
-		SELECT COUNT(*) as count FROM agent_response_map_links WHERE response_map_id = ?
-	`).get(mapId) as { count: number };
-	return row.count;
+	return getResourceLinkCount(RESPONSE_MAP_LINKS, mapId);
 }
 
 // =====================
