@@ -1,13 +1,11 @@
 import axios from 'axios';
 import { apiService } from './api-service';
 import {
-	TestExecutionRequest,
 	ConversationExecutionRequest,
 	ConversationExecutionResponse,
 	ConversationMessageDraft,
 	Job,
 	Agent,
-	Test,
 	Conversation,
 	AgentSettings,
 	JobStatus
@@ -16,13 +14,14 @@ import { BACKEND_CONFIG, POLLER_CONFIG } from '../config';
 import { getErrorMessage, parseJson } from './job-poller-utils';
 import {
 	AgentConfig,
-	RequestTemplate,
-	ResponseMap,
 	ConversationScriptMessage,
 	validateConversationRequirements,
 	resolveConversationScript
 } from './conversation-script-resolver';
 import { saveSessionResults } from './session-results';
+import { fetchAgentConfig } from './job-poller-agent-config';
+import { executeConversationJobWithApi } from './job-poller-conversation-executor';
+import { executeLegacyTestJobWithApi } from './job-poller-legacy-executor';
 
 const shouldLog = process.env.NODE_ENV !== 'test';
 const logWarn = (...args: unknown[]) => {
@@ -229,74 +228,26 @@ export class JobPollerService {
 	}
 
 	private async getAgentConfig(agentId: number): Promise<AgentConfig> {
-		const [templatesRes, mapsRes] = await Promise.all([
-			axios.get<RequestTemplate[]>(`${this.backendUrl}/api/agents/${agentId}/request-templates`),
-			axios.get<ResponseMap[]>(`${this.backendUrl}/api/agents/${agentId}/response-maps`)
-		]);
-		const templates: RequestTemplate[] = templatesRes.data || [];
-		const maps: ResponseMap[] = mapsRes.data || [];
-
-		return {
-			templates,
-			maps,
-			defaultTemplate: templates.find(t => Number(t.is_default) === 1),
-			defaultMap: maps.find(m => Number(m.is_default) === 1)
-		};
+		return fetchAgentConfig(this.backendUrl, agentId);
 	}
 
 	/**
 	 * Execute a conversation job
 	 */
 	private async executeConversationJob(job: Job, agent: Agent, settings: AgentSettings): Promise<void> {
-		try {
-			const startTime = new Date().toISOString();
-
-			// Get conversation and messages
-			const conversationResponse = await axios.get<Conversation & { id: number; messages?: ConversationMessageDraft[] }>(
-				`${this.backendUrl}/api/conversations/${job.conversation_id}`
-			);
-			const conversation = conversationResponse.data;
-
-			// Fetch agent communication configs
-			const agentConfig = await this.getAgentConfig(job.agent_id);
-
-			// Build resolved script
-			const resolvedScript = this.resolveConversationScript(conversation, agentConfig);
-
-			const executionRequest: ConversationExecutionRequest = {
-				conversation_id: conversation.id!,
-				conversation_script: resolvedScript,
-				api_endpoint: settings.api_endpoint,
-				http_method: settings.http_method,
-				headers: settings.headers,
-				api_key: settings.api_key,
-				token_mapping: settings.token_mapping,
-				stop_on_failure: Boolean(conversation.stop_on_failure)
-			};
-
-			await this.updateJobStatus(job.id, JobStatus.RUNNING, 30);
-
-			const result = await apiService.executeConversation(executionRequest);
-
-			await this.updateJobStatus(job.id, JobStatus.RUNNING, 80);
-
-			const completionTime = new Date().toISOString();
-
-			// Create execution session and save messages
-			const sessionId = await this.saveSessionResults(
-				conversation.id!,
-				agent.id!,
-				startTime,
-				completionTime,
-				result
-			);
-
-			await this.updateJobStatus(job.id, JobStatus.COMPLETED, 100, undefined, undefined, sessionId);
-		} catch (error: unknown) {
-			const errorMessage = getErrorMessage(error);
-			logError(`Error executing conversation job ${job.id}:`, errorMessage);
-			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
-		}
+		await executeConversationJobWithApi({
+			backendUrl: this.backendUrl,
+			job,
+			agent,
+			settings,
+			getAgentConfig: (agentId: number) => this.getAgentConfig(agentId),
+			resolveConversationScript: this.resolveConversationScript.bind(this),
+			executeConversation: apiService.executeConversation.bind(apiService),
+			saveSessionResults: this.saveSessionResults.bind(this),
+			updateJobStatus: this.updateJobStatus.bind(this),
+			logError,
+			getErrorMessage
+		});
 	}
 
 	private resolveConversationScript(
@@ -327,73 +278,18 @@ export class JobPollerService {
 	 * Execute a legacy test job
 	 */
 	private async executeLegacyTestJob(job: Job, agent: Agent, settings: AgentSettings): Promise<void> {
-		try {
-			// Get test details
-			const testResponse = await axios.get<Test>(`${this.backendUrl}/api/tests/${job.test_id}`);
-			const test: Test = testResponse.data;
-
-			let requestTemplate = settings.request_template;
-			let responseMapping = settings.response_mapping;
-
-			if (!requestTemplate || !responseMapping) {
-				try {
-					const agentConfig = await this.getAgentConfig(job.agent_id);
-
-					if (!requestTemplate) {
-						requestTemplate = agentConfig.defaultTemplate?.body;
-					}
-
-					if (!responseMapping) {
-						responseMapping = agentConfig.defaultMap?.spec;
-					}
-				} catch (err) {
-					logWarn(`Failed to fetch default template/map for legacy test ${job.test_id}:`, err);
-				}
-			}
-
-			const executionRequest: TestExecutionRequest = {
-				test_id: test.id!,
-				test_input: test.input,
-				api_endpoint: settings.api_endpoint,
-				http_method: settings.http_method,
-				headers: settings.headers,
-				api_key: settings.api_key,
-				request_template: requestTemplate,
-				response_mapping: responseMapping,
-				token_mapping: settings.token_mapping
-			};
-
-			await this.updateJobStatus(job.id, JobStatus.RUNNING, 30);
-
-			const result = await apiService.executeTest(executionRequest);
-
-			await this.updateJobStatus(job.id, JobStatus.RUNNING, 80);
-
-			// Send result back to backend (legacy results endpoint)
-			const resultResponse = await axios.post(`${this.backendUrl}/api/results`, {
-				test_id: test.id!,
-				agent_id: agent.id!,
-				output: result.output,
-				success: result.success,
-				execution_time: result.execution_time,
-				intermediate_steps: result.intermediate_steps,
-				input_tokens: result.metrics.input_tokens,
-				output_tokens: result.metrics.output_tokens,
-				token_mapping_metadata: JSON.stringify({
-					extraction_method: (result.metrics.input_tokens || result.metrics.output_tokens) ? 'external_api' : 'none',
-					agent_type: 'external_api'
-				}),
-				metrics: result.metrics
-			});
-
-			const savedResult = resultResponse.data;
-
-			await this.updateJobStatus(job.id, JobStatus.COMPLETED, 100, savedResult.id);
-		} catch (error: unknown) {
-			const errorMessage = getErrorMessage(error);
-			logError(`Error executing legacy test job ${job.id}:`, errorMessage);
-			await this.updateJobStatus(job.id, JobStatus.FAILED, 0, undefined, errorMessage);
-		}
+		await executeLegacyTestJobWithApi({
+			backendUrl: this.backendUrl,
+			job,
+			agent,
+			settings,
+			getAgentConfig: (agentId: number) => this.getAgentConfig(agentId),
+			executeTest: apiService.executeTest.bind(apiService),
+			updateJobStatus: this.updateJobStatus.bind(this),
+			logWarn,
+			logError,
+			getErrorMessage
+		});
 	}
 
 	/**
