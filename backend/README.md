@@ -1,6 +1,7 @@
 # Backend Service
 
-The central API server for IBM VIBE. It handles 
+The central API server for IBM VIBE. It handles REST endpoints, execution orchestration,
+and SQLite-backed persistence for tests, conversations, sessions, jobs, and suite runs.
 
 ## Architecture
 
@@ -25,13 +26,49 @@ The central API server for IBM VIBE. It handles
    cp .env.example .env
    ```
 
-   **Note**: The backend does NOT auto-load `.env` files. Environment variables must be exported to `process.env` (e.g., `export $(cat .env | xargs)`) or provided by runner scripts like `start-instance.sh`. The backend uses `@ibm-vibe/config` which reads from `process.env`.
-
 3. **Run Service**:
 
    ```bash
    npm run dev
    ```
+
+## Environment loading behavior
+
+The backend uses `@ibm-vibe/config`, which always reads from `process.env`.
+
+- `npm run dev` auto-loads `.env` from the backend directory using `dotenv/config`.
+- `npm run start` does **not** auto-load `.env`; provide environment variables via your shell, process manager, or scripts such as `start-instance.sh`.
+
+### Examples
+
+Use default `.env` in development:
+
+```bash
+cd backend
+npm run dev
+```
+
+Use a custom env file in development:
+
+```bash
+cd backend
+DOTENV_CONFIG_PATH=.env.instance1 npm run dev
+```
+
+Override a value from `.env` explicitly in shell (shell value wins):
+
+```bash
+cd backend
+PORT=5100 npm run dev
+```
+
+Run production start with exported env only:
+
+```bash
+cd backend
+export PORT=5000 DB_PATH=./data/agent-testing.db AGENT_SERVICE_URL=http://localhost:5002
+npm run start
+```
 
 ## Development
 
