@@ -28,7 +28,7 @@ interface AgentPerformanceMetrics {
 }
 
 export default function Home() {
-	const { agents, tests } = useAppData();
+	const { agents, tests, fetchAgents } = useAppData();
 	const { getResults } = useResultOperations();
 	const [results, setResults] = useState<ResultWithStatus[]>([]);
 	const [suiteRuns, setSuiteRuns] = useState<SuiteRun[]>([]);
@@ -44,7 +44,8 @@ export default function Home() {
 					api.getSuiteRuns(),
 					api.getJobs(),
 					getResults(),
-					api.getStats()
+					api.getStats(),
+					fetchAgents()
 				]);
 				setSuiteRuns(suiteRunsData);
 				setJobs(jobsData);
@@ -61,7 +62,7 @@ export default function Home() {
 		};
 
 		fetchDashboardData();
-	}, [getResults]);
+	}, [fetchAgents, getResults]);
 
 	// Calculate agent performance metrics whenever results or agents change
 	useEffect(() => {
