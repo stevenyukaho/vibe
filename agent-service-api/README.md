@@ -340,10 +340,8 @@ Notes:
 
 ### Debugging
 
-Enable debug logging by setting the following in your `.env` file:
+For local debugging:
 
-```env
-DEBUG=true
-```
-
-This will log detailed information about request formatting, API calls, and response processing.
+- Run with `npm run dev` and inspect terminal output.
+- Check backend logs alongside this service to trace job claim/update flows.
+- Use focused tests under `src/services/__tests__/` for request formatting, response mapping, and conversation execution behavior.
