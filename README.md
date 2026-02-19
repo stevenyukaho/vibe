@@ -127,9 +127,9 @@ npm run dev
 cd backend
 # Copy the environment file and configure it
 cp .env.example .env
-# Note: Backend does NOT auto-load .env files. Environment variables must be exported
-# or provided by runner scripts (e.g., start-instance.sh). Export variables manually:
-# export $(cat .env | xargs)
+# Note: Backend auto-loads .env when using `npm run dev` only.
+# For production (`npm run start`), provide environment variables explicitly
+# (or use runner scripts such as start-instance.sh).
 # AGENT_SERVICE_URL should point to the Python agent-service (default http://localhost:5002)
 # Or use start-instance.sh which handles this automatically
 npm run dev
