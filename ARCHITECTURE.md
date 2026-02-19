@@ -47,7 +47,6 @@ The system consists of four main components:
 - REST API for test and agent management
 - Test execution coordination with agent services
 - Data persistence for test results and agent configurations
-- Authentication and user management
 - Agent service factory for handling different agent types
 - Support for external API integration
 
@@ -72,8 +71,8 @@ The system consists of four main components:
 
 **Key Features:**
 
-- REST API to interact with the agent-service
-- Job management for test execution
+- Polls backend jobs and executes external API workloads
+- Conversation execution with full transcript/session persistence
 - Error handling and request validation
 - Status tracking for running tests
 - Support for external API configuration:
@@ -118,7 +117,7 @@ The system uses SQLite for data persistence with the following key entities (leg
 - **jobs**: Work queue items referencing a `conversation_id` (preferred) or legacy `test_id`
 - **test_suites / suite_entries / suite_runs**: Suite composition and execution tracking
 - **tests / results**: Legacy single-turn test artifacts (supported during the transition)
-- **agent_request_templates / agent_response_maps**: External API request/response mapping primitives (per agent)
+- **request_templates / response_maps**: Global communication configs linked to agents via `agent_template_links` and `agent_response_map_links`
 
 ## Integration Points
 
@@ -134,11 +133,17 @@ The system uses SQLite for data persistence with the following key entities (leg
 - **Purpose:** Test execution coordination
 - **Data:** Job management and status tracking
 
-### Agent Service API ↔ Agent Service
+### Agent Service API ↔ External AI APIs
+
+- **Protocol:** HTTP API
+- **Purpose:** Execute external API conversations/tests
+- **Data:** Formatted requests, mapped responses, usage metadata
+
+### Backend ↔ Agent Service (Python)
 
 - **Protocol:** HTTP API (FastAPI)
-- **Purpose:** CrewAI agent execution
-- **Data:** Agent configurations, test inputs, execution results
+- **Purpose:** Direct CrewAI execution path (optional/legacy-maintained)
+- **Data:** Agent configurations, conversation/test inputs, execution outputs
 
 ### Backend ↔ Database
 
