@@ -24,6 +24,8 @@ export default function ConversationExecutor() {
 	// Local state for conversations (not in context yet)
 	const [conversations, setConversations] = useState<Conversation[]>([]);
 	const [loadingConversations, setLoadingConversations] = useState(false);
+	const [selectedConversationDetails, setSelectedConversationDetails] = useState<Conversation | null>(null);
+	const [loadingConversationDetails, setLoadingConversationDetails] = useState(false);
 
 	const [selectedAgentId, setSelectedAgentId] = useState<number | undefined>();
 	const [selectedConversationId, setSelectedConversationId] = useState<number | undefined>();
@@ -53,6 +55,42 @@ export default function ConversationExecutor() {
 		}
 	};
 
+	useEffect(() => {
+		let cancelled = false;
+
+		const loadSelectedConversation = async () => {
+			if (!selectedConversationId) {
+				setSelectedConversationDetails(null);
+				setLoadingConversationDetails(false);
+				return;
+			}
+
+			setLoadingConversationDetails(true);
+
+			try {
+				const fullConversation = await api.getConversationById(selectedConversationId);
+				if (!cancelled) {
+					setSelectedConversationDetails(fullConversation);
+				}
+			} catch {
+				if (!cancelled) {
+					const fallbackConversation = conversations.find(c => c.id === selectedConversationId);
+					setSelectedConversationDetails(fallbackConversation || null);
+				}
+			} finally {
+				if (!cancelled) {
+					setLoadingConversationDetails(false);
+				}
+			}
+		};
+
+		loadSelectedConversation();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [selectedConversationId, conversations]);
+
 	const handleAgentChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
 		setSelectedAgentId(Number(event.target.value));
 		setError(null);
@@ -60,7 +98,15 @@ export default function ConversationExecutor() {
 	};
 
 	const handleConversationChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-		setSelectedConversationId(Number(event.target.value));
+		const value = event.target.value;
+		setSelectedConversationDetails(null);
+		if (value) {
+			setLoadingConversationDetails(true);
+			setSelectedConversationId(Number(value));
+		} else {
+			setLoadingConversationDetails(false);
+			setSelectedConversationId(undefined);
+		}
 		setError(null);
 		setSuccessMessage(null);
 	};
@@ -96,7 +142,7 @@ export default function ConversationExecutor() {
 		}
 	};
 
-	const selectedConversation = conversations.find(c => c.id === selectedConversationId);
+	const selectedConversation = selectedConversationDetails || conversations.find(c => c.id === selectedConversationId);
 
 	return (
 		<Grid>
@@ -195,7 +241,11 @@ export default function ConversationExecutor() {
 							</div>
 						)}
 
-						{selectedConversation.messages && selectedConversation.messages.length > 0 ? (
+						{loadingConversationDetails ? (
+							<p className={styles.noMessages}>
+								Loading conversation script...
+							</p>
+						) : selectedConversation.messages && selectedConversation.messages.length > 0 ? (
 							<div>
 								<strong>Script ({selectedConversation.messages.length} messages):</strong>
 								<ul className={styles.scriptList}>
