@@ -7,6 +7,7 @@ import {
 	ScatterChart,
 	LineChart
 } from '@carbon/charts-react';
+import type { ComboChartOptions } from '@carbon/charts';
 import { Tile } from '@carbon/react';
 import type { ExecutionSession, SessionMessage, Conversation } from '../../lib/api';
 import { api } from '../../lib/api';
@@ -29,6 +30,7 @@ import {
 import {
 	timeChartOptions,
 	experimentsChartOptions,
+	performanceColorScale,
 	failureAnalysisChartOptions,
 	conversationDifficultyChartOptions,
 	successSpeedScatterOptions,
@@ -39,6 +41,43 @@ import {
 interface AgentAnalyticsProps {
 	sessions: ExecutionSession[];
 }
+
+const buildPerformanceChartOptions = (
+	baseOptions: ComboChartOptions,
+	data: Array<{ group: string }>
+): ComboChartOptions => {
+	const availableGroups = new Set(data.map(point => point.group));
+	const lineDatasets = ['Success rate', 'Similarity score'].filter(group => availableGroups.has(group));
+	const comboChartTypes = [
+		...(lineDatasets.length > 0
+			? [{ type: 'line' as const, options: {}, correspondingDatasets: lineDatasets }]
+			: []),
+		...(availableGroups.has('Execution time')
+			? [{ type: 'line' as const, options: {}, correspondingDatasets: ['Execution time'] }]
+			: [])
+	];
+	const colorScale = Object.fromEntries(
+		Object.entries(performanceColorScale).filter(([group]) => availableGroups.has(group))
+	);
+	const axes = (baseOptions.axes || {}) as Record<string, unknown>;
+	const rightAxis = (axes.right as Record<string, unknown> | undefined) || {};
+
+	return {
+		...baseOptions,
+		comboChartTypes,
+		axes: {
+			...axes,
+			right: {
+				...rightAxis,
+				correspondingDatasets: availableGroups.has('Execution time') ? ['Execution time'] : []
+			}
+		},
+		color: {
+			...(baseOptions.color || {}),
+			scale: colorScale
+		}
+	};
+};
 
 export default function AgentAnalytics({ sessions }: AgentAnalyticsProps) {
 	const [filterState, setFilterState] = useState<FilterState>({
@@ -142,6 +181,16 @@ export default function AgentAnalytics({ sessions }: AgentAnalyticsProps) {
 		});
 	}, [filteredSessions, sessionMessages, filterState.experimentCount]);
 
+	const resolvedTimeChartOptions = useMemo(
+		() => buildPerformanceChartOptions(timeChartOptions, timePerformanceData),
+		[timePerformanceData]
+	);
+
+	const resolvedExperimentsChartOptions = useMemo(
+		() => buildPerformanceChartOptions(experimentsChartOptions, experimentsPerformanceData),
+		[experimentsPerformanceData]
+	);
+
 	const failureAnalysisData = useMemo(() => {
 		return prepareFailureAnalysisData(filteredSessions, conversations);
 	}, [filteredSessions, conversations]);
@@ -210,7 +259,7 @@ export default function AgentAnalytics({ sessions }: AgentAnalyticsProps) {
 									<ComboChart
 										key="time-chart"
 										data={timePerformanceData}
-										options={timeChartOptions}
+										options={resolvedTimeChartOptions}
 									/>
 								) : (
 									<div className={styles.noData}>No data available</div>
@@ -220,7 +269,7 @@ export default function AgentAnalytics({ sessions }: AgentAnalyticsProps) {
 									<ComboChart
 										key={`experiments-chart-${filterState.experimentCount}`}
 										data={experimentsPerformanceData}
-										options={experimentsChartOptions}
+										options={resolvedExperimentsChartOptions}
 									/>
 								) : (
 									<div className={styles.noData}>No data available</div>
