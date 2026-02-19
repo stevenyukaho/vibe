@@ -54,6 +54,12 @@ chmod +x start-instance.sh stop-instance.sh logs-instance.sh status-instance.sh
 # Create a local instance env file from the template (first time only)
 cp env.instance1.example env.instance1
 
+# Optional: create additional instance env files
+cp env.instance1.example env.instance2
+cp env.instance1.example env.instance3
+
+# Edit env.instance2 and env.instance3 to use unique ports/DB paths before starting
+
 # Start instance 1
 ./start-instance.sh env.instance1
 
