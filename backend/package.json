@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only --project tsconfig.json --require tsconfig-paths/register src/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only --project tsconfig.json --require dotenv/config --require tsconfig-paths/register src/index.ts",
     "build": "tsc -b",
     "typecheck": "tsc -b",
     "lint": "eslint \"src/**/*.ts\"",
@@ -18,13 +18,13 @@
   "license": "Apache-2.0",
   "type": "commonjs",
   "dependencies": {
-    "@types/better-sqlite3": "^7.6.12",
     "@ibm-vibe/config": "*",
+    "@ibm-vibe/types": "*",
     "@ibm-vibe/utils": "*",
+    "@types/better-sqlite3": "^7.6.12",
     "axios": "^1.7.9",
     "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",
-    "@ibm-vibe/types": "*",
     "express": "^4.21.2",
     "uuid": "^11.1.0",
     "zod": "^3.23.8"
@@ -37,12 +37,13 @@
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.24.0",
     "@typescript-eslint/parser": "^8.24.0",
+    "dotenv": "^16.6.1",
     "eslint": "^9.14.0",
     "jest": "^29.7.0",
     "node-fetch": "^2.7.0",
     "ts-jest": "^29.3.0",
-    "tsconfig-paths": "^4.2.0",
     "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3"
   }
 }
