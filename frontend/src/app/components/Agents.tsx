@@ -4,7 +4,7 @@ import styles from '../page.module.scss';
 import EmptyState from './EmptyState';
 import TableRenderer from './TableRenderer';
 import { useAgents } from '@/lib/AppDataContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface AgentsProps {
 	onAddClick: () => void;
@@ -19,9 +19,17 @@ export default function Agents({
 }: AgentsProps) {
 	// Get data from context
 	const { agents, isLoading, fetchAgents } = useAgents();
+	const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
 	useEffect(() => {
-		fetchAgents();
+		const loadAgents = async () => {
+			try {
+				await fetchAgents();
+			} finally {
+				setHasLoadedOnce(true);
+			}
+		};
+		loadAgents();
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -49,7 +57,7 @@ export default function Agents({
 					</Button>
 				)}
 			</div>
-			{isLoading ? (
+			{isLoading || !hasLoadedOnce ? (
 				<InlineLoading description="Loading data..." />
 			) : agentRows.length > 0 ? (
 				<TableRenderer
