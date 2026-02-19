@@ -10,7 +10,7 @@ It prevents type drift between the Frontend, Backend, and Agent Services.
 ## Contents
 
 - **Core Entities**: `Agent`, `Job`, `Test`, `TestResult`
-- **Conversation Models**: `Conversation`, `Message`, `Session`
+- **Conversation Models**: `Conversation`, `ConversationMessage`, `ExecutionSession`, `SessionMessage`
 - **Configuration**: `LLMConfig`, `TestSuite`
 - **API objects**: Request/Response interfaces for API communication
 
