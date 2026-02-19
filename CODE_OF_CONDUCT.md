@@ -21,7 +21,7 @@ If you are subjected to or witness unacceptable behavior, or have any other conc
 
 - **Preferred (private)**: open a private maintainer discussion and include `Code of conduct report` in the title.
 - **Alternative (public)**: open a GitHub issue with the label `code-of-conduct`.
-  If you are reporting sensitive information, please use the email option instead.
+  If your report includes sensitive details, please use the private maintainer discussion route.
 
 ### Acknowledgements
 
