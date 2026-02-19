@@ -1,53 +1,54 @@
 # Communication configs: request templates, response maps, and variables
 
-This document describes how VIBE models and uses agent communication configs for External API agents.
+This document describes how VIBE models and resolves communication configs for External API agents.
 
 ## Data model
 
-- `agent_request_templates`:
-  - `id`, `agent_id`, `name`, `description`, `engine` (default `handlebars`-like), `content_type` (default `application/json`), `body` (string), `tags`, `is_default` (0/1), `created_at`
-  - Unique per agent: `(agent_id, name)` and one default per agent.
-- `agent_response_maps`:
-  - `id`, `agent_id`, `name`, `description`, `spec` (string), `tags`, `is_default` (0/1), `created_at`
-  - Unique per agent: `(agent_id, name)` and one default per agent.
-- `conversations` additions:
-  - `default_request_template_id`, `default_response_map_id`, `variables` (JSON string).
-- `conversation_messages` additions:
-  - `request_template_id`, `response_map_id`, `set_variables` (JSON string).
-- `execution_sessions` additions:
-  - `variables` (JSON snapshot after execution).
+- Global request templates: `request_templates`
+  - Core fields: `id`, `name`, `description`, `capability`, `body`, `created_at`
+- Global response maps: `response_maps`
+  - Core fields: `id`, `name`, `description`, `capability`, `spec`, `created_at`
+- Agent linkage tables:
+  - `agent_template_links` (`agent_id`, `template_id`, `is_default`, `linked_at`)
+  - `agent_response_map_links` (`agent_id`, `response_map_id`, `is_default`, `linked_at`)
+- Conversation fields used during execution:
+  - `default_request_template_id` and `default_response_map_id` (legacy-compatible defaults)
+  - `required_request_template_capabilities`, `required_response_map_capabilities`
+  - `variables` (JSON string)
+  - `stop_on_failure`
+- Conversation message fields:
+  - `request_template_id`, `response_map_id`, `set_variables`, `metadata`
+- Execution session fields:
+  - `variables` (JSON snapshot of accumulated variables after execution)
 
 ## Selection logic
 
-Per user message:
+For each user message, template/map selection uses:
 
-1. Use message override (`request_template_id`/`response_map_id`) if set
-2. Else use conversation defaults if set
-3. Else use the agent defaults
+1. Message override (`request_template_id` / `response_map_id`)
+2. Conversation default (`default_request_template_id` / `default_response_map_id`)
+3. Agent default link (`is_default = 1`)
 
-The agent-service-api resolves the effective template/map and embeds them in per-message metadata for execution.
+The resolver writes effective `request_template` and `response_mapping` into per-message metadata before execution.
 
 ## Request templates
 
-Templates are JSON strings using placeholders:
+Template `body` is a JSON string with placeholders:
 
-- `{{input}}` - the current user message (string-escaped)
-- `{{conversation_history}}` - the accumulated transcript (string-escaped)
-- `{{myVar}}`, `{{a.b.c}}` - variables injected from the merged variables map
-
-Authors can omit quotes around placeholders to embed objects (e.g., `"payload": {{myObject}}`).
+- `{{input}}` - current user input (or full history in history-first mode)
+- `{{conversation_history}}` - formatted transcript history
+- `{{myVar}}`, `{{a.b.c}}`, `{{users[0].name}}` - variable lookups
 
 ## Response maps
 
-`spec` is a JSON string with fields:
+`spec` is a JSON string. Common fields:
 
 ```json
 {
   "output": "choices.0.message.content",
   "intermediate_steps": "usage",
   "variables": {
-    "sessionId": "id",
-    "firstToolCall": "tool_calls[0].id"
+    "responseId": "id"
   },
   "success_criteria": {
     "type": "contains",
@@ -56,27 +57,37 @@ Authors can omit quotes around placeholders to embed objects (e.g., `"payload": 
 }
 ```
 
-- Paths support dot (`choices.0`) and bracket (`tool_calls[0].id`) notation.
-- `variables` extracted each turn are merged into the session variable accumulator.
+- Path extraction supports dot and bracket notation.
+- `variables` extracted from responses are accumulated across turns.
+- `success_criteria` supports `contains`, `exact_match`, and `json_match`.
 
-## Variables
+## Variable resolution behavior
 
-Merge order (later wins):
+Two stages are involved:
 
-1. Conversation-level `variables`
-2. Accumulated session variables from prior turns (extracted via response maps)
-3. Per-message `set_variables`
+1. **Script resolution stage**  
+   `conversation.variables` and per-message `set_variables` are merged into message metadata (`variables` payload).
 
-Note: A future enhancement may support binding expressions like `$.lastResponse.id`. For now, message `set_variables` are treated as literals (strings/JSON).
+2. **Execution stage**  
+   For each user turn, variable values beginning with `$.` are resolved against a context object (`lastRequest`, `lastResponse`, `variables`, `conversation`, `message`, `request`, `transcript`).
 
-The final accumulated variables are persisted on the execution session.
+Final merge for each turn is:
 
-## Migration
+- base: accumulated variables from prior turns
+- overlay: resolved message variables
 
-On startup, VIBE migrates any legacy `agents.settings.request_template` and `agents.settings.response_mapping` into the new tables as `default` entries and removes them from agent settings.
+The resulting accumulated variable map is persisted to `execution_sessions.variables`.
 
-## UI
+## Capability requirements
 
-- Agent detail page ("Communication" tab): manage request templates and response maps, set default, and preview template rendering with sample inputs/variables.
-- Conversation builder: edit conversation-level variables; per-message overrides and `set_variables` for user messages.
-- Session viewer: shows per-turn template/map usage and variable counts; session-level variables appear in the header.
+If a conversation declares required request/response capabilities, execution validates that the selected template/map capabilities satisfy those requirements before continuing.
+
+## Migration notes
+
+Legacy `agents.settings.request_template` and `agents.settings.response_mapping` are migrated through database migrations into template/map tables and agent link tables, then removed from agent settings.
+
+## UI surface
+
+- Agent detail communication section: manage and link templates/maps, set defaults, preview rendering.
+- Conversation builder: define conversation variables and per-message overrides.
+- Session views: include metadata showing template/map usage and resolved token/variable details.
