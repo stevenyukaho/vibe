@@ -84,11 +84,24 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 			offset: 0
 		});
 
-		// Transform sessions to legacy results format
+		// Transform sessions to legacy results format (with per-turn success from similarity)
 		const legacyResults = await Promise.all(
 			data.map(async (session) => {
 				const sessionMessages = await getSessionMessages(session.id!);
-				return sessionToLegacyResult(session, sessionMessages);
+				const legacy = sessionToLegacyResult(session, sessionMessages);
+				try {
+					const assistant = sessionMessages.find(m => m.role === 'assistant');
+					if (assistant
+						&& assistant.similarity_scoring_status === 'completed'
+						&& typeof assistant.similarity_score === 'number'
+					) {
+						const k = countUserTurnsUpTo(session.id!, assistant.sequence);
+						const target = getConversationTurnTarget(session.conversation_id, k);
+						const threshold = (target?.threshold ?? 70);
+						legacy.success = assistant.similarity_score >= threshold;
+					}
+				} catch { }
+				return legacy;
 			})
 		);
 
