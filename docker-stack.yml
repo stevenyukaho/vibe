@@ -20,12 +20,18 @@ services:
       labels:
         traefik.enable: "true"
         traefik.docker.network: "network_public"
+        # UI route - with basicauth
         traefik.http.routers.vibe.entrypoints: "websecure"
-        traefik.http.routers.vibe.rule: "Host(`vibe.ahasolutions.ca`)"
+        traefik.http.routers.vibe.rule: "Host(`vibe.ahasolutions.ca`) && !PathPrefix(`/api`)"
         traefik.http.routers.vibe.service: "vibe_service"
         traefik.http.routers.vibe.tls.certresolver: "letsencryptresolver"
         traefik.http.routers.vibe.middlewares: "vibe_auth"
         traefik.http.middlewares.vibe_auth.basicauth.users: "admin:$$2y$$05$$iXqkPqGYpadh.H500IkiO.irYBfsdSWSgm46UA6Zgy8vTCkpjD53e"
+        # API route - no auth (frontend fetch calls)
+        traefik.http.routers.vibe-api.entrypoints: "websecure"
+        traefik.http.routers.vibe-api.rule: "Host(`vibe.ahasolutions.ca`) && PathPrefix(`/api`)"
+        traefik.http.routers.vibe-api.service: "vibe_service"
+        traefik.http.routers.vibe-api.tls.certresolver: "letsencryptresolver"
         traefik.http.services.vibe_service.loadbalancer.server.port: "3001"
       resources:
         limits:
