@@ -1,0 +1,7 @@
+node_modules
+.next
+frontend/.next
+backend/data
+data
+*.db
+.git
