@@ -8,15 +8,20 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 # Copy entire source first (workspace prepare scripts need source files)
 COPY . .
 
+# Patch config source BEFORE npm install (which triggers build:packages)
+RUN sed -i "s|NEXT_PUBLIC_API_URL: z.string().default('http://localhost:5000')|NEXT_PUBLIC_API_URL: z.string().default('')|" packages/config/src/index.ts
+RUN sed -i "s|BACKEND_URL: z.string().default('http://localhost:5000')|BACKEND_URL: z.string().default('')|" packages/config/src/index.ts
+
 # Install all dependencies (triggers workspace prepare/build scripts)
 RUN npm install
-
-# Patch config default to use same-origin proxy (empty string)
-RUN sed -i "s|NEXT_PUBLIC_API_URL: zod_1.z.string().default('http://localhost:5000')|NEXT_PUBLIC_API_URL: zod_1.z.string().default('')|" packages/config/dist/index.js
 
 # Build backend and agent-service-api
 RUN cd backend && npx tsc -b
 RUN cd agent-service-api && npx tsc -b
+
+# Hardcode the API URL in the frontend to use relative paths (same-origin proxy)
+RUN sed -i "1s|.*|// patched for Docker: use same-origin proxy|" frontend/src/lib/api/fetchJson.ts && \
+    sed -i "s|frontendConfig.apiUrl|''|g" frontend/src/lib/api/fetchJson.ts
 
 # Build frontend for production
 ENV NEXT_PUBLIC_API_URL=""
